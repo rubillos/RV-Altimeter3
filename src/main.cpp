@@ -1,6 +1,11 @@
 #include <Arduino.h>
 
-#ifdef DO_SERIAL
+#if defined(DO_SERIAL)
+#define Debug_print(...) SEGGER_RTT_printf(0, __VA_ARGS__)
+#define Debug_println(...) SEGGER_RTT_printf(__VA_ARGS__) ; SEGGER_RTT_printf("\n")
+#define Debug_begin(...) SEGGER_RTT_ConfigUpBuffer(0, NULL, NULL, 0, SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL)
+#define Debug_delay(...) delay(__VA_ARGS__)
+##elif defined(RTT)
 #define Debug_print(...) Serial.print(__VA_ARGS__)
 #define Debug_println(...) Serial.println(__VA_ARGS__)
 #define Debug_begin(...) Serial.begin(__VA_ARGS__)
@@ -14,6 +19,7 @@
 
 #define defaultMaxWait 250
 
+#include "SEGGER_RTT.h"
 #include <elapsedMillis.h>
 #include <Adafruit_GFX.h>     // Core graphics library
 #include <Adafruit_SharpMem.h>
@@ -84,11 +90,12 @@ void startDisplay() {
 
 void setup()
 {
-#ifdef DO_SERIAL
-  Serial.begin(115200);
+  Debug_begin(115200);
+
+#if defined(DO_SERIAL)
   while (!Serial)
     yield();
-  Serial.println();
+  Debug_println();
 #endif
 
   // settling time
