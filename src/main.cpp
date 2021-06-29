@@ -33,13 +33,16 @@
 #include <sunset.h>
 #include <Timezone.h>
 
-#include "fonts/Rancho40.h"
 #include "fonts/FreeSans24pt7b.h"
 #include "fonts/FreeSans18pt7b.h"
 #include "fonts/FreeSans12pt7b.h"
 #include "fonts/FreeSans9pt7b.h"
-#include "fonts/LatoBlack72.h"
 #include "fonts/IconFont.h"
+#include "fonts/DejaVuSerifItalic12pt.h"
+#include "fonts/DejaVuSerifBoldItalic24pt.h"
+#include "fonts/DejaVuSerifBoldItalic30pt.h"
+#include "fonts/DejaVuSerifBoldItalic56pt.h"
+#include "fonts/ModFreeSans24pt.h"
 
 #define SHARP_SCK 10
 #define SHARP_DI 9
@@ -54,107 +57,6 @@ Adafruit_SharpMem display(SHARP_SCK, SHARP_DI, SHARP_SS, 400, 240);
 Adafruit_DotStar dotStar(1, DOTSTAR_DATAPIN, DOTSTAR_CLOCKPIN, DOTSTAR_BRG);
 SFE_UBLOX_GNSS myGNSS;
 SunSet sun;
-
-const GFXglyph MySans24pt7bGlyphs[] PROGMEM = {
-    {0, 0, 0, 12, 0, 1},        // 0x20 ' '
-    {0, 4, 34, 16, 6, -33},     // 0x21 '!'
-    {17, 11, 12, 16, 2, -32},   // 0x22 '"'
-    {34, 24, 33, 26, 1, -31},   // 0x23 '#'
-    {133, 23, 41, 26, 1, -34},  // 0x24 '$'
-    {251, 39, 34, 42, 1, -32},  // 0x25 '%'
-    {417, 28, 34, 31, 2, -32},  // 0x26 '&'
-    {536, 4, 12, 9, 2, -32},    // 0x27 '''
-    {542, 10, 44, 16, 3, -33},  // 0x28 '('
-    {597, 10, 44, 16, 2, -33},  // 0x29 ')'
-    {652, 14, 14, 18, 2, -33},  // 0x2A '*'
-    {677, 23, 22, 27, 2, -21},  // 0x2B '+'
-    {741, 4, 12, 13, 4, -4},    // 0x2C ','
-    {747, 11, 4, 16, 2, -14},   // 0x2D '-'
-    {753, 4, 5, 12, 4, -4},     // 0x2E '.'
-    {756, 13, 35, 13, 0, -33},  // 0x2F '/'
-    {813, 22, 34, 26, 2, -32},  // 0x30 '0'
-    {907, 11, 33, 17, 2, -32},  // 0x31 '1'
-    {953, 22, 33, 26, 2, -32},  // 0x32 '2'
-    {1044, 23, 34, 26, 1, -32}, // 0x33 '3'
-    {1142, 23, 33, 26, 1, -32}, // 0x34 '4'
-    {1237, 22, 34, 26, 2, -32}, // 0x35 '5'
-    {1331, 22, 34, 26, 2, -32}, // 0x36 '6'
-    {1425, 21, 33, 26, 2, -32}, // 0x37 '7'
-    {1512, 22, 34, 26, 2, -32}, // 0x38 '8'
-    {1606, 21, 34, 26, 2, -32}, // 0x39 '9'
-    {1696, 4, 25, 12, 4, -24},  // 0x3A ':'
-    {1709, 4, 32, 12, 4, -24},  // 0x3B ';'
-    {1725, 23, 23, 27, 2, -22}, // 0x3C '<'
-    {1792, 23, 12, 27, 2, -16}, // 0x3D '='
-    {1827, 23, 23, 27, 2, -22}, // 0x3E '>'
-    {1894, 20, 35, 26, 4, -34}, // 0x3F '?'
-    {1982, 43, 42, 48, 2, -34}, // 0x40 '@'
-    {2208, 30, 34, 31, 1, -33}, // 0x41 'A'
-    {2336, 25, 34, 31, 4, -33}, // 0x42 'B'
-    {2443, 29, 36, 33, 2, -34}, // 0x43 'C'
-    {2574, 27, 34, 33, 4, -33}, // 0x44 'D'
-    {2689, 24, 34, 30, 4, -33}, // 0x45 'E'
-    {2791, 22, 34, 28, 4, -33}, // 0x46 'F'
-    {2885, 31, 36, 36, 2, -34}, // 0x47 'G'
-    {3025, 26, 34, 34, 4, -33}, // 0x48 'H'
-    {3136, 4, 34, 13, 5, -33},  // 0x49 'I'
-    {3153, 19, 35, 25, 2, -33}, // 0x4A 'J'
-    {3237, 27, 34, 32, 4, -33}, // 0x4B 'K'
-    {3352, 21, 34, 26, 4, -33}, // 0x4C 'L'
-    {3442, 32, 34, 40, 4, -33}, // 0x4D 'M'
-    {3578, 26, 34, 34, 4, -33}, // 0x4E 'N'
-    {3689, 33, 36, 37, 2, -34}, // 0x4F 'O'
-    {3838, 24, 34, 31, 4, -33}, // 0x50 'P'
-    {3940, 33, 38, 37, 2, -34}, // 0x51 'Q'
-    {4097, 26, 34, 33, 4, -33}, // 0x52 'R'
-    {4208, 27, 36, 31, 2, -34}, // 0x53 'S'
-    {4330, 26, 34, 30, 2, -33}, // 0x54 'T'
-    {4441, 26, 35, 34, 4, -33}, // 0x55 'U'
-    {4555, 29, 34, 30, 1, -33}, // 0x56 'V'
-    {4679, 42, 34, 44, 1, -33}, // 0x57 'W'
-    {4858, 29, 34, 31, 1, -33}, // 0x58 'X'
-    {4982, 30, 34, 32, 1, -33}, // 0x59 'Y'
-    {5110, 27, 34, 29, 1, -33}, // 0x5A 'Z'
-    {5225, 8, 44, 13, 3, -33},  // 0x5B '['
-    {5269, 13, 35, 13, 0, -33}, // 0x5C '\'
-    {5326, 8, 44, 13, 1, -33},  // 0x5D ']'
-    {5370, 18, 18, 22, 2, -32}, // 0x5E '^'
-    {5411, 28, 2, 26, -1, 7},   // 0x5F '_'
-    {5418, 10, 7, 12, 1, -34},  // 0x60 '`'
-    {5427, 24, 27, 26, 1, -25}, // 0x61 'a'
-    {5508, 22, 35, 26, 3, -33}, // 0x62 'b'
-    {5605, 21, 27, 24, 1, -25}, // 0x63 'c'
-    {5676, 23, 35, 26, 1, -33}, // 0x64 'd'
-    {5777, 22, 27, 25, 1, -25}, // 0x65 'e'
-    {5852, 10, 34, 13, 1, -33}, // 0x66 'f'
-    {5895, 22, 36, 26, 1, -25}, // 0x67 'g'
-    {5994, 19, 34, 25, 3, -33}, // 0x68 'h'
-    {6075, 4, 34, 10, 3, -33},  // 0x69 'i'
-    {6092, 8, 44, 11, 0, -33},  // 0x6A 'j'
-    {6136, 21, 34, 24, 3, -33}, // 0x6B 'k'
-    {6226, 4, 34, 10, 3, -33},  // 0x6C 'l'
-    {6243, 32, 26, 38, 3, -25}, // 0x6D 'm'
-    {6347, 20, 26, 25, 3, -25}, // 0x6E 'n'
-    {6412, 23, 27, 25, 1, -25}, // 0x6F 'o'
-    {6490, 22, 35, 26, 3, -25}, // 0x70 'p'
-    {6587, 23, 35, 26, 1, -25}, // 0x71 'q'
-    {6688, 12, 26, 16, 3, -25}, // 0x72 'r'
-    {6727, 20, 27, 23, 1, -25}, // 0x73 's'
-    {6795, 10, 32, 13, 1, -30}, // 0x74 't'
-    {6835, 20, 26, 25, 3, -24}, // 0x75 'u'
-    {6900, 23, 25, 23, 0, -24}, // 0x76 'v'
-    {6972, 34, 25, 34, 0, -24}, // 0x77 'w'
-    {7079, 22, 25, 22, 0, -24}, // 0x78 'x'
-    {7148, 22, 35, 22, 0, -24}, // 0x79 'y'
-    {7245, 20, 25, 23, 1, -24}, // 0x7A 'z'
-    {7308, 11, 44, 16, 2, -33}, // 0x7B '{'
-    {7369, 3, 44, 12, 4, -33},  // 0x7C '|'
-    {7386, 11, 44, 16, 2, -33}, // 0x7D '}'
-    {7447, 19, 7, 24, 2, -19}}; // 0x7E '~'
-
-const GFXfont MySans24pt7b PROGMEM = {(uint8_t *)FreeSans24pt7bBitmaps,
-                                        (GFXglyph *)MySans24pt7bGlyphs, 0x20,
-                                        0x7E, 56};
 
 uint8_t ascenderForFont(const GFXfont *f, char character = 'A')
 {
@@ -183,23 +85,30 @@ void startDisplay() {
   display.begin();
   display.clearDisplay();
 
-  const GFXfont *f = &Lato_Black_72;
+  const GFXfont *f1 = &DejaVuSerifBoldItalic56;
+  const GFXfont *f2 = &DejaVuSerifBoldItalic24;
   String str1 = String("GPS");
   String str2 = String("Altometer");
+  String str3 = String("by Randy Ubillos");
   uint16_t w, h;
 
-  display.setFont(f);
+  display.setFont(f1);
   display.setTextSize(1);
   display.setTextColor(BLACK);
   display.setTextWrap(false);
 
   getStringDimensions(str1, &w, &h);
-  display.setCursor((display.width()-w)/2, (display.height()-h*2-20)/2 + ascenderForFont(f) - 10);
+  display.setCursor((display.width()-w)/2, 80);
   display.print(str1);
 
   getStringDimensions(str2, &w, &h);
-  display.setCursor((display.width() - w) / 2, (display.height() - h*2-20) / 2 + ascenderForFont(f) + h + 10);
+  display.setCursor((display.width() - w) / 2, display.getCursorY() + 56);
   display.print(str2);
+
+  display.setFont(f2);
+  getStringDimensions(str3, &w, &h);
+  display.setCursor((display.width() - w) / 2, display.getCursorY() + 80);
+  display.print(str3);
 
   display.refresh();
 }
@@ -330,9 +239,16 @@ char emptySpeedlyph = 'W';
 char emptyTimeGlyph = 'X';
 char emptyDirectionGlyph = 'Y';
 
+String title = String("GPS Altometer");
+String tm = String("tm");
+
 const GFXfont *textFont = &MySans24pt7b;
 const GFXfont *suffixFont = &FreeSans9pt7b;
 const GFXfont *glyphFont = &iconFont;
+
+void offsetCursor(int16_t xOffset, int16_t yOffset) {
+  display.setCursor(display.getCursorX() + xOffset, display.getCursorY() + yOffset);
+}
 
 void showCell(int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, const GFXfont* strFont, String suffix, const GFXfont* sufFont) {
   uint16_t glyphAscender = ascenderForFont(glyphFont, glyph);
@@ -347,7 +263,7 @@ void showCell(int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, c
   display.setCursor(x, y + glyphAscender);
   display.print(glyph);
   display.setFont((strFont != NULL) ? strFont : textFont);
-  display.setCursor(display.getCursorX() + xOffset, display.getCursorY() - 15);
+  offsetCursor(xOffset, -15);
   display.print(str);
   if (suffix) {
     display.setFont((sufFont != NULL) ? sufFont : suffixFont);
@@ -472,15 +388,14 @@ void showData(uint32_t time, int16_t altitude, float heading, float speed, uint3
       timeString.replace(String(":"), String(" "));
     }
     colon = !colon;
-    showCell(xOffset, yStart, emptyTimeGlyph, timeString, -4, NULL, suffixFromDayMinutes(time), NULL);
+    showCell(xOffset, yStart, emptyTimeGlyph, timeString, -2, NULL, suffixFromDayMinutes(time), NULL);
     drawTime(xOffset + 32, yStart + 32, time / 60, time % 60);
 
-    showCell(xOffset + cellWidth, yStart, altitudeGlyph, String(altitude), -4, NULL, String("ft"), NULL);
+    showCell(xOffset + cellWidth, yStart, altitudeGlyph, String(altitude), -2, NULL, String("ft"), NULL);
 
     int16_t direction = ((int16_t)((heading + 11.25) / 22.5)) % 16; 
 
     showCell(xOffset, yStart + cellHeight, emptyDirectionGlyph, String(directionNames[direction]), 0, NULL, String(""), NULL);
-    // drawPolarLine(xOffset + 32, yStart + cellHeight + 32, heading, 15, 5);
     drawPointer(xOffset + 32, yStart + cellHeight + 32, heading, 15, 8, 140);
 
     showCell(xOffset + cellWidth, yStart + cellHeight, emptySpeedlyph, String(speed, 1), 0, NULL, String("mph"), NULL);
@@ -489,10 +404,22 @@ void showData(uint32_t time, int16_t altitude, float heading, float speed, uint3
     showCell(xOffset, yStart + cellHeight * 2, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, NULL, suffixFromDayMinutes(sunriseTime), NULL);
     showCell(xOffset + cellWidth, yStart + cellHeight * 2, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, NULL, suffixFromDayMinutes(sunsetTime), NULL);
 
-    display.setFont(&FreeSans18pt7b);
-
-    display.setCursor(390 - getStringWidth(status), 230);
-    display.print(status);
+    display.setFont(&DejaVuSerifBoldItalic30);
+    if (status == String("3D")) {
+      int16_t titleWidth = getStringWidth(title);
+      display.setFont(&DejaVuSerifItalic12);
+      int16_t tmWidth = getStringWidth(tm);
+      display.setFont(&DejaVuSerifBoldItalic30);
+      display.setCursor(390 - (titleWidth + tmWidth + 3), 230);
+      display.print(title);
+      display.setFont(&DejaVuSerifItalic12);
+      offsetCursor(3, -12);
+      display.print(tm);
+    }
+    else {
+      display.setCursor(390 - getStringWidth(status), 230);
+      display.print(status);
+    }
   }
   else {
     showCell(xOffset, yStart, timeGlyph, String("--:--"), 0, NULL, String(""), NULL);
@@ -517,7 +444,7 @@ void showData(uint32_t time, int16_t altitude, float heading, float speed, uint3
     display.print(status);
   }
 
-  showCell(xOffset, 200, satelliteGlyph, String(satCount), 0, &FreeSans12pt7b, String(""), NULL);
+  showCell(xOffset + 4, 200, satelliteGlyph, String(satCount), 0, &FreeSans12pt7b, String(""), NULL);
 
   display.refresh();
 }
