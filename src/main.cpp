@@ -32,6 +32,7 @@
 #include <GPSTimeZoneLookup.h>
 #include <sunset.h>
 #include <Timezone.h>
+#include <ZoneCalc.h>
 
 #include "fonts/FreeSans24pt7b.h"
 #include "fonts/FreeSans18pt7b.h"
@@ -113,6 +114,46 @@ void startDisplay() {
   display.refresh();
 }
 
+typedef struct {
+  const char* name;
+  float lat;
+  float lon;
+} CityRec;
+
+void test_zones() {
+  Debug_println("Zone Test");
+
+  CityRec cities[] = {
+    { "Boston", 42.360081, -71.058884 },
+    { "Chicago", 41.878113, -87.629799 },
+    { "Tampa", 27.950575, -82.457176 },
+    { "Denver", 39.739235, -104.990250 },
+    { "Houston", 29.760427, -95.369804 },
+    { "Alaska", 63.391522, -155.537651 },
+    { "San Francisco", 37.744657, -122.438970 },
+    { "Trout Creek", 47.836042, -115.593490 },
+    { "Heron MT", 48.093633, -116.033489 },
+    { "Claire Fork ID", 48.090157, -116.057808 },
+  };
+
+  int cityCount = sizeof(cities) / sizeof(CityRec);
+
+  for (int i=0; i<cityCount; i++) {
+    int sumZone = zoneOffsetForGPSCoord(cities[i].lat, cities[i].lon, true);
+    int wintZone = zoneOffsetForGPSCoord(cities[i].lat, cities[i].lon, false);
+    Serial.print(cities[i].name);
+    Serial.print(": summer=");
+    Serial.print(sumZone);
+    Serial.print(": winter=");
+    Serial.print(wintZone);
+    Serial.println();
+  }
+
+  // zonesPrintMinMax();
+
+  while (1);
+}
+
 void setup()
 {
   Debug_begin(115200);
@@ -125,6 +166,8 @@ void setup()
 
   // settling time
   delay(250);
+
+  // test_zones();
 
   Debug_println("Begin Startup");
 
@@ -503,12 +546,14 @@ void loop() {
     }
 #endif
 
-    GPSTimeZoneLookup tz1(latitude, longitude);
-    int16_t offset = tz1.GMTOffset;
+    // GPSTimeZoneLookup tz1(latitude, longitude);
+    // int16_t offset = tz1.GMTOffset;
   
-    if (tz1.implementsDST && dateIsDST(year, month, day, hour, minute)) {
-      offset++;
-    }
+    // if (tz1.implementsDST && dateIsDST(year, month, day, hour, minute)) {
+    //   offset++;
+    // }
+
+    int16_t offset = zoneOffsetForGPSCoord(latitude, longitude, dateIsDST(year, month, day, hour, minute));
 
     sun.setPosition(latitude, longitude, offset);
     sun.setCurrentDate(year, month, day);
@@ -537,8 +582,8 @@ void loop() {
     Debug_print(sunUp);
     Debug_print(", sunset=");
     Debug_print(sunDown);
-    Debug_print(", usesDST=");
-    Debug_print(tz1.implementsDST);
+    // Debug_print(", usesDST=");
+    // Debug_print(tz1.implementsDST);
     Debug_print(", GMTOffset=");
     Debug_print(offset);
     Debug_print(", fix=");
@@ -550,8 +595,6 @@ void loop() {
     Debug_print(latitude);
     Debug_print(", lon=");
     Debug_print(longitude);
-    Debug_print(", alt=");
-    Debug_print(altitude);
     Debug_print(", spd=");
     Debug_print(speed);
     Debug_println();
