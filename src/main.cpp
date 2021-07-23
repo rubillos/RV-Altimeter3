@@ -121,6 +121,7 @@ typedef struct {
 } CityRec;
 
 void test_zones() {
+#if defined(DO_SERIAL)
   Debug_println("Zone Test");
 
   CityRec cities[] = {
@@ -141,17 +142,16 @@ void test_zones() {
   for (int i=0; i<cityCount; i++) {
     int sumZone = zoneOffsetForGPSCoord(cities[i].lat, cities[i].lon, true);
     int wintZone = zoneOffsetForGPSCoord(cities[i].lat, cities[i].lon, false);
-    Serial.print(cities[i].name);
-    Serial.print(": summer=");
-    Serial.print(sumZone);
-    Serial.print(": winter=");
-    Serial.print(wintZone);
-    Serial.println();
+    Debug_print(cities[i].name);
+    Debug_print(": summer=");
+    Debug_print(sumZone);
+    Debug_print(": winter=");
+    Debug_print(wintZone);
+    Debug_println();
   }
 
-  // zonesPrintMinMax();
-
   while (1);
+#endif
 }
 
 void setup()
@@ -295,7 +295,6 @@ void offsetCursor(int16_t xOffset, int16_t yOffset) {
 
 void showCell(int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, const GFXfont* strFont, String suffix, const GFXfont* sufFont) {
   uint16_t glyphAscender = ascenderForFont(glyphFont, glyph);
-  // uint16_t textAscender = ascenderForFont(strFont);
   uint16_t xOffset = -2;
 
   if (str.startsWith(String("1"))) {
@@ -546,13 +545,6 @@ void loop() {
     }
 #endif
 
-    // GPSTimeZoneLookup tz1(latitude, longitude);
-    // int16_t offset = tz1.GMTOffset;
-  
-    // if (tz1.implementsDST && dateIsDST(year, month, day, hour, minute)) {
-    //   offset++;
-    // }
-
     int16_t offset = zoneOffsetForGPSCoord(latitude, longitude, dateIsDST(year, month, day, hour, minute));
 
     sun.setPosition(latitude, longitude, offset);
@@ -582,8 +574,6 @@ void loop() {
     Debug_print(sunUp);
     Debug_print(", sunset=");
     Debug_print(sunDown);
-    // Debug_print(", usesDST=");
-    // Debug_print(tz1.implementsDST);
     Debug_print(", GMTOffset=");
     Debug_print(offset);
     Debug_print(", fix=");
