@@ -1,38 +1,20 @@
 #include <Arduino.h>
 
-#ifdef DO_SERIAL
-#define Debug_print(...) Serial.print(__VA_ARGS__)
-#define Debug_println(...) Serial.println(__VA_ARGS__)
-#define Debug_begin(...) Serial.begin(__VA_ARGS__)
-#define Debug_delay(...) delay(__VA_ARGS__)
-#endif
-// #ifdef DO_RTT
-// #define Debug_print(...) SEGGER_RTT_printf(0, __VA_ARGS__)
-// #define Debug_println(...)  SEGGER_RTT_printf(0, __VA_ARGS__); SEGGER_RTT_printf(0, "\n")
-// #define Debug_begin(...) SEGGER_RTT_ConfigUpBuffer(0, NULL, NULL, 0, SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL)
-// #define Debug_delay(...) delay(__VA_ARGS__)
-// #endif
-#ifndef DO_SERIAL
-  // #ifndef DO_RTT
-    #define Debug_print(...)
-    #define Debug_println(...)
-    #define Debug_begin(...)
-    #define Debug_delay(...)
-  // #endif
-#endif
-
 #define defaultMaxWait 250
 
-// #include "SEGGER_RTT.h"
+#include "DebugHelper.h"
+#include "TimeLib.h"
 #include <elapsedMillis.h>
 #include <Adafruit_GFX.h>     // Core graphics library
 #include <Adafruit_SharpMem.h>
 #include <Adafruit_DotStar.h>
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
-#include <GPSTimeZoneLookup.h>
-#include <sunset.h>
 #include <Timezone.h>
+#include "sunset.h"
 #include <ZoneCalc.h>
+#include <RTClib.h>
+#include "Adafruit_SleepyDog.h"
+#include "math.h"
 
 #include "fonts/FreeSans24pt7b.h"
 #include "fonts/FreeSans18pt7b.h"
@@ -45,6 +27,9 @@
 #include "fonts/DejaVuSerifBoldItalic56pt.h"
 #include "fonts/ModFreeSans24pt.h"
 
+#define DO_IDLE
+// #define SHOW_IDLE
+
 #define SHARP_SCK 10
 #define SHARP_DI 9
 #define SHARP_SS 7
@@ -56,7 +41,8 @@
 
 Adafruit_SharpMem display(SHARP_SCK, SHARP_DI, SHARP_SS, 400, 240);
 Adafruit_DotStar dotStar(1, DOTSTAR_DATAPIN, DOTSTAR_CLOCKPIN, DOTSTAR_BRG);
-SFE_UBLOX_GNSS myGNSS;
+SFE_UBLOX_GNSS gps;
+ZoneCalc zoneCalc;
 SunSet sun;
 
 uint8_t ascenderForFont(const GFXfont *f, char character = 'A')
@@ -154,18 +140,18 @@ void test_zones() {
 #endif
 }
 
-void setup()
-{
-  Debug_begin(115200);
+void setup() {
+  Debug_begin_wait(115200);
 
-#if defined(DO_SERIAL)
-  while (!Serial)
-    yield();
-  Debug_println();
-#endif
+	#ifndef DO_SERIAL
+    USBDevice.detach();
+    USBDevice.end();
+    USBDevice.standby();
+  	USB->DEVICE.CTRLA.bit.ENABLE = 0;                   // Shutdown the USB peripheral
+  	while(USB->DEVICE.SYNCBUSY.bit.ENABLE);             // Wait for synchronization
+	#endif
 
-  // settling time
-  delay(250);
+	initial_stop: NOT_USED;
 
   // test_zones();
 
@@ -182,37 +168,34 @@ void setup()
   Debug_println("Init GPS...");
   Wire.begin();
 
-  if (!myGNSS.begin()) //Connect to the u-blox module using Wire port
+  if (!gps.begin()) //Connect to the u-blox module using Wire port
   {
     Debug_println("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing.");
     while (1)
       ;
   }
 
-  // Wire.setClock(400000);                             //Increase I2C clock speed to 400kHz
-
-  myGNSS.setI2COutput(COM_TYPE_UBX);                 //Set the I2C port to output UBX only (turn off NMEA noise)
-  myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
-  if (!myGNSS.setDynamicModel(DYN_MODEL_AUTOMOTIVE))
+  gps.setI2COutput(COM_TYPE_UBX);                 //Set the I2C port to output UBX only (turn off NMEA noise)
+  gps.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
+  if (!gps.setDynamicModel(DYN_MODEL_AUTOMOTIVE))
   {
     Debug_println("***!!! Warning: setDynamicModel failed !!!***");
   }
 
-  // myGNSS.enableDebugging();
+  // gps.enableDebugging();
 
   delay(300);
-
   
   Debug_print("GNSS is ");
-  Debug_println(myGNSS.isConnected() ? "CONNECTED" : "not connected");
+  Debug_println(gps.isConnected() ? "CONNECTED" : "not connected");
   Debug_print("GPS is ");
-  Debug_println(myGNSS.isGNSSenabled(SFE_UBLOX_GNSS_ID_GPS) ? "ENABLED" : "disabled");
+  Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_GPS) ? "ENABLED" : "disabled");
   Debug_print("GLONASS is ");
-  Debug_println(myGNSS.isGNSSenabled(SFE_UBLOX_GNSS_ID_GLONASS) ? "ENABLED" : "disabled");
+  Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_GLONASS) ? "ENABLED" : "disabled");
   Debug_print("GALILEO is ");
-  Debug_println(myGNSS.isGNSSenabled(SFE_UBLOX_GNSS_ID_GALILEO) ? "ENABLED" : "disabled");
+  Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_GALILEO) ? "ENABLED" : "disabled");
   Debug_print("SBAS is ");
-  Debug_println(myGNSS.isGNSSenabled(SFE_UBLOX_GNSS_ID_SBAS) ? "ENABLED" : "disabled");
+  Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_SBAS) ? "ENABLED" : "disabled");
 
   Debug_println("Init Done");
 }
@@ -255,17 +238,6 @@ String suffixFromDayMinutes(double dayMinutes) {
   bool pm = hours >= 12 && hours <= 24;
 
   return String((pm) ? "pm" : "am");
-}
-
-TimeChangeRule usPDT = {"PDT", Second, Sun, Mar, 2, -420};
-TimeChangeRule usPST = {"PST", First, Sun, Nov, 2, -480};
-Timezone myTZ(usPDT, usPST);
-
-bool dateIsDST(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute) {
-  TimeElements timeParts = { 0, minute, hour, 0, day, month, (uint8_t)(year - 1970) };
-  time_t utcTime = makeTime(timeParts);
-
-  return myTZ.utcIsDST(utcTime);
 }
 
 const char* directionNames[] = { "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW" };
@@ -475,10 +447,10 @@ void showData(uint32_t time, int16_t altitude, float heading, float speed, uint3
 
     static uint8_t dotCount = 1;
     static String acquiring = String("Acquiring");
-    static String dots = String("......");
+    static String dots = String(".....");
 
     status = acquiring + dots.substring(0, dotCount);
-    dotCount = (dotCount % 6) + 1;
+    dotCount = (dotCount % 5) + 1;
 
     display.setFont(&FreeSans18pt7b);
 
@@ -489,6 +461,23 @@ void showData(uint32_t time, int16_t altitude, float heading, float speed, uint3
   showCell(xOffset + 4, 200, satelliteGlyph, String(satCount), 0, &FreeSans12pt7b, String(""), NULL);
 
   display.refresh();
+}
+
+uint32_t idle(uint32_t desiredMS, bool sleep = false) {
+	uint32_t actualPeriodMS = Watchdog.enable(desiredMS, true);
+
+	SysTick->CTRL &= ~SysTick_CTRL_TICKINT_Msk;  // Disable SysTick interrupts
+
+  uint8_t mode = (sleep) ? 0x4 : 0x2;
+	PM->SLEEPCFG.bit.SLEEPMODE = mode; // Idle mode
+	while (PM->SLEEPCFG.bit.SLEEPMODE != mode) {}; // Wait for it to take
+
+	__DSB(); // Data sync to ensure outgoing memory accesses complete
+	__WFI(); // Wait for interrupt (places device in sleep mode)
+
+	SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;  // Enable SysTick interrupts
+
+	return actualPeriodMS;
 }
 
 #define DEGREES_TO_FLOAT (10000000)
@@ -503,23 +492,23 @@ void loop() {
   if (statusTime > 1000) {
     statusTime -= 1000;
 
-    bool haveFix = myGNSS.getGnssFixOk();
+    bool haveFix = gps.getGnssFixOk();
 
     haveHadFix = haveHadFix || haveFix;
 
-    uint16_t year = myGNSS.getYear();
-    uint16_t month = myGNSS.getMonth();
-    uint16_t day = myGNSS.getDay();
-    uint16_t hour = myGNSS.getHour();
-    uint16_t minute = myGNSS.getMinute();
-    // uint16_t second = myGNSS.getSecond();
-    float latitude = (float)myGNSS.getLatitude() / DEGREES_TO_FLOAT;
-    float longitude = (float)myGNSS.getLongitude() / DEGREES_TO_FLOAT;
-    float altitude = myGNSS.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
-    float heading = (float)myGNSS.getHeading() / HEADING_TO_FLOAT;
-    float speed = (float)myGNSS.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
-    uint8_t satellites = myGNSS.getSIV();
-    uint8_t fixType = myGNSS.getFixType();
+    uint16_t year = gps.getYear();
+    uint16_t month = gps.getMonth();
+    uint16_t day = gps.getDay();
+    uint16_t hour = gps.getHour();
+    uint16_t minute = gps.getMinute();
+    uint16_t second = gps.getSecond();
+    float latitude = (float)gps.getLatitude() / DEGREES_TO_FLOAT;
+    float longitude = (float)gps.getLongitude() / DEGREES_TO_FLOAT;
+    float altitude = gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
+    float heading = (float)gps.getHeading() / HEADING_TO_FLOAT;
+    float speed = (float)gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
+    uint8_t satellites = gps.getSIV();
+    uint8_t fixType = gps.getFixType();
     String status = String(fixNames[fixType]);
 
 #if 0
@@ -545,26 +534,25 @@ void loop() {
     }
 #endif
 
-    int16_t offset = zoneOffsetForGPSCoord(latitude, longitude, dateIsDST(year, month, day, hour, minute));
+    static int16_t lastZoneOffset = -7;
+		bool isDST = zoneCalc.dateIsDST(year, month, day, hour, minute, lastZoneOffset);
+		float zoneOffset = zoneCalc.zoneOffsetForGPSCoord(latitude, longitude, isDST);
+		int8_t zoneHour = zoneOffset;
+		int8_t zoneMinute = (zoneOffset * 60) - (zoneHour * 60);
 
-    sun.setPosition(latitude, longitude, offset);
-    sun.setCurrentDate(year, month, day);
+		lastZoneOffset = zoneOffset + (isDST ? 1 : 0);
+
+		DateTime gpsTimeDate = DateTime(year, month, day, hour, minute, second) + TimeSpan(0, zoneHour, zoneMinute, 0);
+
+    sun.setPosition(latitude, longitude, zoneOffset);
+    sun.setCurrentDate(gpsTimeDate.year(), gpsTimeDate.month(), gpsTimeDate.day());
 
     uint32_t sunriseTime = sun.calcSunrise();
     uint32_t sunsetTime = sun.calcSunset();
     String sunUp = timeFromDayMinutes(sunriseTime, false);
     String sunDown = timeFromDayMinutes(sunsetTime, false);
 
-    int16_t adjustedHours = hour + offset;
-
-    if (adjustedHours < 0) {
-      adjustedHours += 24;
-    }
-    else if (adjustedHours > 23) {
-      adjustedHours -= 24;
-    }
-
-    uint32_t curTime = adjustedHours * 60 + minute;
+    uint32_t curTime = gpsTimeDate.hour() * 60 + gpsTimeDate.minute();
 
     Debug_print("GPS Data: Altitude= ");
     Debug_print(altitude);
@@ -575,7 +563,7 @@ void loop() {
     Debug_print(", sunset=");
     Debug_print(sunDown);
     Debug_print(", GMTOffset=");
-    Debug_print(offset);
+    Debug_print(lastZoneOffset);
     Debug_print(", fix=");
     Debug_print(haveFix);
     Debug_print(", ");
@@ -591,4 +579,28 @@ void loop() {
 
     showData(curTime, altitude, heading, speed, sunriseTime, sunsetTime, satellites, haveHadFix, status);
   }
+
+  #ifdef DO_IDLE
+  #ifdef SHOW_IDLE
+    digitalWrite(LED_BUILTIN, HIGH);
+  #endif
+
+  // uint32_t prior = millis();
+
+  uint32_t sleepMillis = idle(100, true);
+  statusTime += sleepMillis;
+
+  // uint32_t elapsed = millis() - prior;
+
+  #ifdef SHOW_IDLE
+    digitalWrite(LED_BUILTIN, LOW);
+  #endif
+
+  // static elapsedMillis showTime;
+  // if (showTime > 300) {
+  //   showTime = 0;
+  //   Debug_print("Interval = ");
+  //   Debug_println(elapsed);
+  // }
+  #endif
 }
