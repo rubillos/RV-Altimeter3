@@ -1,3 +1,0 @@
-GPSTimeZoneLookup	KEYWORD1
-getTimeZone	KEYWORD2
-getClosestCityCoords	KEYWORD2
