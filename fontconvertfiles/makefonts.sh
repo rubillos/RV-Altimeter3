@@ -13,11 +13,11 @@
 # http://savannah.gnu.org/projects/freefont/
 
 convert=./fontconvert
-inpath=~/Desktop/freefont/
-outpath=../Fonts/
+inpath=freefont-ttf/sfd/
+outpath=Fonts/
 fonts=(FreeMono FreeSans FreeSerif)
 styles=("" Bold Italic BoldItalic Oblique BoldOblique)
-sizes=(9 12 18 24)
+sizes=(12 14 16 18 24 28 30 32 36 42 44 46 48 64)
 
 for f in ${fonts[*]}
 do
@@ -27,11 +27,13 @@ do
 		for si in ${sizes[*]}
 		do
 			infile=$inpath$f$st".ttf"
+			outfile=$outpath$f$st$si"pt7b.h"
 			if [ -f $infile ] # Does source combination exist?
 			  then
-				outfile=$outpath$f$st$si"pt7b.h"
-#				printf "%s %s %s > %s\n" $convert $infile $si $outfile
+				printf "Convert %s %s %s > %s\n" $convert $infile $si $outfile
 				$convert $infile $si > $outfile
+			  else
+				printf "FAIL: %s %s %s > %s\n" $convert $infile $si $outfile
 			fi
 		done
 	done

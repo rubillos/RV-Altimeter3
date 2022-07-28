@@ -1,0 +1,12 @@
+# Eclipse project files & folders
+/.project
+/.pydevproject
+
+# Output build
+build/
+Makefile
+man/*.gz
+*.exe
+
+# Distribution files
+bin2header-*.tar.xz

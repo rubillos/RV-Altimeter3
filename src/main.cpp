@@ -14,17 +14,26 @@
 #include <ZoneCalc.h>
 #include <RTClib.h>
 #include "Adafruit_SleepyDog.h"
+#include <PNGdec.h>
 
-#include "fonts/FreeSans24pt7b.h"
+#include "fonts/FreeSans44pt7b.h"
+#include "fonts/FreeSans16pt7b.h"
+#include "fonts/FreeSansBold30pt7b.h"
+#include "fonts/ModFreeSansBold30pt.h"
+
+#include "fonts/ModFreeSans44pt.h"
+
 #include "fonts/FreeSans18pt7b.h"
 #include "fonts/FreeSans12pt7b.h"
-#include "fonts/FreeSans9pt7b.h"
+
 #include "fonts/IconFont.h"
+
 #include "fonts/DejaVuSerifItalic12pt.h"
 #include "fonts/DejaVuSerifBoldItalic24pt.h"
 #include "fonts/DejaVuSerifBoldItalic30pt.h"
 #include "fonts/DejaVuSerifBoldItalic56pt.h"
-#include "fonts/ModFreeSans24pt.h"
+
+#include "graphics/Tire.png.h"
 
 #define DO_IDLE
 // #define SHOW_IDLE
@@ -34,11 +43,20 @@
 #define RA8875_RESET 11
 #define RA8875_LITE 9
 
-#define BLACK RA8875_BLACK
-#define WHITE RA8875_WHITE
+#define Color8(r, g, b) ((r & 0xE0) | ((g & 0xE0)>>3) | (b>>6))
 
-int16_t cellWidth = 200;
-int16_t cellHeight = 60;
+#define BLACK Color8(0x00, 0x00, 0x00)
+#define WHITE Color8(0xFF, 0xFF, 0xFF)
+#define GREEN Color8(0x00, 0xFF, 0x00)
+#define DARK_GRAY 0b01101101
+
+#define WHITE16 0xFFFF
+
+constexpr int16_t display_width = 800;
+constexpr int16_t display_height = 480;
+
+constexpr int16_t cellWidth = 340;
+constexpr int16_t cellHeight = 70;
 
 Adafruit_RA8875 display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
 Adafruit_NeoPixel colorLED(1, PIN_NEOPIXEL);
@@ -46,9 +64,9 @@ SFE_UBLOX_GNSS gps;
 ZoneCalc zoneCalc;
 SunSet sun;
 
-class Buffer16 : public GFXcanvas16 {
+class Buffer8 : public GFXcanvas8 {
 public:
-  Buffer16(uint16_t x, uint16_t y, uint16_t w, uint16_t h) : GFXcanvas16(w, h) {
+  Buffer8(uint16_t x, uint16_t y, uint16_t w, uint16_t h) : GFXcanvas8(w, h) {
     _x = x;
     _y = y;
   }
@@ -58,30 +76,23 @@ public:
     fillScreen(c);
   }
   void drawPixel(int16_t x, int16_t y, uint16_t color) {
-    GFXcanvas16::drawPixel(x-_x, y-_y, color);
+    GFXcanvas8::drawPixel(x-_x, y-_y, color);
   }
   void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) {
-    GFXcanvas16::drawFastHLine(x-_x, y-_y, w, color);
+    GFXcanvas8::drawFastHLine(x-_x, y-_y, w, color);
   }
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) {
-    GFXcanvas16::drawFastVLine(x-_x, y-_y, h, color);
+    GFXcanvas8::drawFastVLine(x-_x, y-_y, h, color);
   }
-  void draw(Adafruit_RA8875& dest) {
-    uint16_t* srcBuff = getBuffer();
-    uint16_t w = width();
-    uint16_t h = height();
+  void draw(Adafruit_RA8875& dest, int16_t w=-1, int16_t h=-1) {
+    uint8_t* srcBuff = getBuffer();
+    if (w==-1) { w=width(); }
+    if (h==-1) { h=height(); }
 
-    uint16_t doubleLine[w*2];
+    uint16_t bufferWidth = width();
+
     for (uint16_t y=0; y<h; y++) {
-      uint16_t* src = srcBuff+y*w;
-      for (uint16_t x=0; x<w; x++) {
-        uint16_t c = src[x];
-        doubleLine[x*2] = c;
-        doubleLine[x*2+1] = c;
-      }
-      // dest.drawPixels(srcBuff+y*w, w, _x, _y+y);
-      dest.drawPixels(doubleLine, w*2, _x*2, _y*2+y*2);
-      dest.drawPixels(doubleLine, w*2, _x*2, _y*2+y*2+1);
+      dest.drawPixels8(srcBuff+y*bufferWidth, w, _x, _y+y);
     }
   }
 private:
@@ -89,7 +100,7 @@ private:
   uint16_t _y;
 };
 
-Buffer16 buffer(0, 0, cellWidth, cellHeight);
+Buffer8 buffer(0, 0, cellWidth, cellHeight);
 
 uint8_t ascenderForFont(const GFXfont *f, char character = 'A')
 {
@@ -114,13 +125,27 @@ uint16_t getStringWidth(Adafruit_GFX& dest, String str)
   return width;
 }
 
-void drawBits(GFXcanvas16 bits, uint16_t h, uint16_t v) {
-  uint16_t* srcBuff = bits.getBuffer();
-  uint16_t width = bits.width();
-  uint16_t height = bits.height();
+PNG png;
+int16_t pngX, pngY;
+Adafruit_GFX* pngDest;
 
-  for (uint16_t y=0; y<height; y++) {
-    display.drawPixels(srcBuff+y*width, width, h, v+y);
+void PNGDraw(PNGDRAW *pDraw) {
+  uint16_t pixels[cellWidth];
+
+  png.getLineAsRGB565(pDraw, pixels, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+  for (uint16_t i = 0; i<pDraw->iWidth; i++) {
+    pngDest->drawPixel(pngX+i, pngY+pDraw->y, pixels[i]);
+  }
+}
+
+void drawPNG(const unsigned char* data, uint16_t length, Adafruit_GFX* dest, int16_t x, int16_t y) {
+  if (png.openRAM((uint8_t*)data, length, PNGDraw) == PNG_SUCCESS) {
+    pngX = x;
+    pngY = y;
+    pngDest = dest;
+    if (png.decode(NULL, 0) != PNG_SUCCESS) {
+      Debug_println("PNG Decode Error!");
+    }
   }
 }
 
@@ -134,6 +159,7 @@ void startDisplay() {
   display.GPIOX(true);      // Enable display - display enable tied to GPIOX
   display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
   display.PWM1out(255);
+  display.setLayerMode(true);
 
   Serial.print("(");
   Serial.print(display.width());
@@ -156,7 +182,7 @@ void startDisplay() {
   display.setTextWrap(false);
 
   getStringDimensions(display, str1, &w, &h);
-  display.setCursor((display.width()-w)/2, 80);
+  display.setCursor((display.width()-w)/2, 140);
   display.print(str1);
 
   getStringDimensions(display, str2, &w, &h);
@@ -165,7 +191,7 @@ void startDisplay() {
 
   display.setFont(f2);
   getStringDimensions(display, str3, &w, &h);
-  display.setCursor((display.width() - w) / 2, display.getCursorY() + 80);
+  display.setCursor((display.width() - w) / 2, display_height - 20);
   display.print(str3);
 
   // displayShow();
@@ -328,16 +354,16 @@ char emptyDirectionGlyph = 'Y';
 String title = String("GPS Altometer");
 String tm = String("tm");
 
-const GFXfont *textFont = &MySans24pt7b;
-const GFXfont *suffixFont = &FreeSans9pt7b;
+const GFXfont *textFont = &ModFreeSans44pt7b;
+const GFXfont *suffixFont = &FreeSans16pt7b;
 const GFXfont *glyphFont = &iconFont;
 
 void offsetCursor(Adafruit_GFX& dest, int16_t xOffset, int16_t yOffset) {
   dest.setCursor(dest.getCursorX() + xOffset, dest.getCursorY() + yOffset);
 }
 
-void showCell(Adafruit_GFX& dest, int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, const GFXfont* strFont = textFont, String suffix, const GFXfont* sufFont = suffixFont) {
-  uint16_t glyphAscender = ascenderForFont(glyphFont, glyph);
+void showCell(Adafruit_GFX& dest, int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, String suffix, const GFXfont* strFont = textFont, const GFXfont* sufFont = suffixFont) {
+  uint16_t ascender = ascenderForFont(strFont, glyph);
   uint16_t xOffset = -2;
 
   if (str.startsWith(String("1"))) {
@@ -345,10 +371,10 @@ void showCell(Adafruit_GFX& dest, int16_t x, int16_t y, char glyph, String str, 
   }
 
   dest.setFont(glyphFont);
-  dest.setCursor(x, y + glyphAscender);
+  dest.setCursor(x, y + ascender + 6);
   dest.print(glyph);
   dest.setFont(strFont);
-  offsetCursor(dest, xOffset, -15);
+  offsetCursor(dest, xOffset + 4, -5);
   dest.print(str);
   if (suffix) {
     dest.setFont(sufFont);
@@ -460,15 +486,18 @@ void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16
 }
 
 void showData(uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
-  int16_t xOffset = 0;
-  int16_t yStart = 5;
+  constexpr int16_t xOffset = 50;
+  constexpr int16_t xGap = 45;
+  constexpr int16_t yStart = 20;
+  constexpr int16_t yGap = 25;
   static bool colon = true;
-  static bool cleared = false;
+  static bool layer = false;
 
-  if (!cleared) {
-    display.fillScreen(BLACK);
-    cleared = true;
-  }
+  uint32_t startTime = millis();
+
+  layer = !layer;
+  display.setDrawLayer(layer);
+  display.fillScreen(BLACK);
 
   buffer.setTextSize(1);
   buffer.setTextColor(WHITE);
@@ -482,96 +511,110 @@ void showData(uint32_t time, int16_t altitude, float heading, float speed, uint3
     colon = !colon;
 
     buffer.setOffset(xOffset, yStart);
-    showCell(buffer, xOffset, yStart, emptyTimeGlyph, timeString, -2, NULL, suffixFromDayMinutes(time), NULL);
-    drawTime(buffer, xOffset + 32, yStart + 32, time / 60, time % 60);
+    showCell(buffer, xOffset, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
+    drawTime(buffer, xOffset+32, yStart+36, time / 60, time % 60);
     buffer.draw(display);
 
-    buffer.setOffset(xOffset+cellWidth, yStart);
-    showCell(buffer, xOffset + cellWidth, yStart, altitudeGlyph, String(altitude), -2, NULL, String("ft"), NULL);
+    buffer.setOffset(xOffset+cellWidth+xGap, yStart);
+    // buffer.fillRect(xOffset+cellWidth+xGap, yStart, cellWidth, cellHeight, GREEN);
+    showCell(buffer, xOffset+cellWidth+xGap, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
     buffer.draw(display);
 
-    int16_t direction = ((int16_t)((heading + 11.25) / 22.5)) % 16; 
+    int16_t direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
 
-    buffer.setOffset(xOffset, yStart + cellHeight);
-    showCell(buffer, xOffset, yStart + cellHeight, emptyDirectionGlyph, String(directionNames[direction]), 0, NULL, String(""), NULL);
-    drawPointer(buffer, xOffset + 32, yStart + cellHeight + 32, heading, 15, 8, 140);
+    buffer.setOffset(xOffset, yStart+cellHeight+yGap);
+    showCell(buffer, xOffset, yStart+cellHeight+yGap, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
+    drawPointer(buffer, xOffset+32, yStart+cellHeight+yGap+36, heading, 15, 8, 140);
     buffer.draw(display);
 
-    buffer.setOffset(xOffset + cellWidth, yStart + cellHeight);
-    showCell(buffer, xOffset + cellWidth, yStart + cellHeight, emptySpeedlyph, String(speed, 1), 0, NULL, String("mph"), NULL);
-    drawPolarLine(buffer, xOffset + cellWidth + 32, yStart + cellHeight + 40, -100.0 + (speed / 75.0) * 200.0, 14, 5);
+    buffer.setOffset(xOffset+cellWidth+xGap, yStart+cellHeight+yGap);
+    showCell(buffer, xOffset+cellWidth+xGap, yStart+cellHeight+yGap, emptySpeedlyph, String(speed, 1), 0, String("mph"));
+    drawPolarLine(buffer, xOffset+cellWidth+xGap+32, yStart+cellHeight+yGap+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
     buffer.draw(display);
 
-    buffer.setOffset(xOffset, yStart + cellHeight * 2);
-    showCell(buffer, xOffset, yStart + cellHeight * 2, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, NULL, suffixFromDayMinutes(sunriseTime), NULL);
+    buffer.setOffset(xOffset, yStart+(cellHeight+yGap)*2);
+    showCell(buffer, xOffset, yStart+(cellHeight+yGap)*2, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
     buffer.draw(display);
 
-    buffer.setOffset(xOffset + cellWidth, yStart + cellHeight * 2);
-    showCell(buffer, xOffset + cellWidth, yStart + cellHeight * 2, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, NULL, suffixFromDayMinutes(sunsetTime), NULL);
+    buffer.setOffset(xOffset+cellWidth+xGap, yStart+(cellHeight+yGap)*2);
+    showCell(buffer, xOffset+cellWidth+xGap, yStart+(cellHeight+yGap)*2, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
     buffer.draw(display);
 
-    buffer.setOffset(390 - cellWidth, 240 - cellHeight);
+    buffer.setOffset(display_width - 130, display_height - 36);
     buffer.setFont(&DejaVuSerifBoldItalic30);
     if (status == String("3D")) {
       int16_t titleWidth = getStringWidth(buffer, title);
       buffer.setFont(&DejaVuSerifItalic12);
       int16_t tmWidth = getStringWidth(buffer, tm);
       buffer.setFont(&DejaVuSerifBoldItalic30);
-      buffer.setCursor(390 - (titleWidth + tmWidth + 3), 230);
+      buffer.setCursor(390 - (titleWidth+tmWidth+3), 230);
       buffer.print(title);
       buffer.setFont(&DejaVuSerifItalic12);
       offsetCursor(buffer, 3, -12);
       buffer.print(tm);
     }
     else {
-      buffer.setCursor(390 - getStringWidth(buffer, status), 230);
+      buffer.setCursor(display_width - 10 - getStringWidth(buffer, status), display_height - 10);
       buffer.print(status);
     }
-    buffer.draw(display);
+    buffer.draw(display, 130, 26);
   }
   else {
-    buffer.setOffset(xOffset, yStart);
-    showCell(buffer, xOffset, yStart, timeGlyph, String("--:--"), 0, NULL, String(""), NULL);
-    buffer.draw(display);
-
-    buffer.setOffset(xOffset+cellWidth, yStart);
-    showCell(buffer, xOffset + cellWidth, yStart, altitudeGlyph, String("---"), 0, NULL, String(""), NULL);
-    buffer.draw(display);
-
-    buffer.setOffset(xOffset, yStart + cellHeight);
-    showCell(buffer, xOffset, yStart + cellHeight, emptyDirectionGlyph, String("--"), 0, NULL, String(""), NULL);
-    buffer.draw(display);
-
-    buffer.setOffset(xOffset + cellWidth, yStart + cellHeight);
-    showCell(buffer, xOffset + cellWidth, yStart + cellHeight, speedGlyph, String("---"), 0, NULL, String(""), NULL);
-    buffer.draw(display);
-
-    buffer.setOffset(xOffset, yStart + cellHeight * 2);
-    showCell(buffer, xOffset, yStart + cellHeight * 2, sunriseGlyph, String("--:--"), 0, NULL, String(""), NULL);
-    buffer.draw(display);
-
-    buffer.setOffset(xOffset + cellWidth, yStart + cellHeight * 2);
-    showCell(buffer, xOffset + cellWidth, yStart + cellHeight * 2, sunsetGlyph, String("--:--"), 0, NULL, String(""), NULL);
-    buffer.draw(display);
-
-    buffer.setOffset(200, 240 - cellHeight);
+    buffer.setOffset(display_width/2 - 100, 100);
     static uint8_t dotCount = 1;
     static String acquiring = String("Acquiring");
     static String dots = String(".....");
 
-    status = acquiring + dots.substring(0, dotCount);
-    dotCount = (dotCount % 5) + 1;
+    status = acquiring+dots.substring(0, dotCount);
+    dotCount = (dotCount % 5)+1;
 
     buffer.setFont(&FreeSans18pt7b);
 
-    buffer.setCursor(200, 230);
+    buffer.setCursor(display_width/2 - 100, 130);
     buffer.print(status);
     buffer.draw(display);
   }
 
-  showCell(buffer, xOffset + 4, 200, satelliteGlyph, String(satCount), 0, &FreeSans12pt7b, String(""), NULL);
+  // display.drawFastHLine(0, 300, display_width, DARK_GRAY);
 
-  // displayShow();
+  display.fillRect(380, 350, 40, 6, WHITE16);
+  display.fillRect(262, 430, 300, 6, WHITE16);
+  display.fillRect(396, 352, 6, 80, WHITE16);
+
+  uint16_t tireX[] = { 272, 416, 152, 272, 416, 536 };
+  uint16_t tireY[] = { 320, 320, 400, 400, 400, 400 };
+  uint16_t tirePressure[] = { 87, 87, 90, 102, 92, 90 };
+  uint8_t tireColor[] = { GREEN, GREEN, GREEN, GREEN, GREEN, GREEN };
+  constexpr uint16_t tireWidth = 110;
+  constexpr uint16_t tireHeight = 67;
+
+  buffer.setFont(&ModFreeSansBold30pt7b);
+  for (uint16_t i=0; i<6; i++) {
+    buffer.setOffset(tireX[i], tireY[i]);
+    drawPNG(Tire_png, sizeof(Tire_png), &buffer, tireX[i], tireY[i]);
+    buffer.setTextColor(tireColor[i]);
+    if (tirePressure[i]>99) {
+      buffer.setCursor(tireX[i]+ 10, tireY[i]+tireHeight-13);
+    }
+    else {
+      buffer.setCursor(tireX[i]+ 25, tireY[i]+tireHeight-13);
+    }
+    buffer.print(tirePressure[i]);
+
+    buffer.draw(display, tireWidth, tireHeight);
+  }
+
+  buffer.setTextColor(WHITE);
+  buffer.setOffset(4, display_height - 40);
+  showCell(buffer, 4, display_height - 26, satelliteGlyph, String(satCount), 0, String(""), &FreeSans12pt7b);
+  buffer.draw(display, 60, 40);
+
+  display.showLayer(layer);
+
+  uint32_t totalTime = millis() - startTime;
+  Debug_print("Display time: ");
+  Debug_print(totalTime);
+  Debug_println("ms");
 }
 
 uint32_t idle(uint32_t desiredMS, bool sleep = false) {
