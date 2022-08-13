@@ -32,6 +32,8 @@
  *
  */
 
+#define SPI_RATE 16000000L
+
 #include "Adafruit_RA8875.h"
 
 /// @cond DISABLE
@@ -44,7 +46,7 @@
 
 #if !defined(__AVR__)
 /// SPI speed
-uint32_t spi_speed = 16000000L;
+uint32_t spi_speed = SPI_RATE;
 #else
 /// SPI speed
 uint32_t spi_speed = 4000000L;
@@ -133,7 +135,7 @@ boolean Adafruit_RA8875::begin(enum RA8875sizes s, SPIClass *theSPI) {
 
 #if !defined(__AVR__)
   /// @endcond
-  spi_speed = 16000000L;
+  spi_speed = SPI_RATE;
 #else
   spi_speed = 4000000L;
 #endif
@@ -419,22 +421,30 @@ void Adafruit_RA8875::textSetCursor(uint16_t x, uint16_t y) {
       @param bgColor   The RGB565 colot to use for the background
 */
 /**************************************************************************/
+void Adafruit_RA8875::writeColor(uint8_t reg, uint16_t color) {
+  uint8_t red = (color & 0xf800) >> 11;
+  uint8_t green = (color & 0x07e0) >> 5;
+  uint8_t blue = (color & 0x001f);
+
+  if (_layerModeOn) {
+    red >>= 2;
+    green >>= 3;
+    blue >>= 3;
+  }
+  writeCommand(reg);
+  writeData(red);
+  writeCommand(reg+1);
+  writeData(green);
+  writeCommand(reg+2);
+  writeData(blue);
+}
+
 void Adafruit_RA8875::textColor(uint16_t foreColor, uint16_t bgColor) {
   /* Set Fore Color */
-  writeCommand(0x63);
-  writeData((foreColor & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((foreColor & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((foreColor & 0x001f));
+  writeColor(0x63, foreColor);
 
   /* Set Background Color */
-  writeCommand(0x60);
-  writeData((bgColor & 0xf800) >> 11);
-  writeCommand(0x61);
-  writeData((bgColor & 0x07e0) >> 5);
-  writeCommand(0x62);
-  writeData((bgColor & 0x001f));
+  writeColor(0x60, bgColor);
 
   /* Clear transparency flag */
   writeCommand(0x22);
@@ -452,17 +462,12 @@ void Adafruit_RA8875::textColor(uint16_t foreColor, uint16_t bgColor) {
 /**************************************************************************/
 void Adafruit_RA8875::textTransparent(uint16_t foreColor) {
   /* Set Fore Color */
-  writeCommand(0x63);
-  writeData((foreColor & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((foreColor & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((foreColor & 0x001f));
+  writeColor(0x63, foreColor);
 
   /* Set transparency flag */
   writeCommand(0x22);
   uint8_t temp = readData();
-  temp |= (1 << 6); // Set bit 6
+  temp = (1 << 6) | _textScale<<2 | _textScale; // Set bit 6
   writeData(temp);
 }
 
@@ -485,7 +490,7 @@ void Adafruit_RA8875::textEnlarge(uint8_t scale) {
   /* Set font size flags */
   writeCommand(0x22);
   uint8_t temp = readData();
-  temp &= ~(0xF); // Clears bits 0..3
+  temp &= 0x0F; // Clears bits 0..3
   temp |= scale << 2;
   temp |= scale;
 
@@ -539,6 +544,7 @@ void Adafruit_RA8875::textWrite(const char *buffer, uint16_t len) {
   writeCommand(RA8875_MRWC);
   for (uint16_t i = 0; i < len; i++) {
     writeData(buffer[i]);
+
 /// @cond DISABLE
 #if defined(__arm__)
     /// @endcond
@@ -550,7 +556,7 @@ void Adafruit_RA8875::textWrite(const char *buffer, uint16_t len) {
 #else
     /// @endcond
     // For others, delay starting with textEnlarge(2)
-    if (_textScale > 1)
+    // if (_textScale > 1)
       delay(1);
 /// @cond DISABLE
 #endif
@@ -824,12 +830,7 @@ void Adafruit_RA8875::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   writeData((y1) >> 8);
 
   /* Set Color */
-  writeCommand(0x63);
-  writeData((color & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((color & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((color & 0x001f));
+  writeColor(0x63, color);
 
   /* Draw! */
   writeCommand(RA8875_DCR);
@@ -1119,12 +1120,7 @@ void Adafruit_RA8875::circleHelper(int16_t x, int16_t y, int16_t r,
   writeData(r);
 
   /* Set Color */
-  writeCommand(0x63);
-  writeData((color & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((color & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((color & 0x001f));
+  writeColor(0x63, color);
 
   /* Draw! */
   writeCommand(RA8875_DCR);
@@ -1175,12 +1171,7 @@ void Adafruit_RA8875::rectHelper(int16_t x, int16_t y, int16_t w, int16_t h,
   writeData((h) >> 8);
 
   /* Set Color */
-  writeCommand(0x63);
-  writeData((color & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((color & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((color & 0x001f));
+  writeColor(0x63, color);
 
   /* Draw! */
   writeCommand(RA8875_DCR);
@@ -1240,12 +1231,7 @@ void Adafruit_RA8875::triangleHelper(int16_t x0, int16_t y0, int16_t x1,
   writeData(y2 >> 8);
 
   /* Set Color */
-  writeCommand(0x63);
-  writeData((color & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((color & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((color & 0x001f));
+  writeColor(0x63, color);
 
   /* Draw! */
   writeCommand(RA8875_DCR);
@@ -1291,12 +1277,7 @@ void Adafruit_RA8875::ellipseHelper(int16_t xCenter, int16_t yCenter,
   writeData(shortAxis >> 8);
 
   /* Set Color */
-  writeCommand(0x63);
-  writeData((color & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((color & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((color & 0x001f));
+  writeColor(0x63, color);
 
   /* Draw! */
   writeCommand(0xA0);
@@ -1344,12 +1325,7 @@ void Adafruit_RA8875::curveHelper(int16_t xCenter, int16_t yCenter,
   writeData(shortAxis >> 8);
 
   /* Set Color */
-  writeCommand(0x63);
-  writeData((color & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((color & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((color & 0x001f));
+  writeColor(0x63, color);
 
   /* Draw! */
   writeCommand(0xA0);
@@ -1415,12 +1391,7 @@ void Adafruit_RA8875::roundRectHelper(int16_t x, int16_t y, int16_t w,
   writeData((r) >> 8);
 
   /* Set Color */
-  writeCommand(0x63);
-  writeData((color & 0xf800) >> 11);
-  writeCommand(0x64);
-  writeData((color & 0x07e0) >> 5);
-  writeCommand(0x65);
-  writeData((color & 0x001f));
+  writeColor(0x63, color);
 
   /* Draw! */
   writeCommand(RA8875_ELLIPSE);
@@ -1643,6 +1614,9 @@ boolean Adafruit_RA8875::touchRead(uint16_t *x, uint16_t *y) {
   ty <<= 2;
   tx |= temp & 0x03;        // get the bottom x bits
   ty |= (temp >> 2) & 0x03; // get the bottom y bits
+
+  tx &= 0x1FF;
+  ty &= 0x1FF;
 
   *x = tx;
   *y = ty;

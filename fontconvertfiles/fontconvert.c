@@ -151,8 +151,10 @@ int main(int argc, char *argv[]) {
   for (i = first, j = 0; i <= last; i++, j++) {
     // MONO renderer provides clean image with perfect crop
     // (no wasted pixels) via bitmap struct.
-    if ((err = FT_Load_Char(face, i, FT_LOAD_TARGET_MONO))) {
-      fprintf(stderr, "Error %d loading char '%c'\n", err, i);
+    int ch = i;
+    if (ch==0x7f) ch = 0xB0; // degree symbol
+    if ((err = FT_Load_Char(face, ch, FT_LOAD_TARGET_MONO))) {
+      fprintf(stderr, "Error %d loading char '%c'\n", err, ch);
       continue;
     }
 

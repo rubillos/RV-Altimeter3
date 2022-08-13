@@ -1,4 +1,4 @@
-#include "Packets.h"
+#include "packets.h"
 
 // Heltec WiFi LoRa has the following connections:
 // NSS pin:   18 (CS)        GPIO18

@@ -13,8 +13,17 @@
 #include "sunset.h"
 #include <ZoneCalc.h>
 #include <RTClib.h>
+#include "RingBuff.h"
 #include <PNGdec.h>
-#include "Packets.h"
+#include "packets.h"
+#include "beep.h"
+#include "touchscreen.h"
+#include <Preferences.h>
+#include "button.h"
+#include "menu.h"
+
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 #include "fonts/FreeSans44pt7b.h"
 #include "fonts/FreeSans16pt7b.h"
@@ -63,16 +72,24 @@
 #define RA8875_CS 22
 #define RA8875_RESET 21
 #define RA8875_INT 37
+#define RA8875_WAIT 39
 
 #define BUZZER_PIN 25
 #define LIGHT_SENSOR_PIN 38
 
 #define Color8(r, g, b) ((r & 0xE0) | ((g & 0xE0)>>3) | (b>>6))
+#define Color16(r, g, b) ((r & 0xE0) | ((g & 0xE0)>>3) | (b>>6))
 
 #define BLACK8 Color8(0x00, 0x00, 0x00)
 #define WHITE8 Color8(0xFF, 0xFF, 0xFF)
 #define GREEN8 Color8(0x00, 0xFF, 0x00)
 #define RED8 Color8(0xFF, 0x00, 0x00)
+#define BLUE8 Color8(0x00, 0x00, 0xFF)
+#define ORANGE8 Color8(0xFF, 0x80, 0x00)
+#define YELLOW8 Color8(0xFF, 0xFF, 0x00)
+#define CYAN8 Color8(0x00, 0xFF, 0xFF)
+#define MAGENTA8 Color8(0xFF, 0x00, 0xFF)
+
 #define DARK_GRAY8 0b01101101
 
 #define WHITE16 0xFFFF
@@ -86,6 +103,8 @@ constexpr int16_t cellHeight = 70;
 SPIClass LCD_SPI(HSPI);
 Adafruit_RA8875 display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
 
+SSD1306Wire displayOLED = SSD1306Wire(0x3c, SDA_OLED, SCL_OLED, RST_OLED, GEOMETRY_128_64);
+
 SFE_UBLOX_GNSS gps;
 
 ZoneCalc zoneCalc;
@@ -93,16 +112,80 @@ SunSet sun;
 
 Buffer8 buffer(0, 0, cellWidth, cellHeight);
 
+Menu menu;
+
+#define PREFS_VERSION 1
+
 #define NUM_TIRES 6
+#define LOG_DEPTH 16
 
 struct {
 	uint32_t sensor_ids[NUM_TIRES];
-	float alarm_pressure_min = 80.0;
-	float alarm_pressure_max = 115.0;
-	float alarm_temp_max = 158.0;
-} PersistentData;
+
+	float alarm_pressure_min;
+	float alarm_pressure_max;
+	float alarm_temp_max;
+
+	tsMatrix_t touch_calibration;
+	bool touch_calibrated;
+} pref_data;
 
 TPMS_Packet sensor_packets[NUM_TIRES];
+
+TPMS_Packet packet_log[LOG_DEPTH];
+uint16_t packet_log_first = 0;
+uint16_t packet_log_last = 0;
+
+Preferences preferences;
+
+const char* sensorKeys[] = { "id0", "id1", "id2", "id3", "id4", "id5" };
+
+void readPrefs() {
+	preferences.begin("altometer", false);
+	if (PREFS_VERSION != preferences.getUInt("version")) {
+		Debug_println("Prefs version deos not match, clearing.");
+		preferences.clear();
+	}
+
+	for (uint8_t i=0; i<NUM_TIRES; i++) {
+		pref_data.sensor_ids[i] = preferences.getULong(sensorKeys[i], 0);
+	}
+	pref_data.alarm_pressure_min = preferences.getFloat("press_min", 80.0);
+	pref_data.alarm_pressure_max = preferences.getFloat("press_max", 115.0);
+	pref_data.alarm_temp_max = preferences.getFloat("temp_max", 158.0);
+	pref_data.touch_calibrated = preferences.getBool("touch_cal", false);
+	preferences.getBytes("touch_matrix", &pref_data.touch_calibration, sizeof(pref_data.touch_calibration));
+}
+
+void writePrefs() {
+	preferences.putUInt("version", PREFS_VERSION);
+	for (uint8_t i=0; i<NUM_TIRES; i++) {
+		preferences.putULong(sensorKeys[i], pref_data.sensor_ids[i]);
+	}
+	preferences.putFloat("press_min", pref_data.alarm_pressure_min);
+	preferences.putFloat("press_max", pref_data.alarm_pressure_max);
+	preferences.putFloat("temp_max", pref_data.alarm_temp_max);
+	preferences.putBool("touch_cal", pref_data.touch_calibrated);
+	preferences.putBytes("touch_matrix", &pref_data.touch_calibration, sizeof(pref_data.touch_calibration));
+}
+
+constexpr uint16_t light_average_count = 16;
+constexpr uint16_t analog_resolution = 12;
+constexpr float light_max = 4096.0;
+
+RingBuff<float> lightBuff(100);
+
+float readLight() {
+	uint32_t total = 0;
+	
+	for (uint16_t i=0; i<light_average_count; i++) {
+		total += analogRead(LIGHT_SENSOR_PIN);
+	}
+
+	lightBuff.addSample((float)total / (light_average_count * light_max));
+
+	return lightBuff.average();
+}
 
 uint8_t ascenderForFont(const GFXfont *f, char character = 'A')
 {
@@ -177,6 +260,7 @@ void startDisplay() {
 	display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
 	display.PWM1out(255);
 	display.setLayerMode(true);
+	// display.setWait(RA8875_WAIT);
 	display.graphicsMode();                 // go back to graphics mode
 	display.fillScreen(BLACK8);
 
@@ -202,7 +286,7 @@ void startDisplay() {
 
 	display.setFont(f2);
 	getStringDimensions(display, str3, &w, &h);
-	display.setCursor((display.width() - w) / 2, display_height - 20);
+	display.setCursor((display.width() - w) / 2, display_height - 40);
 	display.print(str3);
 }
 
@@ -246,11 +330,11 @@ typedef struct {
 // #endif
 // }
 
-void scan_bus() {
+void scan_bus(TwoWire &bus) {
 	Debug_println("Scanning Bus...");
 	for (uint16_t i=1; i<127; i++) {
-		Wire.beginTransmission(i);
-    byte error = Wire.endTransmission();
+		bus.beginTransmission(i);
+    	byte error = bus.endTransmission();
 		if (error == 0) {
 			Debug_print("Device found at addr 0x");
 			Debug_println(String(i, HEX));
@@ -259,41 +343,147 @@ void scan_bus() {
 	Debug_println("Scan Complete.");
 }
 
+constexpr uint16_t oled_line_count = 6;
+constexpr uint16_t oled_char_count = 32;
+constexpr uint16_t oled_line_height = 10;
+
+typedef struct {
+	char line[oled_char_count];
+} OLED_Line;
+
+OLED_Line oled_lines[6];
+uint16_t oled_line_index = 0;
+uint16_t oled_char_index = 0;
+bool oled_need_scroll = false;
+
+void OLED_show() {
+	displayOLED.clear();
+	for (uint16_t i=0; i<oled_line_count; i++) {
+		if (oled_lines[i].line[0]) {
+			displayOLED.drawString(0, i*oled_line_height, oled_lines[i].line);
+		}
+	}
+	displayOLED.display();
+}
+
+void OLED_scrollIfNeeded() {
+	if (oled_need_scroll) {
+		memmove(&oled_lines[0], &oled_lines[1], (oled_line_count-1) * oled_char_count);
+		memset(&oled_lines[oled_line_count-1], 0, oled_char_count);
+		oled_need_scroll = false;
+	}
+}
+
+void OLED_println(const char* str) {
+	Debug_println(str);
+
+	OLED_scrollIfNeeded();
+	if (oled_char_index < oled_char_count-1) {
+		memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index)) );
+	}
+	oled_char_index = 0;
+	if (oled_line_index < (oled_line_count-1)) {
+		oled_line_index++;
+	}
+	else {
+		oled_need_scroll = true;
+	}
+	OLED_show();
+}
+
+void OLED_println(int32_t val) {
+	char valueBuff[20];
+	itoa(val, valueBuff, 10);
+	OLED_println(valueBuff);
+}
+
+void OLED_println(float val) {
+	char valueBuff[20];
+	dtostrf(val, 0, 2, valueBuff);
+	OLED_println(valueBuff);
+}
+
+void OLED_print(const char* str) {
+	Debug_print(str);
+
+	OLED_scrollIfNeeded();
+	if (oled_char_index < oled_char_count-1) {
+		uint16_t charsToCopy = min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index));
+		memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, charsToCopy );
+		oled_char_index += charsToCopy;
+	}
+}
+
+void OLED_print(int32_t val) {
+	char valueBuff[20];
+	itoa(val, valueBuff, 10);
+	OLED_print(valueBuff);
+}
+
+void OLED_print(float val) {
+	char valueBuff[20];
+	dtostrf(val, 0, 2, valueBuff);
+	OLED_print(valueBuff);
+}
+
+void doCalibrate() {
+	if (runCalibration(&pref_data.touch_calibration)) {
+		pref_data.touch_calibrated = true;
+		OLED_println("Writing prefs.");
+		writePrefs();
+	}
+}
+
 void setup() {
-	delay(3000);
-	Heltec.begin(true /*Display Enable*/, false /*LoRa Disable*/, true /*Serial Enable*/);
-	Heltec.display->flipScreenVertically();
-	Heltec.display->setFont(ArialMT_Plain_10);
-	Heltec.display->setTextAlignment(TEXT_ALIGN_LEFT);
+	pinMode(BUZZER_PIN, OUTPUT);
+	digitalWrite(BUZZER_PIN, HIGH);
+
+	Debug_delay(3000);
+	Debug_begin(115200);
+	Debug_flush();
+	Debug_delay(50);
+
+	Debug_println("Begin Startup");
+
+	analogReadResolution(analog_resolution);
+
+	Debug_println("Scan Bus");
+	displayOLED.connect();
+	scan_bus(Wire);
+
+	Debug_println("Init OLED");
+	displayOLED.init();
+	// displayOLED.flipScreenVertically();
+	displayOLED.setFont(ArialMT_Plain_10);
+	displayOLED.setLogBuffer(6, 40);
+
+	OLED_println("GPS Altometer");
 
 	// test_zones();
 
-	Debug_println("Begin Startup");
-	scan_bus();
+	OLED_println("Init Prefs...");
+	readPrefs();
 
-	Debug_println("Init display...");
+	OLED_println("Init TFT display...");
 	startDisplay();
 
-	Debug_println("Init PacketRadio...");
+	OLED_println("Init Touchscreen...");
+	startTouch(display, RA8875_INT, RA8875_WAIT, BUZZER_PIN);
+
+	OLED_println("Init PacketRadio...");
 	packetsBegin();
 
-	Debug_println("Init GPS...");
-	// Wire1.begin(GPS_SCL, GPS_SDA);
-
-	// gps.enableDebugging();
-	if (!gps.begin(Wire)) //Connect to the u-blox module using Wire port
-	{
-		Debug_println("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing.");
-		// while (1)
-			// ;
+	OLED_println("Init GPS...");
+	if (!gps.begin(Wire)) { //Connect to the u-blox module using Wire port
+		OLED_println("GPS not found!");
+		while (1);
 	}
 
-	// gps.setI2COutput(COM_TYPE_UBX);                 //Set the I2C port to output UBX only (turn off NMEA noise)
-	// gps.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
-	// if (!gps.setDynamicModel(DYN_MODEL_AUTOMOTIVE))
-	// {
-		// Debug_println("***!!! Warning: setDynamicModel failed !!!***");
-	// }
+	gps.setI2COutput(COM_TYPE_UBX);                 //Set the I2C port to output UBX only (turn off NMEA noise)
+	gps.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
+	if (!gps.setDynamicModel(DYN_MODEL_AUTOMOTIVE)) {
+		OLED_println("* setDynamicModel failed!");
+	}
 
 	// gps.enableDebugging();
 
@@ -310,7 +500,16 @@ void setup() {
 	// Debug_print("SBAS is ");
 	// Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_SBAS) ? "ENABLED" : "disabled");
 
-	Debug_println("Init Done");
+	OLED_println("Init Menu System...");
+	menu.begin(&display, &pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max, &pref_data.touch_calibration);
+
+	OLED_println("Check touchscreen...");
+	if (!pref_data.touch_calibrated) {
+		OLED_println("Calibrating...");
+		doCalibrate();
+	}
+
+	OLED_println("Init Done!");
 }
 
 String timeFromDayMinutes(double dayMinutes, bool includeSeconds) {
@@ -500,7 +699,7 @@ void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16
 
 int8_t indexOfSensor(uint32_t sensor_id) {
 	for (uint8_t i=0; i<NUM_TIRES; i++) {
-		if (sensor_id == PersistentData.sensor_ids[i]) {
+		if (sensor_id == pref_data.sensor_ids[i]) {
 			return i;
 		}
 	}
@@ -511,7 +710,7 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 	constexpr int16_t xOffset = 50;
 	constexpr int16_t xGap = 45;
 	constexpr int16_t yStart = 20;
-	constexpr int16_t yGap = 25;
+	constexpr int16_t yGap = 22;
 	static bool colon = true;
 	static bool layer = false;
 
@@ -560,11 +759,11 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 		showCell(buffer, xOffset+cellWidth+xGap, yStart+(cellHeight+yGap)*2, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
 		buffer.draw(display);
 
-		buffer.setOffset(display_width - 130, display_height - 36);
-		buffer.setFont(&DejaVuSerifBoldItalic30);
-		buffer.setCursor(display_width - 10 - getStringWidth(buffer, status), display_height - 10);
-		buffer.print(status);
-		buffer.draw(display, 130, 26);
+		// buffer.setOffset(display_width - 130, display_height - 36);
+		// buffer.setFont(&DejaVuSerifBoldItalic30);
+		// buffer.setCursor(display_width - 10 - getStringWidth(buffer, status), display_height - 10);
+		// buffer.print(status);
+		// buffer.draw(display, 130, 26);
 	}
 	else {
 		buffer.setOffset(display_width/2 - 100, 100);
@@ -584,12 +783,14 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 
 	// display.drawFastHLine(0, 300, display_width, DARK_GRAY8);
 
-	display.fillRect(380, 350, 40, 6, WHITE16);
-	display.fillRect(262, 430, 300, 6, WHITE16);
-	display.fillRect(396, 352, 6, 80, WHITE16);
+	constexpr uint16_t tire_top_y = 300;
+
+	display.fillRect(380, tire_top_y+30, 40, 6, WHITE16);
+	display.fillRect(262, tire_top_y+110, 300, 6, WHITE16);
+	display.fillRect(396, tire_top_y+32, 6, 80, WHITE16);
 
 	uint16_t tireX[] = { 272, 416, 152, 272, 416, 536 };
-	uint16_t tireY[] = { 320, 320, 400, 400, 400, 400 };
+	uint16_t tireY[] = { tire_top_y, tire_top_y, tire_top_y+80, tire_top_y+80, tire_top_y+80, tire_top_y+80 };
 	uint16_t tirePressure[] = { 87, 87, 90, 102, 92, 90 };
 	uint8_t tireColor[] = { GREEN8, GREEN8, GREEN8, GREEN8, GREEN8, GREEN8 };
 	constexpr uint16_t tireWidth = 110;
@@ -611,10 +812,10 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 		buffer.draw(display, tireWidth, tireHeight);
 	}
 
-	buffer.setTextColor(WHITE8);
-	buffer.setOffset(4, display_height - 40);
-	showCell(buffer, 4, display_height - 26, satelliteGlyph, String(satCount), 0, String(""), &FreeSans12pt7b);
-	buffer.draw(display, 60, 40);
+	// buffer.setTextColor(WHITE8);
+	// buffer.setOffset(4, display_height - 40);
+	// showCell(buffer, 4, display_height - 26, satelliteGlyph, String(satCount), 0, String(""), &FreeSans12pt7b);
+	// buffer.draw(display, 60, 40);
 
 	display.showLayer(layer);
 
@@ -630,45 +831,48 @@ void loop() {
 	static elapsedMillis statusTime;
 	static bool haveHadFix = false;
 
-	if (statusTime > 1000) {
-		statusTime -= 1000;
+	if (true || statusTime > 500) {
+		statusTime -= 500;
+		// statusTime = 0;
 
-		// bool haveFix = gps.getGnssFixOk();
-		bool haveFix = false;
+		float light = readLight();
+
+		bool haveFix = gps.getGnssFixOk();
+		// bool haveFix = false;
 
 		haveHadFix = haveHadFix || haveFix;
 
-		// uint16_t year = gps.getYear();
-		// uint16_t month = gps.getMonth();
-		// uint16_t day = gps.getDay();
-		// uint16_t hour = gps.getHour();
-		// uint16_t minute = gps.getMinute();
-		// uint16_t second = gps.getSecond();
-		// float latitude = (float)gps.getLatitude() / DEGREES_TO_FLOAT;
-		// float longitude = (float)gps.getLongitude() / DEGREES_TO_FLOAT;
-		// float altitude = gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
-		// float heading = (float)gps.getHeading() / HEADING_TO_FLOAT;
-		// float speed = (float)gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
-		// uint8_t satellites = gps.getSIV();
-		// uint8_t fixType = gps.getFixType();
-		// String status = String(fixNames[fixType]);
-		uint16_t year;
-		uint16_t month;
-		uint16_t day;
-		uint16_t hour;
-		uint16_t minute;
-		uint16_t second;
-		float latitude;
-		float longitude;
-		float altitude;
-		float heading;
-		float speed;
-		uint8_t satellites;
-		uint8_t fixType;
-		String status;
+		uint16_t year = gps.getYear();
+		uint16_t month = gps.getMonth();
+		uint16_t day = gps.getDay();
+		uint16_t hour = gps.getHour();
+		uint16_t minute = gps.getMinute();
+		uint16_t second = gps.getSecond();
+		float latitude = (float)gps.getLatitude() / DEGREES_TO_FLOAT;
+		float longitude = (float)gps.getLongitude() / DEGREES_TO_FLOAT;
+		float altitude = gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
+		float heading = (float)gps.getHeading() / HEADING_TO_FLOAT;
+		float speed = (float)gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
+		uint8_t satellites = gps.getSIV();
+		uint8_t fixType = gps.getFixType();
+		String status = String(fixNames[fixType]);
+		// uint16_t year;
+		// uint16_t month;
+		// uint16_t day;
+		// uint16_t hour;
+		// uint16_t minute;
+		// uint16_t second;
+		// float latitude;
+		// float longitude;
+		// float altitude;
+		// float heading;
+		// float speed;
+		// uint8_t satellites;
+		// uint8_t fixType;
+		// String status;
 
 #if 1
-		if (1 || !haveFix) {
+		if (!haveFix) {
 			static elapsedMillis upTime;
 
 			latitude = 37.7775;
@@ -731,6 +935,8 @@ void loop() {
 		Debug_print(longitude);
 		Debug_print(", spd=");
 		Debug_print(speed);
+		Debug_print(", light=");
+		Debug_print(light);
 		Debug_println("");
 
 		uint16_t drawIndex = 0;
@@ -740,9 +946,11 @@ void loop() {
 			TPMS_Packet packet;
 
 			if (readPacket(&packet)) {
+				Debug_println("Got radio packet.");
 				int8_t index = indexOfSensor(packet.id);
 
 				if (index != -1) {
+					Debug_println("Packet is valid");
 					sensor_packets[index] = packet;
 				}
 			}
@@ -752,6 +960,13 @@ void loop() {
 		Debug_print("Display time: ");
 		Debug_print(totalTime);
 		Debug_println("ms");
+	}
+
+	tsPoint_t touchPt;
+	if (pref_data.touch_calibrated && checkScreenTouch(&touchPt, &pref_data.touch_calibration)) {
+		if (touchPt.y < 300) {
+			menu.run();
+		}
 	}
 
 	// static elapsedMillis showTime;
