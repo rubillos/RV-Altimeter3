@@ -156,7 +156,8 @@ public:
   void textSetCursor(uint16_t x, uint16_t y);
   void textColor(uint16_t foreColor, uint16_t bgColor);
   void textTransparent(uint16_t foreColor);
-  void textEnlarge(uint8_t scale);
+  void textEnlarge(uint8_t scaleX, uint8_t scaleY);
+  void textEnlarge(uint8_t scale) { textEnlarge(scale, scale); };
   void textWrite(const char *buffer, uint16_t len = 0);
   void cursorBlink(uint8_t rate);
 

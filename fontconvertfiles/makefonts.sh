@@ -33,7 +33,7 @@ do
 				printf "Convert %s %s %s > %s\n" $convert $infile $si $outfile
 				$convert $infile $si > $outfile
 			  else
-				printf "FAIL: %s %s %s > %s\n" $convert $infile $si $outfile
+				printf "Skipping: %s %s  %s\n" $f $st $si
 			fi
 		done
 	done

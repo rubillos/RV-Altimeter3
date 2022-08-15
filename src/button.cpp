@@ -34,10 +34,10 @@ bool Button::hitTest(tsPoint_t pt, bool widen) {
     computeScreenRect();
 
     if (widen) {
-        return (!(_scheme.flags & buttonsNoClick) && (pt.x>=_rect.x-widen_amount) && (pt.x<_rect.x+_rect.w+2*widen_amount) && (pt.y>=_rect.y-widen_amount) && (pt.y<_rect.y+_rect.h+2*widen_amount));
+        return ((pt.x>=_rect.x-widen_amount) && (pt.x<_rect.x+_rect.w+2*widen_amount) && (pt.y>=_rect.y-widen_amount) && (pt.y<_rect.y+_rect.h+2*widen_amount));
     }
     else {
-        return (!(_scheme.flags & buttonsNoClick) && (pt.x>=_rect.x) && (pt.x<_rect.x+_rect.w) && (pt.y>=_rect.y) && (pt.y<_rect.y+_rect.h));
+        return ((pt.x>=_rect.x) && (pt.x<_rect.x+_rect.w) && (pt.y>=_rect.y) && (pt.y<_rect.y+_rect.h));
     }
 };
 
@@ -66,11 +66,12 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
         }
     }
     _button_tft->textMode();
-    _button_tft->textEnlarge(_scheme.size-1);
+    _button_tft->textEnlarge(_scheme.sizeX-1, _scheme.sizeY-1);
     _button_tft->textTransparent(textColor);
+    wait_tft_done();
 
     uint16_t x;
-    uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (_scheme.size-1)*2;
+    uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (_scheme.sizeY-1)*2;
 
     if (_scheme.flags & buttonAlignLeft) {
         x = _rect.x;
@@ -120,16 +121,17 @@ void Button::setTitle(String title) {
 }
 
 uint16_t Button::titleWidth() {
-    return _title.length() * 8 * _scheme.size;
+    return _title.length() * 8 * _scheme.sizeX;
 }
 
 uint16_t Button::titleHeight() {
-    return 16*_scheme.size;
+    return 16*_scheme.sizeY;
 }
 
 void Button::computeScreenRect() {
     if (_dirty) {
-        _scheme.size = max(1, min(4, (int)_scheme.size));
+        _scheme.sizeX = max(1, min(4, (int)_scheme.sizeX));
+        _scheme.sizeY = max(1, min(4, (int)_scheme.sizeY));
         if (_w <= 0) {  // size from title, with inset
             _rect.w = titleWidth() + -_w*2;
         }

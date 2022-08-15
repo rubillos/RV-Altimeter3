@@ -2,6 +2,9 @@
 
 #define defaultMaxWait 250
 
+// https://tchapi.github.io/Adafruit-GFX-Font-Customiser/
+// ./fontconvert freefont-ttf/sfd/FreeSans.ttf 36 32 126 '~°' > Fonts/FreeSans36pt7bCustom.h
+
 #include "heltec.h"
 #include "TimeLib.h"
 #include <elapsedMillis.h>
@@ -25,6 +28,7 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
+#include "fonts/FreeSans36pt7bCustom.h"
 #include "fonts/FreeSans44pt7b.h"
 #include "fonts/FreeSans16pt7b.h"
 #include "fonts/FreeSansBold30pt7b.h"
@@ -97,8 +101,8 @@
 constexpr int16_t display_width = 800;
 constexpr int16_t display_height = 480;
 
-constexpr int16_t cellWidth = 340;
-constexpr int16_t cellHeight = 70;
+constexpr int16_t cellWidth = 330;
+constexpr int16_t cellHeight = 69;
 
 SPIClass LCD_SPI(HSPI);
 Adafruit_RA8875 display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
@@ -112,9 +116,11 @@ SunSet sun;
 
 Buffer8 buffer(0, 0, cellWidth, cellHeight);
 
+PacketMonitor packetMonitor;
+TouchScreen touchScreen;
 Menu menu;
 
-#define PREFS_VERSION 1
+#define PREFS_VERSION 2
 
 #define NUM_TIRES 6
 #define LOG_DEPTH 16
@@ -127,16 +133,15 @@ struct {
 	float alarm_temp_max;
 
 	tsMatrix_t touch_calibration;
-	bool touch_calibrated;
 } pref_data;
 
 TPMS_Packet sensor_packets[NUM_TIRES];
 
-TPMS_Packet packet_log[LOG_DEPTH];
-uint16_t packet_log_first = 0;
-uint16_t packet_log_last = 0;
-
 Preferences preferences;
+
+void wait_tft_done() {
+    while (digitalRead(RA8875_WAIT)==LOW) {}
+}
 
 const char* sensorKeys[] = { "id0", "id1", "id2", "id3", "id4", "id5" };
 
@@ -153,8 +158,9 @@ void readPrefs() {
 	pref_data.alarm_pressure_min = preferences.getFloat("press_min", 80.0);
 	pref_data.alarm_pressure_max = preferences.getFloat("press_max", 115.0);
 	pref_data.alarm_temp_max = preferences.getFloat("temp_max", 158.0);
-	pref_data.touch_calibrated = preferences.getBool("touch_cal", false);
-	preferences.getBytes("touch_matrix", &pref_data.touch_calibration, sizeof(pref_data.touch_calibration));
+	if (preferences.getBytes("touch_matrix", &pref_data.touch_calibration, sizeof(pref_data.touch_calibration))) {
+		touchScreen.setTouchMatrix(&pref_data.touch_calibration);
+	}
 }
 
 void writePrefs() {
@@ -165,7 +171,6 @@ void writePrefs() {
 	preferences.putFloat("press_min", pref_data.alarm_pressure_min);
 	preferences.putFloat("press_max", pref_data.alarm_pressure_max);
 	preferences.putFloat("temp_max", pref_data.alarm_temp_max);
-	preferences.putBool("touch_cal", pref_data.touch_calibrated);
 	preferences.putBytes("touch_matrix", &pref_data.touch_calibration, sizeof(pref_data.touch_calibration));
 }
 
@@ -260,7 +265,6 @@ void startDisplay() {
 	display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
 	display.PWM1out(255);
 	display.setLayerMode(true);
-	// display.setWait(RA8875_WAIT);
 	display.graphicsMode();                 // go back to graphics mode
 	display.fillScreen(BLACK8);
 
@@ -289,46 +293,6 @@ void startDisplay() {
 	display.setCursor((display.width() - w) / 2, display_height - 40);
 	display.print(str3);
 }
-
-typedef struct {
-	const char* name;
-	float lat;
-	float lon;
-} CityRec;
-
-// void test_zones() {
-// #if defined(DO_SERIAL)
-//   Debug_println("Zone Test");
-
-//   CityRec cities[] = {
-//     { "Boston", 42.360081, -71.058884 },
-//     { "Chicago", 41.878113, -87.629799 },
-//     { "Tampa", 27.950575, -82.457176 },
-//     { "Denver", 39.739235, -104.990250 },
-//     { "Houston", 29.760427, -95.369804 },
-//     { "Alaska", 63.391522, -155.537651 },
-//     { "San Francisco", 37.744657, -122.438970 },
-//     { "Trout Creek", 47.836042, -115.593490 },
-//     { "Heron MT", 48.093633, -116.033489 },
-//     { "Claire Fork ID", 48.090157, -116.057808 },
-//   };
-
-//   int cityCount = sizeof(cities) / sizeof(CityRec);
-
-//   for (int i=0; i<cityCount; i++) {
-//     int sumZone = zoneOffsetForGPSCoord(cities[i].lat, cities[i].lon, true);
-//     int wintZone = zoneOffsetForGPSCoord(cities[i].lat, cities[i].lon, false);
-//     Debug_print(cities[i].name);
-//     Debug_print(": summer=");
-//     Debug_print(sumZone);
-//     Debug_print(": winter=");
-//     Debug_print(wintZone);
-//     Debug_println();
-//   }
-
-//   while (1);
-// #endif
-// }
 
 void scan_bus(TwoWire &bus) {
 	Debug_println("Scanning Bus...");
@@ -427,10 +391,35 @@ void OLED_print(float val) {
 }
 
 void doCalibrate() {
-	if (runCalibration(&pref_data.touch_calibration)) {
-		pref_data.touch_calibrated = true;
+	if (touchScreen.runCalibration(&pref_data.touch_calibration)) {
+		touchScreen.setTouchMatrix(&pref_data.touch_calibration);
 		OLED_println("Writing prefs.");
 		writePrefs();
+	}
+}
+
+int8_t indexOfSensor(uint32_t sensor_id) {
+	for (uint8_t i=0; i<NUM_TIRES; i++) {
+		if (sensor_id == pref_data.sensor_ids[i]) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void packetCheck() {
+	TPMS_Packet packet;
+
+	if (packetMonitor.getPacket(&packet)) {
+		// Debug_println("Got radio packet.");
+		Serial.printf("id=0x%X, pressure=%0.1f, temperature=%0.1f\n", packet.id, packet.pressure, packet.temperature);
+
+		int8_t index = indexOfSensor(packet.id);
+
+		if (index != -1) {
+			Debug_println("Packet match");
+			sensor_packets[index] = packet;
+		}
 	}
 }
 
@@ -460,7 +449,6 @@ void setup() {
 	OLED_println("GPS Altometer");
 
 	// test_zones();
-
 	OLED_println("Init Prefs...");
 	readPrefs();
 
@@ -468,10 +456,11 @@ void setup() {
 	startDisplay();
 
 	OLED_println("Init Touchscreen...");
-	startTouch(display, RA8875_INT, RA8875_WAIT, BUZZER_PIN);
+	pinMode(RA8875_WAIT, INPUT_PULLUP);
+	touchScreen.begin(display, RA8875_INT, BUZZER_PIN);
 
 	OLED_println("Init PacketRadio...");
-	packetsBegin();
+	packetMonitor.begin();
 
 	OLED_println("Init GPS...");
 	if (!gps.begin(Wire)) { //Connect to the u-blox module using Wire port
@@ -479,6 +468,7 @@ void setup() {
 		while (1);
 	}
 
+	gps.setI2CpollingWait(25); // Set i2cPollingWait to 25ms
 	gps.setI2COutput(COM_TYPE_UBX);                 //Set the I2C port to output UBX only (turn off NMEA noise)
 	gps.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
 	if (!gps.setDynamicModel(DYN_MODEL_AUTOMOTIVE)) {
@@ -489,27 +479,22 @@ void setup() {
 
 	delay(300);
 	
-	// Debug_print("GNSS is ");
-	// Debug_println(gps.isConnected() ? "CONNECTED" : "not connected");
-	// Debug_print("GPS is ");
-	// Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_GPS) ? "ENABLED" : "disabled");
-	// Debug_print("GLONASS is ");
-	// Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_GLONASS) ? "ENABLED" : "disabled");
-	// Debug_print("GALILEO is ");
-	// Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_GALILEO) ? "ENABLED" : "disabled");
-	// Debug_print("SBAS is ");
-	// Debug_println(gps.isGNSSenabled(SFE_UBLOX_GNSS_ID_SBAS) ? "ENABLED" : "disabled");
-
 	OLED_println("Init Menu System...");
-	menu.begin(&display, &pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max, &pref_data.touch_calibration);
+	menu.begin(&display, &touchScreen, &packetMonitor, &pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
 
 	OLED_println("Check touchscreen...");
-	if (!pref_data.touch_calibrated) {
+	if (!pref_data.touch_calibration.Divider) {
 		OLED_println("Calibrating...");
 		doCalibrate();
 	}
 
 	OLED_println("Init Done!");
+
+	// Debug_println("Begin Test");
+	// // packetMonitor.begin();
+	// while (1) {
+	// 	packetCheck();
+	// }
 }
 
 String timeFromDayMinutes(double dayMinutes, bool includeSeconds) {
@@ -697,22 +682,14 @@ void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16
 	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5);
 }
 
-int8_t indexOfSensor(uint32_t sensor_id) {
-	for (uint8_t i=0; i<NUM_TIRES; i++) {
-		if (sensor_id == pref_data.sensor_ids[i]) {
-			return i;
-		}
-	}
-	return -1;
-}
-
 bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
 	constexpr int16_t xOffset = 50;
 	constexpr int16_t xGap = 45;
-	constexpr int16_t yStart = 20;
+	constexpr int16_t yOffset = 20;
 	constexpr int16_t yGap = 22;
-	static bool colon = true;
+	static uint8_t colon = 1;
 	static bool layer = false;
+	uint16_t xStart, yStart;
 
 	layer = !layer;
 	display.setDrawLayer(layer);
@@ -727,36 +704,53 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 		if (!colon) {
 			timeString.replace(String(":"), String(" "));
 		}
-		colon = !colon;
+		colon = (colon+1)%5;
 
-		buffer.setOffset(xOffset, yStart);
-		showCell(buffer, xOffset, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
-		drawTime(buffer, xOffset+32, yStart+36, time / 60, time % 60);
+		// speed
+		xStart = xOffset;
+		yStart = yOffset;
+		buffer.setOffset(xStart, yStart);
+		showCell(buffer, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
+		drawPolarLine(buffer, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
 		buffer.draw(display);
 
-		buffer.setOffset(xOffset+cellWidth+xGap, yStart);
-		// buffer.fillRect(xOffset+cellWidth+xGap, yStart, cellWidth, cellHeight, GREEN8);
-		showCell(buffer, xOffset+cellWidth+xGap, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
+		// altitude
+		xStart = xOffset+cellWidth+xGap;
+		yStart = yOffset;
+		buffer.setOffset(xStart, yStart);
+		// buffer.fillRect(xStart, yStart, cellWidth, cellHeight, GREEN8);
+		showCell(buffer, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
 		buffer.draw(display);
 
+		// time
+		xStart = xOffset;
+		yStart = yOffset+cellHeight+yGap;
+		buffer.setOffset(xStart, yStart);
+		showCell(buffer, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
+		drawTime(buffer, xStart+32, yStart+36, time / 60, time % 60);
+		buffer.draw(display);
+
+		// heading
+		xStart = xOffset+cellWidth+xGap;
+		yStart = yOffset+cellHeight+yGap;
+		buffer.setOffset(xStart, yStart);
 		int16_t direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
-
-		buffer.setOffset(xOffset, yStart+cellHeight+yGap);
-		showCell(buffer, xOffset, yStart+cellHeight+yGap, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
-		drawPointer(buffer, xOffset+32, yStart+cellHeight+yGap+36, heading, 15, 8, 140);
+		showCell(buffer, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
+		drawPointer(buffer, xStart+32, yStart+36, heading, 15, 8, 140);
 		buffer.draw(display);
 
-		buffer.setOffset(xOffset+cellWidth+xGap, yStart+cellHeight+yGap);
-		showCell(buffer, xOffset+cellWidth+xGap, yStart+cellHeight+yGap, emptySpeedlyph, String(speed, 1), 0, String("mph"));
-		drawPolarLine(buffer, xOffset+cellWidth+xGap+32, yStart+cellHeight+yGap+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
+		// sunrise
+		xStart = xOffset;
+		yStart = yOffset+(cellHeight+yGap)*2;
+		buffer.setOffset(xStart, yStart);
+		showCell(buffer, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
 		buffer.draw(display);
 
-		buffer.setOffset(xOffset, yStart+(cellHeight+yGap)*2);
-		showCell(buffer, xOffset, yStart+(cellHeight+yGap)*2, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
-		buffer.draw(display);
-
-		buffer.setOffset(xOffset+cellWidth+xGap, yStart+(cellHeight+yGap)*2);
-		showCell(buffer, xOffset+cellWidth+xGap, yStart+(cellHeight+yGap)*2, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
+		// sunset
+		xStart = xOffset+cellWidth+xGap;
+		yStart = yOffset+(cellHeight+yGap)*2;
+		buffer.setOffset(xStart, yStart);
+		showCell(buffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
 		buffer.draw(display);
 
 		// buffer.setOffset(display_width - 130, display_height - 36);
@@ -827,152 +821,160 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 #define SPEED_TO_FLOAT_MPH (447.04)
 #define DISTANCE_TO_FLOAT_FLOAT (304.8)
 
-void loop() {
-	static elapsedMillis statusTime;
-	static bool haveHadFix = false;
+typedef struct {
+	bool haveFix;
+	uint16_t year;
+	uint16_t month;
+	uint16_t day;
+	uint16_t hour;
+	uint16_t minute;
+	uint16_t second;
+	float latitude;
+	float longitude;
+	float altitude;
+	float heading;
+	float speed;
+	uint8_t zoneOffset;
+	uint8_t satellites;
+	uint8_t fixType;
+	DateTime gpsTimeDate;
+} GPS_Data;
 
-	if (true || statusTime > 500) {
-		statusTime -= 500;
-		// statusTime = 0;
+void getGPSData(GPS_Data& data) {
+	data.haveFix = gps.getGnssFixOk();
+	data.year = gps.getYear();
+	data.month = gps.getMonth();
+	data.day = gps.getDay();
+	data.hour = gps.getHour();
+	data.minute = gps.getMinute();
+	data.second = gps.getSecond();
+	data.latitude = (float)gps.getLatitude() / DEGREES_TO_FLOAT;
+	data.longitude = (float)gps.getLongitude() / DEGREES_TO_FLOAT;
+	data.altitude = gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
+	data.heading = (float)gps.getHeading() / HEADING_TO_FLOAT;
+	data.speed = (float)gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
+	data.satellites = gps.getSIV();
+	data.fixType = gps.getFixType();
+
+#if 1
+	if (!data.haveFix) {
+		static elapsedMillis upTime;
+
+		data.latitude = 37.7775;
+		data.longitude = -122.416389;
+		data.year = 2021;
+		data.month = 4;
+		data.day = 25;
+		uint32_t milliTime = upTime;
+		uint32_t minutes = milliTime / 1000 / 60;
+		data.hour = 12 + (minutes / 60);
+		data.minute = minutes % 60;
+		uint32_t seconds = (milliTime / 1000) % 60;
+		static int16_t headingNum = 0;
+		data.heading = headingNum;
+		headingNum = (headingNum + 10) % 360;
+		data.speed = seconds * 80.0 / 60.0;
+		data.altitude = 12005;
+		data.haveFix = (upTime > 2000);
+	}
+#endif
+
+	static int16_t lastZoneOffset = -7;
+	bool isDST = zoneCalc.dateIsDST(data.year, data.month, data.day, data.hour, data.minute, lastZoneOffset);
+	float zoneOffset = zoneCalc.zoneOffsetForGPSCoord(data.latitude, data.longitude, isDST);
+	int8_t zoneHour = zoneOffset;
+	int8_t zoneMinute = (zoneOffset * 60) - (zoneHour * 60);
+
+	lastZoneOffset = zoneOffset + (isDST ? 1 : 0);
+
+	data.zoneOffset = lastZoneOffset;
+	data.gpsTimeDate = DateTime(data.year, data.month, data.day, data.hour, data.minute, data.second) + TimeSpan(0, zoneHour, zoneMinute, 0);
+}
+
+void loop() {
+	static elapsedMillis statusTime = 500;
+	static bool haveHadFix = false;
+	static elapsedMillis gpsTime = 800;
+	static GPS_Data gpsData;
+	static elapsedMillis gpsDataTime;
+
+	if (gpsTime >= 1000) {
+		gpsTime = 0;
+		getGPSData(gpsData);
+		if (gpsData.haveFix) {
+			haveHadFix = true;
+			gpsDataTime = 0;
+		}
+	}
+
+	elapsedMillis drawTime;
+	if (statusTime >= 350) {
+		statusTime = 0;
 
 		float light = readLight();
 
-		bool haveFix = gps.getGnssFixOk();
-		// bool haveFix = false;
-
-		haveHadFix = haveHadFix || haveFix;
-
-		uint16_t year = gps.getYear();
-		uint16_t month = gps.getMonth();
-		uint16_t day = gps.getDay();
-		uint16_t hour = gps.getHour();
-		uint16_t minute = gps.getMinute();
-		uint16_t second = gps.getSecond();
-		float latitude = (float)gps.getLatitude() / DEGREES_TO_FLOAT;
-		float longitude = (float)gps.getLongitude() / DEGREES_TO_FLOAT;
-		float altitude = gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
-		float heading = (float)gps.getHeading() / HEADING_TO_FLOAT;
-		float speed = (float)gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
-		uint8_t satellites = gps.getSIV();
-		uint8_t fixType = gps.getFixType();
-		String status = String(fixNames[fixType]);
-		// uint16_t year;
-		// uint16_t month;
-		// uint16_t day;
-		// uint16_t hour;
-		// uint16_t minute;
-		// uint16_t second;
-		// float latitude;
-		// float longitude;
-		// float altitude;
-		// float heading;
-		// float speed;
-		// uint8_t satellites;
-		// uint8_t fixType;
-		// String status;
-
-#if 1
-		if (!haveFix) {
-			static elapsedMillis upTime;
-
-			latitude = 37.7775;
-			longitude = -122.416389;
-			year = 2021;
-			month = 4;
-			day = 25;
-			uint32_t milliTime = upTime;
-			uint32_t minutes = milliTime / 1000 / 60;
-			hour = 12 + (minutes / 60);
-			minute = minutes % 60;
-			uint32_t seconds = (milliTime / 1000) % 60;
-			static int16_t headingNum = 0;
-			heading = headingNum;
-			headingNum = (headingNum + 10) % 360;
-			speed = seconds * 80.0 / 60.0;
-			altitude = 12005;
-			haveHadFix = (upTime > 2000);
-		}
-#endif
-
-		static int16_t lastZoneOffset = -7;
-		bool isDST = zoneCalc.dateIsDST(year, month, day, hour, minute, lastZoneOffset);
-		float zoneOffset = zoneCalc.zoneOffsetForGPSCoord(latitude, longitude, isDST);
-		int8_t zoneHour = zoneOffset;
-		int8_t zoneMinute = (zoneOffset * 60) - (zoneHour * 60);
-
-		lastZoneOffset = zoneOffset + (isDST ? 1 : 0);
-
-		DateTime gpsTimeDate = DateTime(year, month, day, hour, minute, second) + TimeSpan(0, zoneHour, zoneMinute, 0);
-
-		sun.setPosition(latitude, longitude, zoneOffset);
-		sun.setCurrentDate(gpsTimeDate.year(), gpsTimeDate.month(), gpsTimeDate.day());
+		sun.setPosition(gpsData.latitude, gpsData.longitude, gpsData.zoneOffset);
+		sun.setCurrentDate(gpsData.gpsTimeDate.year(), gpsData.gpsTimeDate.month(), gpsData.gpsTimeDate.day());
 
 		uint32_t sunriseTime = sun.calcSunrise();
 		uint32_t sunsetTime = sun.calcSunset();
 		String sunUp = timeFromDayMinutes(sunriseTime, false);
 		String sunDown = timeFromDayMinutes(sunsetTime, false);
 
-		uint32_t curTime = gpsTimeDate.hour() * 60 + gpsTimeDate.minute();
+		uint32_t curTime = gpsData.gpsTimeDate.hour() * 60 + gpsData.gpsTimeDate.minute();
 
-		Debug_print("GPS Data: Altitude= ");
-		Debug_print(altitude);
-		Debug_print(", Heading= ");
-		Debug_print(heading);
-		Debug_print(", sunrise=");
-		Debug_print(sunUp);
-		Debug_print(", sunset=");
-		Debug_print(sunDown);
-		Debug_print(", GMTOffset=");
-		Debug_print(lastZoneOffset);
-		Debug_print(", fix=");
-		Debug_print(haveFix);
-		Debug_print(", ");
-		Debug_print(satellites);
-		Debug_print(" sats");
-		Debug_print(", lat=");
-		Debug_print(latitude);
-		Debug_print(", lon=");
-		Debug_print(longitude);
-		Debug_print(", spd=");
-		Debug_print(speed);
-		Debug_print(", light=");
-		Debug_print(light);
-		Debug_println("");
+		// Debug_print("GPS Data: Altitude= ");
+		// Debug_print(gpsData.altitude);
+		// Debug_print(", Heading= ");
+		// Debug_print(gpsData.heading);
+		// Debug_print(", sunrise=");
+		// Debug_print(sunUp);
+		// Debug_print(", sunset=");
+		// Debug_print(sunDown);
+		// Debug_print(", GMTOffset=");
+		// Debug_print(gpsData.zoneOffset);
+		// Debug_print(", fix=");
+		// Debug_print(gpsData.haveFix);
+		// Debug_print(", ");
+		// Debug_print(gpsData.satellites);
+		// Debug_print(" sats");
+		// Debug_print(", lat=");
+		// Debug_print(gpsData.latitude);
+		// Debug_print(", lon=");
+		// Debug_print(gpsData.longitude);
+		// Debug_print(", spd=");
+		// Debug_print(gpsData.speed);
+		// Debug_print(", light=");
+		// Debug_print(light);
+		// Debug_println("");
 
 		uint16_t drawIndex = 0;
 		uint32_t startTime = millis();
 
-		while (!showData(&drawIndex, curTime, altitude, heading, speed, sunriseTime, sunsetTime, satellites, haveHadFix, status)) {
-			TPMS_Packet packet;
-
-			if (readPacket(&packet)) {
-				Debug_println("Got radio packet.");
-				int8_t index = indexOfSensor(packet.id);
-
-				if (index != -1) {
-					Debug_println("Packet is valid");
-					sensor_packets[index] = packet;
-				}
-			}
+		drawTime = 0;
+		while (!showData(&drawIndex, curTime, gpsData.altitude, gpsData.heading, gpsData.speed, sunriseTime, sunsetTime, gpsData.satellites, haveHadFix, fixNames[gpsData.fixType])) {
+			packetCheck();
 		}
 
-		uint32_t totalTime = millis() - startTime;
-		Debug_print("Display time: ");
-		Debug_print(totalTime);
-		Debug_println("ms");
+		// uint32_t totalTime = millis() - startTime;
+		// Debug_print("Display time: ");
+		// Debug_print(totalTime);
+		// Debug_println("ms");
 	}
 
+	packetCheck();
+
 	tsPoint_t touchPt;
-	if (pref_data.touch_calibrated && checkScreenTouch(&touchPt, &pref_data.touch_calibration)) {
+	if (touchScreen.screenTouch(&touchPt)) {
 		if (touchPt.y < 300) {
 			menu.run();
 		}
 	}
 
-	// static elapsedMillis showTime;
-	// if (showTime > 300) {
-	//   showTime = 0;
-	//   Debug_print("Interval = ");
-	//   Debug_println(elapsed);
-	// }
+	static elapsedMillis showTime;
+	if (showTime > 300) {
+	  Debug_print("Interval = ");
+	  Debug_println(drawTime);
+	  showTime = 0;
+	}
 }

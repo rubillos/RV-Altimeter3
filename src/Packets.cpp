@@ -1,5 +1,7 @@
 #include "packets.h"
 
+// https://github.com/cterwilliger/tst_tpms
+
 // Heltec WiFi LoRa has the following connections:
 // NSS pin:   18 (CS)        GPIO18
 // DIO0 pin:  26 (irq)       GPIO26
@@ -11,52 +13,60 @@ SX1278 radio = new Module(18, 26, 14, 35);
 uint16_t receivedPacket = 0; // count packets
 uint16_t goodCRC = 0;  // good checksums
 
-volatile bool receivedFlag = false;    // flag to indicate that a packet was received
-volatile bool enableInterrupt = true;  // disable interrupt when it's not needed
+volatile uint32_t packetCount = 0;
 
 // this function is called when a complete packet is received by the module
-void ICACHE_RAM_ATTR setFlag(void) 
-{
-    if ( !enableInterrupt ) {
-        return;
-    }
-    receivedFlag = true;
+void ICACHE_RAM_ATTR setFlag(void) {
+    packetCount++;
 }
 
-void packetsBegin() {
+void PacketMonitor::begin() {
   // initialize SX1278
-  Serial.println("\nInitializing SX1278... ");
-  radio.beginFSK();
-  radio.setOOK(true);
-  radio.setFrequency(433.92);
-  radio.setBitRate(19.2);
-  radio.setFrequencyDeviation(50);
-  radio.setRxBandwidth(125);
-  radio.setCRC(false);
-  radio.setAFCAGCTrigger(RADIOLIB_SX127X_RX_TRIGGER_RSSI_INTERRUPT);
+//   Serial.println("\nInitializing SX1278... ");
 
-  byte syncWord[] = {0xA9};
-  radio.setSyncWord(syncWord, 1);
-  
-  radio.fixedPacketLengthMode(16);
-  radio.disableAddressFiltering();
-  radio.setEncoding(RADIOLIB_ENCODING_NRZ);
-  radio.setOokThresholdType(RADIOLIB_SX127X_OOK_THRESH_PEAK);
-  radio.setOokFixedOrFloorThreshold(0x50);   
-  radio.setOokPeakThresholdDecrement(RADIOLIB_SX127X_OOK_PEAK_THRESH_DEC_1_4_CHIP);
-  radio.setOokPeakThresholdStep(RADIOLIB_SX127X_OOK_PEAK_THRESH_STEP_1_5_DB);
-  radio.setRSSIConfig(RADIOLIB_SX127X_RSSI_SMOOTHING_SAMPLES_8);
-  radio.setDio0Action(setFlag);
+    _packetLog = new PacketBuff(100);
 
-  // start listening for packets
-  Serial.print(F("Starting to listen ...\n"));
-  radio.startReceive();
+    radio.beginFSK();
+    radio.setOOK(true);
+    radio.setFrequency(433.92);
+    radio.setBitRate(19.2);
+    radio.setFrequencyDeviation(50);
+    radio.setRxBandwidth(125);
+    radio.setCRC(false);
+    radio.setAFCAGCTrigger(RADIOLIB_SX127X_RX_TRIGGER_RSSI_INTERRUPT);
+
+    byte syncWord[] = {0xA9};
+    radio.setSyncWord(syncWord, 1);
+
+    radio.fixedPacketLengthMode(16);
+    radio.disableAddressFiltering();
+    radio.setEncoding(RADIOLIB_ENCODING_NRZ);
+    radio.setOokThresholdType(RADIOLIB_SX127X_OOK_THRESH_PEAK);
+    radio.setOokFixedOrFloorThreshold(0x50);   
+    radio.setOokPeakThresholdDecrement(RADIOLIB_SX127X_OOK_PEAK_THRESH_DEC_1_4_CHIP);
+    radio.setOokPeakThresholdStep(RADIOLIB_SX127X_OOK_PEAK_THRESH_STEP_1_5_DB);
+    radio.setRSSIConfig(RADIOLIB_SX127X_RSSI_SMOOTHING_SAMPLES_8);
+    radio.setDio0Action(setFlag);
+
+    // start listening for packets
+    Serial.print(F("Starting to listen ...\n"));
+    radio.startReceive();
+}
+
+void showChecksum(uint8_t *array) {
+    uint16_t byteSum = array[1] + array[2] + array[3] + array[4] + array[5] + array[6] + array[7];
+    uint16_t checkSum = ((byteSum & 0xFF00) ? 0x80 : 0x00) | (byteSum & 0x7F);
+
+    Serial.printf("Checksum: byteSum=0x%X, checkSum=0x%X, byte0=0x%X\n",byteSum, checkSum, array[0]);
 }
 
 bool computeChecksum(uint8_t *array) {
     uint16_t byteSum = array[1] + array[2] + array[3] + array[4] + array[5] + array[6] + array[7];
+    uint16_t checkSum = ((byteSum & 0xFF00) ? 0x80 : 0x00) | (byteSum & 0x7F);
 
-    if ( (byteSum & 0x7F) == (array[0] & 0x7F) ) {
+    // Serial.printf("Checksum: byteSum=0x%X, checkSum=0x%X, byte0=0x%X\n",byteSum, checkSum, array[0]);
+
+    if ( checkSum == array[0] ) {
         goodCRC++;
         return true;
     }
@@ -95,24 +105,30 @@ void shiftBlockRight(byte *inBytes, byte *outBytes, int size, short bitShift) {
     }
 }
 
-bool readPacket(TPMS_Packet* packet) {
+bool PacketMonitor::getPacket(TPMS_Packet* packet) {
     bool result = false;
 
-    if ( receivedFlag ) {
-        enableInterrupt = false;
-        receivedFlag = false;
+    while ( !result && packetCount ) {
+        // Serial.printf("getPacket: %d packets available\n", packetCount);
+
+        packetCount--;
 
         byte byteArr[16];
         int state = radio.readData(byteArr, 16);
 
         if ( state == RADIOLIB_ERR_NONE ) {
+            // Serial.printf("Received data\n");
             receivedPacket++;
 
             byte newArr[16];
             shiftBlockRight(byteArr, newArr, 16, 2);      
             decodeManI(newArr, 16);
 
+            packet->time_stamp = millis();
+
             if ( computeChecksum(newArr) ) {
+                showChecksum(newArr);
+
                 packet->id = newArr[1]<<16 | newArr[2]<<8 | newArr[3];
 
                 float press = (newArr[7] & 0x0F) << 8 | newArr[4];
@@ -123,15 +139,16 @@ bool readPacket(TPMS_Packet* packet) {
                 packet->low_battery = (newArr[6] & 0x20) != 0;
                 packet->fast_leak = (newArr[6] & 0x10) != 0;
 
-                goodCRC++;
-                result = true;
-            } 
+                if (packet->id!=0 && packet->pressure<180 && packet->temperature>-20 && packet->temperature<180) {
+                    _packetLog->addSample(*packet);
+                    result = true;
+                    goodCRC++;
+                }
+            }  
         }
         else {
             Serial.printf("Failed, code ", state);
         }
-
-        enableInterrupt = true;
 
         radio.startReceive();
     }

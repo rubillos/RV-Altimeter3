@@ -449,7 +449,7 @@ void Adafruit_RA8875::textColor(uint16_t foreColor, uint16_t bgColor) {
   /* Clear transparency flag */
   writeCommand(0x22);
   uint8_t temp = readData();
-  temp &= ~(1 << 6); // Clear bit 6
+  temp = _textScale; // Clear bit 6
   writeData(temp);
 }
 
@@ -467,7 +467,7 @@ void Adafruit_RA8875::textTransparent(uint16_t foreColor) {
   /* Set transparency flag */
   writeCommand(0x22);
   uint8_t temp = readData();
-  temp = (1 << 6) | _textScale<<2 | _textScale; // Set bit 6
+  temp = (1 << 6) | _textScale; // Set bit 6
   writeData(temp);
 }
 
@@ -483,20 +483,21 @@ void Adafruit_RA8875::textTransparent(uint16_t foreColor) {
       @param scale   The zoom factor (0..3 for 1-4x zoom)
 */
 /**************************************************************************/
-void Adafruit_RA8875::textEnlarge(uint8_t scale) {
-  if (scale > 3)
-    scale = 3; // highest setting is 3
+void Adafruit_RA8875::textEnlarge(uint8_t scaleX, uint8_t scaleY) {
+  if (scaleX > 3)
+    scaleX = 3; // highest setting is 3
+  if (scaleY > 3)
+    scaleY = 3; // highest setting is 3
+
+  _textScale = scaleX<<2 | scaleY;
 
   /* Set font size flags */
   writeCommand(0x22);
   uint8_t temp = readData();
   temp &= 0x0F; // Clears bits 0..3
-  temp |= scale << 2;
-  temp |= scale;
+  temp |= _textScale;
 
   writeData(temp);
-
-  _textScale = scale;
 }
 
 /**************************************************************************/

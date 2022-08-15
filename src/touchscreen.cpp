@@ -6,19 +6,37 @@
 
 extern ButtonScheme backScheme;
 extern Button button_back;
+extern Button button_done;
 
 #define TOUCH_MAX 512
 
-Adafruit_RA8875* touch_tft;
-uint8_t touch_int_pin;
-uint8_t touch_wait_pin;
-uint8_t touch_beep_pin = 255;
+constexpr uint32_t defaultTouchDelay = 500;
+constexpr uint32_t repeatTouchDelay = 300;
+constexpr uint32_t beepDuration = 4;
 
-void wait_tft_done() {
-    while (digitalRead(touch_wait_pin)==LOW) {}
+volatile uint32_t interruptEnableTime;
+volatile bool interrupted = false;
+volatile bool touched = false;
+volatile bool allowRepeat = false;
+
+volatile uint8_t touch_beep_pin = 255;
+
+void touchInterrupt() {
+    static uint32_t lastTouchTime = 0;
+    uint32_t time = millis();
+    uint32_t interruptDelay = time - interruptEnableTime;
+    interrupted = true;
+
+    if ((interruptDelay > defaultTouchDelay) || (allowRepeat && (time-lastTouchTime)>repeatTouchDelay)) {
+        lastTouchTime = time;
+        touched = true;
+        if (touch_beep_pin != 255) {
+            beep(touch_beep_pin, LOW, beepDuration);
+        }
+    }
 }
 
-bool computeCalibrationMatrix(tsPoint_t* displayPts, tsPoint_t* touchPts, tsMatrix_t* matrix) {
+bool TouchScreen::computeCalibrationMatrix(tsPoint_t* displayPts, tsPoint_t* touchPts, tsMatrix_t* matrix) {
 	matrix->Divider = ((touchPts[0].x - touchPts[2].x) * (touchPts[1].y - touchPts[2].y)) -
 						((touchPts[1].x - touchPts[2].x) * (touchPts[0].y - touchPts[2].y)) ;
 
@@ -50,7 +68,7 @@ bool computeCalibrationMatrix(tsPoint_t* displayPts, tsPoint_t* touchPts, tsMatr
 	}
 }
 
-tsPoint_t scaleTouchPoint(tsPoint_t touchPt, tsMatrix_t* matrix) {
+tsPoint_t TouchScreen::scaleTouchPoint(tsPoint_t touchPt, tsMatrix_t* matrix) {
   tsPoint_t scaled;
 
   if(matrix->Divider != 0) {
@@ -64,35 +82,11 @@ tsPoint_t scaleTouchPoint(tsPoint_t touchPt, tsMatrix_t* matrix) {
   return scaled;
 }
 
-constexpr uint32_t defaultTouchDelay = 500;
-constexpr uint32_t repeatTouchDelay = 300;
-constexpr uint32_t beepDuration = 20;
-
-volatile uint32_t interruptEnableTime;
-volatile bool interrupted = false;
-volatile bool touched = false;
-volatile bool allowRepeat = false;
-
-void allowNextRepeat() {
+void TouchScreen::allowNextRepeat() {
     allowRepeat = true;
 }
 
-void touchInterrupt() {
-    static uint32_t lastTouchTime = 0;
-    uint32_t time = millis();
-    uint32_t interruptDelay = time - interruptEnableTime;
-    interrupted = true;
-
-    if ((interruptDelay > defaultTouchDelay) || (allowRepeat && (time-lastTouchTime)>repeatTouchDelay)) {
-        lastTouchTime = time;
-        touched = true;
-        if (touch_beep_pin != 255) {
-            beep(touch_beep_pin, LOW, beepDuration);
-        }
-    }
-}
-
-bool checkTouchEvent(tsPoint_t* touchPt) {
+bool TouchScreen::touchEvent(tsPoint_t* touchPt) {
     bool result = false;
 
     if (interrupted) {
@@ -101,7 +95,7 @@ bool checkTouchEvent(tsPoint_t* touchPt) {
 
         interrupted = false;
         interruptEnableTime = millis();
-        touch_tft->touchRead(&x, &y);
+        _tft->touchRead(&x, &y);
 
         if (wasTouched) {
             touched = false;
@@ -118,10 +112,14 @@ bool checkTouchEvent(tsPoint_t* touchPt) {
     return result;
 }
 
-bool checkScreenTouch(tsPoint_t* screenPt, tsMatrix_t* matrix) {
+bool TouchScreen::screenTouch(tsPoint_t* screenPt, tsMatrix_t* matrix) {
     tsPoint_t touchPt;
 
-    if (checkTouchEvent(&touchPt)) {
+    if (matrix == NULL) {
+        matrix = &_matrix;
+    }
+
+    if (matrix->Divider && touchEvent(&touchPt)) {
         *screenPt = scaleTouchPoint(touchPt, matrix);
         return true;
     }
@@ -132,30 +130,30 @@ bool checkScreenTouch(tsPoint_t* screenPt, tsMatrix_t* matrix) {
 
 #define CALIBRATION_DOT_SIZE 16
 
-bool runCalibration(tsMatrix_t* matrix) {
+bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
     bool result = false;
     uint8_t dotBits = 0b111;
     tsPoint_t touchPts[3];
     tsPoint_t screenPts[3];
 
-    screenPts[0] = { touch_tft->width() * 1 / 10, touch_tft->height() * 1 / 10 };
-    screenPts[1] = { touch_tft->width() * 5 / 10, touch_tft->height() * 9 / 10 };
-    screenPts[2] = { touch_tft->width() * 9 / 10, touch_tft->height() * 5 / 10 };
+    screenPts[0] = { _tft->width() * 1 / 10, _tft->height() * 1 / 10 };
+    screenPts[1] = { _tft->width() * 5 / 10, _tft->height() * 9 / 10 };
+    screenPts[2] = { _tft->width() * 9 / 10, _tft->height() * 5 / 10 };
 
-    touch_tft->textMode();
-    touch_tft->fillScreen(RA8875_BLACK);
+    _tft->fillScreen(RA8875_BLACK);
+    _tft->textMode();
     wait_tft_done();
-    touch_tft->textEnlarge(2);
-    touch_tft->textSetCursor(170, 120);
-    touch_tft->textColor(RA8875_YELLOW, RA8875_BLACK);
-    touch_tft->textWrite("Touch calibration dots..");
-    touch_tft->graphicsMode();
+    _tft->textEnlarge(2);
+    _tft->textSetCursor(170, 120);
+    _tft->textColor(RA8875_YELLOW, RA8875_BLACK);
+    _tft->textWrite("Touch calibration dots..");
+    _tft->graphicsMode();
     wait_tft_done();
 
     for (uint8_t i=0; i<3; i++) {
-        touch_tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE + 4, RA8875_WHITE);
+        _tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE + 4, RA8875_WHITE);
         wait_tft_done();
-        touch_tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE, RA8875_BLACK);
+        _tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE, RA8875_BLACK);
         wait_tft_done();
     }
 
@@ -167,7 +165,7 @@ bool runCalibration(tsMatrix_t* matrix) {
     bool done = false;
 
     while (!done && dotBits) {
-        while (!checkTouchEvent(&pt)) {}
+        while (!touchEvent(&pt)) {}
 
         Serial.printf("Touch pt: x=0x%3X, y=0x%3X\n", pt.x, pt.y);
 
@@ -190,7 +188,7 @@ bool runCalibration(tsMatrix_t* matrix) {
 
         if (!done) {
             if (ptIndex != -1) {
-                touch_tft->fillCircle(screenPts[ptIndex].x, screenPts[ptIndex].y, CALIBRATION_DOT_SIZE - 4, RA8875_GREEN);
+                _tft->fillCircle(screenPts[ptIndex].x, screenPts[ptIndex].y, CALIBRATION_DOT_SIZE - 4, RA8875_GREEN);
                 dotBits &= ~(1<<ptIndex);
                 touchPts[ptIndex] = pt;
             }
@@ -202,48 +200,52 @@ bool runCalibration(tsMatrix_t* matrix) {
     if (!done && computeCalibrationMatrix(screenPts, touchPts, matrix)) {
         result = true;
 
-        touch_tft->textMode();
-        touch_tft->fillScreen(RA8875_BLACK);
+        _tft->fillScreen(RA8875_BLACK);
+        _tft->textMode();
         wait_tft_done();
-        touch_tft->textEnlarge(2);
-        touch_tft->textSetCursor(170, 120);
-        touch_tft->textColor(RA8875_GREEN, RA8875_BLACK);
-        touch_tft->textWrite("Touch to test..");
-        touch_tft->graphicsMode();
+        _tft->textEnlarge(2);
+        _tft->textSetCursor(170, 120);
+        _tft->textColor(RA8875_GREEN, RA8875_BLACK);
+        _tft->textWrite("Touch to test..");
+        _tft->graphicsMode();
         wait_tft_done();
+
+        button_done.draw(false, true);
 
         bool done = false;
         while(!done) {
             tsPoint_t screenPt;
 
-            if (checkScreenTouch(&screenPt, matrix)) {
-                done = button_back.hitTest(screenPt);
+            if (screenTouch(&screenPt, matrix)) {
+                done = button_done.hitTest(screenPt);
                 if (done) {
-                    button_back.draw(true, true);
+                    button_done.draw(true, true);
                 }
                 else {
-                    touch_tft->fillCircle(screenPt.x, screenPt.y, 16, RA8875_YELLOW);
+                    _tft->fillCircle(screenPt.x, screenPt.y, 16, RA8875_YELLOW);
                 }
             }
         }
     }
-    touch_tft->fillScreen(RA8875_BLACK);
+    _tft->fillScreen(RA8875_BLACK);
 
     return result;
 }
 
-void startTouch(Adafruit_RA8875& tft, uint8_t touchIntPin, uint8_t touchWaitPin, uint8_t beeperPin) {
-    touch_tft = &tft;
-    touch_int_pin = touchIntPin;
-    touch_wait_pin = touchWaitPin;
+void TouchScreen::begin(Adafruit_RA8875& tft, uint8_t touchIntPin, uint8_t beeperPin) {
+    _tft = &tft;
+    _touchIntPin = touchIntPin;
 
-    pinMode(touch_int_pin, INPUT_PULLUP);
-    pinMode(touch_wait_pin, INPUT_PULLUP);
+    pinMode(_touchIntPin, INPUT_PULLUP);
 
     touch_beep_pin = beeperPin;
     interruptEnableTime = millis();
-    attachInterrupt(touch_int_pin, touchInterrupt, FALLING);
+    attachInterrupt(_touchIntPin, touchInterrupt, FALLING);
 
     Serial.println("Starting touch");
-    touch_tft->touchEnable(true);
+    _tft->touchEnable(true);
+}
+
+void TouchScreen::setTouchMatrix(tsMatrix_t* matrix) {
+    _matrix = *matrix;
 }
