@@ -2,15 +2,15 @@
 
 #include "elapsedMillis.h"
 #include "touchscreen.h"
-#include <Preferences.h>
+#include "defs.h"
 
 extern void doCalibrate();
 extern void wait_tft_done();
 
-#define MIN_PRESSURE 60.0
+#define MIN_PRESSURE 20.0
 #define MAX_PRESSURE 125.0
 #define MIN_TEMPERATURE 100.0
-#define MAX_TEMPERATURE 140.0
+#define MAX_TEMPERATURE 150.0
 
 ButtonScheme backScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_GRAY_LT, 3, 3 };
 ButtonScheme headerScheme = { RA8875_WHITE, RA8875_BLUE, RA8875_BLUE, 4, 3 };
@@ -21,25 +21,25 @@ ButtonScheme minusButtonScheme = { RA8875_BLACK, RA8875_RED, RA8875_RED, 3, 3 };
 ButtonScheme plusButtonScheme = { RA8875_BLACK, RA8875_GREEN, RA8875_GREEN, 3, 3 };
 ButtonScheme logScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_GRAY_DK, 2, 2 };
 
-Button button_back(0, 406, -30, 60, "Back", backScheme);
-Button button_done(buttonRightSide, 406, -30, 60, "Done", backScheme);
+Button button_back(0, 408, -20, 58, "Back", backScheme);
+Button button_done(buttonRightSide, 408, -20, 58, "Done", backScheme);
 
 //-------------------------------------
 Header header_setAlarms(0,  0, 800, 60, "Set Tire Alarms", headerScheme);
 
 Label label_minPressure(0,  120, 400, 50, "Minimum Pressure:", limitsLabelScheme);
 Button button_minPressureMinus(440,  120, 50, 50, "-", minusButtonScheme);
-Button value_minPressure(500,  120, 170, 50, "", limitsValueScheme);
+Label value_minPressure(500,  120, 170, 50, "", limitsValueScheme);
 Button button_minPressurePlus(680,  120, 50, 50, "+", plusButtonScheme);
 
 Label label_maxPressure(0,  200, 400, 50, "Maximum Pressure:", limitsLabelScheme);
 Button button_maxPressureMinus(440,  200, 50, 50, "-", minusButtonScheme);
-Button value_maxPressure(500,  200, 170, 50, "", limitsValueScheme);
+Label value_maxPressure(500,  200, 170, 50, "", limitsValueScheme);
 Button button_maxPressurePlus(680,  200, 50, 50, "+", plusButtonScheme);
 
 Label label_maxTemperature(0,  280, 400, 50, "Maximum Temperature:", limitsLabelScheme);
 Button button_maxTemperatureMinus(440,  280, 50, 50, "-", minusButtonScheme);
-Button value_maxTemperature(500,  280, 170, 50, "", limitsValueScheme);
+Label value_maxTemperature(500,  280, 170, 50, "", limitsValueScheme);
 Button button_maxTemperaturePlus(680,  280, 50, 50, "+", plusButtonScheme);
 
 Button* setAlarmsMenu[] = { &header_setAlarms, &button_back,
@@ -49,12 +49,12 @@ Button* setAlarmsMenu[] = { &header_setAlarms, &button_back,
 								NULL };
 
 //-------------------------------------
-Header header_EditSensors(0,  0, 800, 60, "Edit Sensors", headerScheme);
+Header header_EditSensors(0,  0, 800, 60, "Pair Sensors", headerScheme);
 Button* editSensorsMenu[] = { &header_EditSensors, &button_back, NULL };
 
 //-------------------------------------
 Header header_packetMonitor(0,  0, 800, 60, "Sensor Log", headerScheme);
-LogView logView_packetLog(0, 90, 800, 320, "LogView", logScheme);
+LogView logView_packetLog(0, 77, 800, 333, "LogView", logScheme);
 Button* packetMonitorMenu[] = { &header_packetMonitor, &button_back, &logView_packetLog, NULL };
 
 //-------------------------------------
@@ -69,7 +69,7 @@ constexpr uint16_t mb_h = 48;
 
 Header header_main(0,  0, 800, 60, "Main Menu", headerScheme);
 Button button_setAlarms(buttonHCenter,  mb_y, mb_w, mb_h, "Set Tire Alarms", mainButtonScheme);
-Button button_editSensors(buttonHCenter, mb_y+1*mb_off, mb_w, mb_h, "Edit Sensors", mainButtonScheme);
+Button button_editSensors(buttonHCenter, mb_y+1*mb_off, mb_w, mb_h, "Pair Sensors", mainButtonScheme);
 Button button_calibrate(buttonHCenter, mb_y+2*mb_off, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 Button button_monitor(buttonHCenter, mb_y+3*mb_off, mb_w, mb_h, "Sensor Log", mainButtonScheme);
 Button button_status(buttonHCenter, mb_y+4*mb_off, mb_w, mb_h, "System Status", mainButtonScheme);
@@ -92,6 +92,7 @@ bool minPressurePlus(Menu* menu) {
 	setMinPressureTitle(menu);
 	value_minPressure.draw(false, true);
 	menu->allowNextRepeat();
+	menu->_prefsDirty = true;
 	delay(200);
 	return false;
 }
@@ -101,6 +102,7 @@ bool minPressureMinus(Menu* menu) {
 	setMinPressureTitle(menu);
 	value_minPressure.draw(false, true);
 	menu->allowNextRepeat();
+	menu->_prefsDirty = true;
 	delay(200);
 	return false;
 }
@@ -110,6 +112,7 @@ bool maxPressurePlus(Menu* menu) {
 	setMaxPressureTitle(menu);
 	value_maxPressure.draw(false, true);
 	menu->allowNextRepeat();
+	menu->_prefsDirty = true;
 	delay(200);
 	return false;
 }
@@ -119,6 +122,7 @@ bool maxPressureMinus(Menu* menu) {
 	setMaxPressureTitle(menu);
 	value_maxPressure.draw(false, true);
 	menu->allowNextRepeat();
+	menu->_prefsDirty = true;
 	delay(200);
 	return false;
 }
@@ -128,6 +132,7 @@ bool maxTemperaturePlus(Menu* menu) {
 	setMaxTemperatureTitle(menu);
 	value_maxTemperature.draw(false, true);
 	menu->allowNextRepeat();
+	menu->_prefsDirty = true;
 	delay(200);
 	return false;
 }
@@ -137,6 +142,7 @@ bool maxTemperatureMinus(Menu* menu) {
 	setMaxTemperatureTitle(menu);
 	value_maxTemperature.draw(false, true);
 	menu->allowNextRepeat();
+	menu->_prefsDirty = true;
 	delay(200);
 	return false;
 }
@@ -171,47 +177,56 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 	uint16_t count = _buffer->length();
 
+	_button_tft->textMode();
+	_button_tft->textEnlarge(_scheme.sizeX-1, _scheme.sizeY-1);
+	_button_tft->textTransparent(RA8875_GREEN);
+	wait_tft_done();
+
+	_button_tft->textSetCursor(_rect.x, _rect.y);
+	_button_tft->textWrite("         ID       Press    Temp       Age");
+	wait_tft_done();
+
 	if (count) {
 		int16_t firstLine = _pageNumber * logLines;
 		int16_t lastLine = min((uint32_t)(firstLine+logLines), (uint32_t)count);
+		uint16_t lineHeight = logLineHeight * _scheme.sizeY;
 
 		// Serial.printf("Draw logView: draw from %d to %d\n", firstLine, lastLine);;
 
-		uint16_t line = 0;
+		uint16_t line = 1;
 		for (uint16_t i=firstLine; i<lastLine; i++) {
 			TPMS_Packet packet = _buffer->lookup(i);
+			uint16_t y = _rect.y + line++ * lineHeight + 3;
 
-			drawPacket(packet, line++);
+			_button_tft->drawFastHLine(_rect.x, y, _rect.w, _scheme.borderColor);
+		    wait_tft_done();
+			drawPacket(packet, y+1);
 		}
+
 	}
+	_button_tft->textTransparent(RA8875_BLACK);
+    _button_tft->graphicsMode();
 }
 
-void LogView::drawPacket(TPMS_Packet& packet, uint16_t lineNumber) {
+void LogView::drawPacket(TPMS_Packet& packet, uint16_t y) {
 	char lineBuff[51];
 
 	// Serial.printf("drawPacket: line=%d, id=0x%X06\n", lineNumber, packet.id);
 
-	_button_tft->textMode();
-    _button_tft->textEnlarge(_scheme.sizeX-1, _scheme.sizeY-1);
-    _button_tft->textColor(_scheme.textColor, !(lineNumber&1) ? _scheme.borderColor : _scheme.backColor);
-    wait_tft_done();
-
-    _button_tft->textSetCursor(_rect.x, _rect.y + lineNumber * logLineHeight * _scheme.sizeY);
+    _button_tft->textSetCursor(_rect.x, y);
+	_button_tft->textColor(_scheme.textColor, _scheme.backColor);
 
 	uint32_t time = (millis() - packet.time_stamp) / 1000;
 	uint16_t minutes = time / 60;
 	uint16_t seconds = time % 60;
 
-	snprintf(lineBuff, sizeof(lineBuff), "       %6X    %3.0fpsi    %3.0f\xBA     %3d:%02d        ", packet.id, packet.pressure, packet.temperature, minutes, seconds);
+	snprintf(lineBuff, sizeof(lineBuff), "       %06X    %3.0fpsi    %3.0f\xBA     %3d:%02d        ", packet.id, packet.pressure, packet.temperature, minutes, seconds);
 
     _button_tft->textWrite(lineBuff);
     wait_tft_done();
-    _button_tft->graphicsMode();
 }
 
 void LogView::refresh() {
-	// Serial.println("LogView: refresh\n");
-	packetCheck();
 	if (_drawTime>1000 || _bufferHash!=_buffer->hash()) {
 		_bufferHash = _buffer->hash();
 		draw(false, true);
@@ -294,6 +309,7 @@ void Menu::run() {
 					needUpdate = true;
 					delay(200);
 				}
+				_button_tft->textTransparent(RA8875_BLACK);
 			}
 		}
 
@@ -311,14 +327,23 @@ void Menu::run() {
 			}
 			wait_tft_done();
 			drawButtons(currentMenu);
+			_button_tft->textTransparent(RA8875_BLACK);
 		}
 
+		packetCheck();
 		Button** list = currentMenu;
-		// Serial.println("Refresh menu items");
 		while (*list) {
-			// Serial.printf("Refresh: %s\n", (*list)->title().c_str());
 			(*list)->refresh();
 			list++;
 		}
+
+		static elapsedMillis showTime;
+		if (showTime > 1000) {
+			Serial.printf("%06d: Menu: free memory=%d\n", millis(), ESP.getFreeHeap());
+			showTime = 0;
+		}
+	}
+	if (_prefsDirty) {
+		writePrefs();
 	}
 }

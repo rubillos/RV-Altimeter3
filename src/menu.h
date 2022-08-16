@@ -13,8 +13,8 @@ extern void packetCheck();
 constexpr uint16_t RA8875_GRAY_DK = 0b0101001010101010;
 constexpr uint16_t RA8875_GRAY_LT = 0b1010010100010100;
 
-constexpr uint16_t logLines = 9;
-constexpr uint16_t logLineHeight = 16;
+constexpr uint16_t logLines = 8;
+constexpr uint16_t logLineHeight = 17;
 
 class LogView : public Button {
 	public:
@@ -45,6 +45,7 @@ class Menu {
 		void allowNextRepeat();
 
 		bool _goBack = false;
+		bool _prefsDirty = false;
 		float* _minPressure;
 		float* _maxPressure;
 		float* _maxTemperature;

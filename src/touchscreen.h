@@ -2,12 +2,13 @@
 #define DEF_TOUCHSCREEN_CPP
 
 #include "Adafruit_RA8875.h"
+#include "beep.h"
 
 extern void wait_tft_done();
 
 class TouchScreen {
     public:
-        void begin(Adafruit_RA8875& tft, uint8_t touchIntPin, uint8_t beeperPin = 255);
+        void begin(Adafruit_RA8875& tft, uint8_t touchIntPin, Beeper* beeper);
 
         bool computeCalibrationMatrix(tsPoint_t* displayPts, tsPoint_t* touchPts, tsMatrix_t* matrix);
         tsPoint_t scaleTouchPoint(tsPoint_t touchPt, tsMatrix_t* matrix);

@@ -3,6 +3,7 @@
 #include "elapsedMillis.h"
 #include "beep.h"
 #include "button.h"
+#include "SimplyAtomic.h"
 
 extern ButtonScheme backScheme;
 extern Button button_back;
@@ -12,26 +13,27 @@ extern Button button_done;
 
 constexpr uint32_t defaultTouchDelay = 500;
 constexpr uint32_t repeatTouchDelay = 300;
-constexpr uint32_t beepDuration = 4;
+constexpr uint32_t beepDuration = 10;
 
 volatile uint32_t interruptEnableTime;
 volatile bool interrupted = false;
 volatile bool touched = false;
 volatile bool allowRepeat = false;
 
-volatile uint8_t touch_beep_pin = 255;
+Beeper* touch_beeper = NULL;
 
 void touchInterrupt() {
     static uint32_t lastTouchTime = 0;
     uint32_t time = millis();
     uint32_t interruptDelay = time - interruptEnableTime;
+
     interrupted = true;
 
-    if ((interruptDelay > defaultTouchDelay) || (allowRepeat && (time-lastTouchTime)>repeatTouchDelay)) {
+    if (!touched && ((interruptDelay > defaultTouchDelay) || (allowRepeat && (time-lastTouchTime)>repeatTouchDelay))) {
         lastTouchTime = time;
         touched = true;
-        if (touch_beep_pin != 255) {
-            beep(touch_beep_pin, LOW, beepDuration);
+        if (touch_beeper) {
+            touch_beeper->beep(beepDuration);
         }
     }
 }
@@ -90,17 +92,21 @@ bool TouchScreen::touchEvent(tsPoint_t* touchPt) {
     bool result = false;
 
     if (interrupted) {
-        bool wasTouched = touched;
-        uint16_t x, y;
+        uint32_t time = millis();
+        bool wasTouched;
 
-        interrupted = false;
-        interruptEnableTime = millis();
+        ATOMIC() {
+            wasTouched = touched;
+            touched = false;
+            interrupted = false;
+            interruptEnableTime = time;
+        }
+
+        uint16_t x, y;
         _tft->touchRead(&x, &y);
 
         if (wasTouched) {
-            touched = false;
-
-            Serial.printf("Touched: x=0x%3X, y=0x%03X\n", x, y);
+            // Serial.printf("Touched: x=0x%3X, y=0x%03X\n", x, y);
 
             touchPt->x = x;
             touchPt->y = y;
@@ -144,7 +150,7 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
     _tft->textMode();
     wait_tft_done();
     _tft->textEnlarge(2);
-    _tft->textSetCursor(170, 120);
+    _tft->textSetCursor(120, 120);
     _tft->textColor(RA8875_YELLOW, RA8875_BLACK);
     _tft->textWrite("Touch calibration dots..");
     _tft->graphicsMode();
@@ -206,7 +212,7 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
         _tft->textEnlarge(2);
         _tft->textSetCursor(170, 120);
         _tft->textColor(RA8875_GREEN, RA8875_BLACK);
-        _tft->textWrite("Touch to test..");
+        _tft->textWrite("Touch to test...");
         _tft->graphicsMode();
         wait_tft_done();
 
@@ -232,13 +238,13 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
     return result;
 }
 
-void TouchScreen::begin(Adafruit_RA8875& tft, uint8_t touchIntPin, uint8_t beeperPin) {
+void TouchScreen::begin(Adafruit_RA8875& tft, uint8_t touchIntPin, Beeper* beeper) {
     _tft = &tft;
     _touchIntPin = touchIntPin;
+    touch_beeper = beeper;
 
     pinMode(_touchIntPin, INPUT_PULLUP);
 
-    touch_beep_pin = beeperPin;
     interruptEnableTime = millis();
     attachInterrupt(_touchIntPin, touchInterrupt, FALLING);
 

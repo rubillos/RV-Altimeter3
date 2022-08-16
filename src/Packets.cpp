@@ -1,5 +1,7 @@
 #include "packets.h"
 
+#include "SimplyAtomic.h"
+
 // https://github.com/cterwilliger/tst_tpms
 
 // Heltec WiFi LoRa has the following connections:
@@ -106,12 +108,14 @@ void shiftBlockRight(byte *inBytes, byte *outBytes, int size, short bitShift) {
 }
 
 bool PacketMonitor::getPacket(TPMS_Packet* packet) {
+    static TPMS_Packet lastPacket;
     bool result = false;
 
     while ( !result && packetCount ) {
         // Serial.printf("getPacket: %d packets available\n", packetCount);
-
-        packetCount--;
+        ATOMIC() {
+            packetCount--;
+        }
 
         byte byteArr[16];
         int state = radio.readData(byteArr, 16);
@@ -135,6 +139,8 @@ bool PacketMonitor::getPacket(TPMS_Packet* packet) {
                 packet->pressure = (press / 0.4) / 6.895;  // kPa then psi
 
                 packet->temperature = ((newArr[5] - 50) * 1.8) + 32;  // deg C to F
+
+                packet->stale = false;
 
                 packet->low_battery = (newArr[6] & 0x20) != 0;
                 packet->fast_leak = (newArr[6] & 0x10) != 0;

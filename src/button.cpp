@@ -33,7 +33,7 @@ constexpr int16_t widen_amount = 20;
 bool Button::hitTest(tsPoint_t pt, bool widen) {
     computeScreenRect();
 
-    if (widen) {
+   if (widen) {
         return ((pt.x>=_rect.x-widen_amount) && (pt.x<_rect.x+_rect.w+2*widen_amount) && (pt.y>=_rect.y-widen_amount) && (pt.y<_rect.y+_rect.h+2*widen_amount));
     }
     else {
@@ -85,6 +85,7 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
     _button_tft->textSetCursor(x, y);
 
     _button_tft->textWrite(_title.c_str());
+    _button_tft->textTransparent(RA8875_BLACK);
     wait_tft_done();
     _button_tft->graphicsMode();
 }

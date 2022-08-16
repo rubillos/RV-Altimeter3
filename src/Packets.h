@@ -5,12 +5,12 @@
 
 typedef struct {
     uint32_t time_stamp;
-        uint32_t id;
-        float pressure;
-        float temperature;
-        bool low_battery;
-        bool fast_leak;
-        bool stale;
+    uint32_t id;
+    float pressure;
+    float temperature;
+    bool low_battery;
+    bool fast_leak;
+    bool stale;
 } TPMS_Packet;
 
 class PacketBuff {

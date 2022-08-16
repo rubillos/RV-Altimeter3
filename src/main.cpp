@@ -2,9 +2,6 @@
 
 #define defaultMaxWait 250
 
-// https://tchapi.github.io/Adafruit-GFX-Font-Customiser/
-// ./fontconvert freefont-ttf/sfd/FreeSans.ttf 36 32 126 '~°' > Fonts/FreeSans36pt7bCustom.h
-
 #include "heltec.h"
 #include "TimeLib.h"
 #include <elapsedMillis.h>
@@ -24,15 +21,12 @@
 #include <Preferences.h>
 #include "button.h"
 #include "menu.h"
-
-#include "soc/soc.h"
-#include "soc/rtc_cntl_reg.h"
+#include "tires.h"
+#include "defs.h"
 
 #include "fonts/FreeSans36pt7bCustom.h"
 #include "fonts/FreeSans44pt7b.h"
 #include "fonts/FreeSans16pt7b.h"
-#include "fonts/FreeSansBold30pt7b.h"
-#include "fonts/ModFreeSansBold30pt.h"
 
 #include "fonts/ModFreeSans44pt.h"
 
@@ -46,7 +40,7 @@
 #include "fonts/DejaVuSerifBoldItalic30pt.h"
 #include "fonts/DejaVuSerifBoldItalic56pt.h"
 
-#include "graphics/Tire.png.h"
+#include "graphics/PX.png.h"
 
 #ifdef DO_SERIAL
 #define Debug_print(...) Serial.print(__VA_ARGS__)
@@ -81,49 +75,37 @@
 #define BUZZER_PIN 25
 #define LIGHT_SENSOR_PIN 38
 
-#define Color8(r, g, b) ((r & 0xE0) | ((g & 0xE0)>>3) | (b>>6))
-#define Color16(r, g, b) ((r & 0xE0) | ((g & 0xE0)>>3) | (b>>6))
-
-#define BLACK8 Color8(0x00, 0x00, 0x00)
-#define WHITE8 Color8(0xFF, 0xFF, 0xFF)
-#define GREEN8 Color8(0x00, 0xFF, 0x00)
-#define RED8 Color8(0xFF, 0x00, 0x00)
-#define BLUE8 Color8(0x00, 0x00, 0xFF)
-#define ORANGE8 Color8(0xFF, 0x80, 0x00)
-#define YELLOW8 Color8(0xFF, 0xFF, 0x00)
-#define CYAN8 Color8(0x00, 0xFF, 0xFF)
-#define MAGENTA8 Color8(0xFF, 0x00, 0xFF)
-
-#define DARK_GRAY8 0b01101101
-
-#define WHITE16 0xFFFF
-
 constexpr int16_t display_width = 800;
 constexpr int16_t display_height = 480;
 
 constexpr int16_t cellWidth = 330;
-constexpr int16_t cellHeight = 69;
+constexpr int16_t cellHeight = 70;
+
+constexpr uint16_t tire_top_y = 300;
 
 SPIClass LCD_SPI(HSPI);
 Adafruit_RA8875 display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
-
 SSD1306Wire displayOLED = SSD1306Wire(0x3c, SDA_OLED, SCL_OLED, RST_OLED, GEOMETRY_128_64);
 
 SFE_UBLOX_GNSS gps;
-
 ZoneCalc zoneCalc;
 SunSet sun;
 
 Buffer8 buffer(0, 0, cellWidth, cellHeight);
 
+Preferences preferences;
+
 PacketMonitor packetMonitor;
 TouchScreen touchScreen;
 Menu menu;
+TireHandler tireHandler;
+Beeper beeper(BUZZER_PIN, LOW);
 
 #define PREFS_VERSION 2
 
-#define NUM_TIRES 6
 #define LOG_DEPTH 16
+
+#define NUM_TIRES 6
 
 struct {
 	uint32_t sensor_ids[NUM_TIRES];
@@ -137,10 +119,8 @@ struct {
 
 TPMS_Packet sensor_packets[NUM_TIRES];
 
-Preferences preferences;
-
 void wait_tft_done() {
-    while (digitalRead(RA8875_WAIT)==LOW) {}
+	while (digitalRead(RA8875_WAIT)==LOW) {}
 }
 
 const char* sensorKeys[] = { "id0", "id1", "id2", "id3", "id4", "id5" };
@@ -215,19 +195,26 @@ uint16_t getStringWidth(Adafruit_GFX& dest, String str)
 	return width;
 }
 
-PNG png;
-int16_t pngX, pngY;
-Adafruit_GFX* pngDest;
-
-#define rBits 0b1110000000000000
-#define gBits 0b0000011100000000
+#define rBits 0b1100000000000000
+#define gBits 0b0000011000000000
 #define bBits 0b0000000000011000
 
 #define rShift 8
 #define gShift 6
 #define bShift 3
 
-#define RGB16to8(v) ((v&rBits)>>rShift | (v&gBits)>>gShift | (v&bBits)>>bShift)
+// #define RGB16to8(v) (((v&rBits)>>rShift) | ((v&gBits)>>gShift) | ((v&bBits)>>bShift))
+
+inline uint16_t RGB16to8(uint16_t v) {
+	uint8_t c = (((v&rBits)>>rShift) | ((v&gBits)>>gShift) | ((v&bBits)>>bShift));
+	c |= (c & 0b10010000) >> 2;
+	return c;
+}
+
+PNG png;
+int16_t pngX, pngY;
+Adafruit_GFX* pngDest;
+Adafruit_RA8875* pngDest8;
 
 void PNGDraw(PNGDRAW *pDraw) {
 	uint16_t pixels[cellWidth];
@@ -241,11 +228,33 @@ void PNGDraw(PNGDRAW *pDraw) {
 	}
 }
 
-void drawPNG(const unsigned char* data, uint16_t length, Adafruit_GFX* dest, int16_t x, int16_t y) {
+void drawPNG(const unsigned char* data, uint32_t length, Adafruit_GFX* dest, int16_t x, int16_t y) {
 	if (png.openRAM((uint8_t*)data, length, PNGDraw) == PNG_SUCCESS) {
 		pngX = x;
 		pngY = y;
 		pngDest = dest;
+		if (png.decode(NULL, 0) != PNG_SUCCESS) {
+			Debug_println("PNG Decode Error!");
+		}
+	}
+}
+
+void PNGDraw8(PNGDRAW *pDraw) {
+	uint16_t pixels[pDraw->iWidth];
+	uint8_t pixels8[pDraw->iWidth];
+
+	png.getLineAsRGB565(pDraw, pixels, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+	for (uint16_t i = 0; i<pDraw->iWidth; i++) {
+		pixels8[i] = RGB16to8(pixels[i]);
+	}
+	pngDest8->drawPixels8(pixels8, pDraw->iWidth, pngX, pngY+pDraw->y);
+}
+
+void drawPNG8(const unsigned char* data, uint32_t length, Adafruit_RA8875* dest, int16_t x, int16_t y) {
+	if (png.openRAM((uint8_t*)data, length, PNGDraw8) == PNG_SUCCESS) {
+		pngX = x;
+		pngY = y;
+		pngDest8 = dest;
 		if (png.decode(NULL, 0) != PNG_SUCCESS) {
 			Debug_println("PNG Decode Error!");
 		}
@@ -263,8 +272,10 @@ void startDisplay() {
 	display.displayOn(true);
 	display.GPIOX(true);      // Enable display - display enable tied to GPIOX
 	display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
-	display.PWM1out(255);
+	// display.PWM1out(255);
+	display.PWM1out(127);
 	display.setLayerMode(true);
+	display.setWaitPin(RA8875_WAIT);
 	display.graphicsMode();                 // go back to graphics mode
 	display.fillScreen(BLACK8);
 
@@ -298,7 +309,7 @@ void scan_bus(TwoWire &bus) {
 	Debug_println("Scanning Bus...");
 	for (uint16_t i=1; i<127; i++) {
 		bus.beginTransmission(i);
-    	byte error = bus.endTransmission();
+		byte error = bus.endTransmission();
 		if (error == 0) {
 			Debug_print("Device found at addr 0x");
 			Debug_println(String(i, HEX));
@@ -310,6 +321,8 @@ void scan_bus(TwoWire &bus) {
 constexpr uint16_t oled_line_count = 6;
 constexpr uint16_t oled_char_count = 32;
 constexpr uint16_t oled_line_height = 10;
+
+bool OLED_inited = false;
 
 typedef struct {
 	char line[oled_char_count];
@@ -341,18 +354,20 @@ void OLED_scrollIfNeeded() {
 void OLED_println(const char* str) {
 	Debug_println(str);
 
-	OLED_scrollIfNeeded();
-	if (oled_char_index < oled_char_count-1) {
-		memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index)) );
+	if (OLED_inited) {
+		OLED_scrollIfNeeded();
+		if (oled_char_index < oled_char_count-1) {
+			memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index)) );
+		}
+		oled_char_index = 0;
+		if (oled_line_index < (oled_line_count-1)) {
+			oled_line_index++;
+		}
+		else {
+			oled_need_scroll = true;
+		}
+		OLED_show();
 	}
-	oled_char_index = 0;
-	if (oled_line_index < (oled_line_count-1)) {
-		oled_line_index++;
-	}
-	else {
-		oled_need_scroll = true;
-	}
-	OLED_show();
 }
 
 void OLED_println(int32_t val) {
@@ -370,11 +385,13 @@ void OLED_println(float val) {
 void OLED_print(const char* str) {
 	Debug_print(str);
 
-	OLED_scrollIfNeeded();
-	if (oled_char_index < oled_char_count-1) {
-		uint16_t charsToCopy = min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index));
-		memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, charsToCopy );
-		oled_char_index += charsToCopy;
+	if (OLED_inited) {
+		OLED_scrollIfNeeded();
+		if (oled_char_index < oled_char_count-1) {
+			uint16_t charsToCopy = min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index));
+			memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, charsToCopy );
+			oled_char_index += charsToCopy;
+		}
 	}
 }
 
@@ -414,19 +431,11 @@ void packetCheck() {
 		// Debug_println("Got radio packet.");
 		Serial.printf("id=0x%X, pressure=%0.1f, temperature=%0.1f\n", packet.id, packet.pressure, packet.temperature);
 
-		int8_t index = indexOfSensor(packet.id);
-
-		if (index != -1) {
-			Debug_println("Packet match");
-			sensor_packets[index] = packet;
-		}
+		tireHandler.recordPacket(packet);
 	}
 }
 
 void setup() {
-	pinMode(BUZZER_PIN, OUTPUT);
-	digitalWrite(BUZZER_PIN, HIGH);
-
 	Debug_delay(3000);
 	Debug_begin(115200);
 	Debug_flush();
@@ -436,15 +445,16 @@ void setup() {
 
 	analogReadResolution(analog_resolution);
 
-	Debug_println("Scan Bus");
-	displayOLED.connect();
-	scan_bus(Wire);
+	// Debug_println("Scan Bus");
+	// displayOLED.connect();
+	// scan_bus(Wire);
 
 	Debug_println("Init OLED");
 	displayOLED.init();
-	// displayOLED.flipScreenVertically();
+	displayOLED.flipScreenVertically();
 	displayOLED.setFont(ArialMT_Plain_10);
 	displayOLED.setLogBuffer(6, 40);
+	OLED_inited = true;
 
 	OLED_println("GPS Altometer");
 
@@ -455,9 +465,12 @@ void setup() {
 	OLED_println("Init TFT display...");
 	startDisplay();
 
+	// drawPNG8(PX_png, sizeof(PX_png), &display, 0, 0);
+	// delay(2000);
+
 	OLED_println("Init Touchscreen...");
 	pinMode(RA8875_WAIT, INPUT_PULLUP);
-	touchScreen.begin(display, RA8875_INT, BUZZER_PIN);
+	touchScreen.begin(display, RA8875_INT, &beeper);
 
 	OLED_println("Init PacketRadio...");
 	packetMonitor.begin();
@@ -482,6 +495,9 @@ void setup() {
 	OLED_println("Init Menu System...");
 	menu.begin(&display, &touchScreen, &packetMonitor, &pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
 
+	tireHandler.begin(display, buffer, beeper, 300, pref_data.sensor_ids,
+						&pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
+
 	OLED_println("Check touchscreen...");
 	if (!pref_data.touch_calibration.Divider) {
 		OLED_println("Calibrating...");
@@ -489,12 +505,6 @@ void setup() {
 	}
 
 	OLED_println("Init Done!");
-
-	// Debug_println("Begin Test");
-	// // packetMonitor.begin();
-	// while (1) {
-	// 	packetCheck();
-	// }
 }
 
 String timeFromDayMinutes(double dayMinutes, bool includeSeconds) {
@@ -777,34 +787,7 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 
 	// display.drawFastHLine(0, 300, display_width, DARK_GRAY8);
 
-	constexpr uint16_t tire_top_y = 300;
-
-	display.fillRect(380, tire_top_y+30, 40, 6, WHITE16);
-	display.fillRect(262, tire_top_y+110, 300, 6, WHITE16);
-	display.fillRect(396, tire_top_y+32, 6, 80, WHITE16);
-
-	uint16_t tireX[] = { 272, 416, 152, 272, 416, 536 };
-	uint16_t tireY[] = { tire_top_y, tire_top_y, tire_top_y+80, tire_top_y+80, tire_top_y+80, tire_top_y+80 };
-	uint16_t tirePressure[] = { 87, 87, 90, 102, 92, 90 };
-	uint8_t tireColor[] = { GREEN8, GREEN8, GREEN8, GREEN8, GREEN8, GREEN8 };
-	constexpr uint16_t tireWidth = 110;
-	constexpr uint16_t tireHeight = 67;
-
-	buffer.setFont(&ModFreeSansBold30pt7b);
-	for (uint16_t i=0; i<6; i++) {
-		buffer.setOffset(tireX[i], tireY[i]);
-		drawPNG(Tire_png, sizeof(Tire_png), &buffer, tireX[i], tireY[i]);
-		buffer.setTextColor(tireColor[i]);
-		if (tirePressure[i]>99) {
-			buffer.setCursor(tireX[i]+ 10, tireY[i]+tireHeight-13);
-		}
-		else {
-			buffer.setCursor(tireX[i]+ 25, tireY[i]+tireHeight-13);
-		}
-		buffer.print(tirePressure[i]);
-
-		buffer.draw(display, tireWidth, tireHeight);
-	}
+	tireHandler.drawTires();
 
 	// buffer.setTextColor(WHITE8);
 	// buffer.setOffset(4, display_height - 40);
@@ -892,12 +875,12 @@ void getGPSData(GPS_Data& data) {
 }
 
 void loop() {
-	static elapsedMillis statusTime = 500;
 	static bool haveHadFix = false;
-	static elapsedMillis gpsTime = 800;
 	static GPS_Data gpsData;
 	static elapsedMillis gpsDataTime;
+	static uint32_t drawTime;
 
+	static elapsedMillis gpsTime = 800;
 	if (gpsTime >= 1000) {
 		gpsTime = 0;
 		getGPSData(gpsData);
@@ -907,7 +890,7 @@ void loop() {
 		}
 	}
 
-	elapsedMillis drawTime;
+	static elapsedMillis statusTime = 500;
 	if (statusTime >= 350) {
 		statusTime = 0;
 
@@ -951,15 +934,11 @@ void loop() {
 		uint16_t drawIndex = 0;
 		uint32_t startTime = millis();
 
-		drawTime = 0;
+		elapsedMillis drawStart;
 		while (!showData(&drawIndex, curTime, gpsData.altitude, gpsData.heading, gpsData.speed, sunriseTime, sunsetTime, gpsData.satellites, haveHadFix, fixNames[gpsData.fixType])) {
 			packetCheck();
 		}
-
-		// uint32_t totalTime = millis() - startTime;
-		// Debug_print("Display time: ");
-		// Debug_print(totalTime);
-		// Debug_println("ms");
+		drawTime = drawStart;
 	}
 
 	packetCheck();
@@ -969,12 +948,14 @@ void loop() {
 		if (touchPt.y < 300) {
 			menu.run();
 		}
+		else {
+			tireHandler.showTemperature();
+		}
 	}
 
 	static elapsedMillis showTime;
-	if (showTime > 300) {
-	  Debug_print("Interval = ");
-	  Debug_println(drawTime);
-	  showTime = 0;
+	if (showTime > 500) {
+		Serial.printf("%06d: Draw time=%dms, free memory=%d\n", millis(), drawTime, ESP.getFreeHeap());
+		showTime = 0;
 	}
 }

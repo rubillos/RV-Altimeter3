@@ -1,3 +1,6 @@
+#ifndef DEF_BUFFER8_H
+#define DEF_BUFFER8_H
+
 #include <Adafruit_GFX.h>     // Core graphics library
 #include "Adafruit_RA8875.h"
 
@@ -36,3 +39,5 @@ private:
   uint16_t _x;
   uint16_t _y;
 };
+
+#endif

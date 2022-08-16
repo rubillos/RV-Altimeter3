@@ -232,6 +232,9 @@ public:
 
   void writeColor(uint8_t reg, uint16_t color);
 
+  uint8_t _waitPin = 255;
+  void setWaitPin(uint8_t pin) { _waitPin = pin; };
+
   /* Low level access */
   void writeReg(uint8_t reg, uint8_t val);
   uint8_t readReg(uint8_t reg);

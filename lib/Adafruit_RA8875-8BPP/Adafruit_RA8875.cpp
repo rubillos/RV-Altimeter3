@@ -558,7 +558,13 @@ void Adafruit_RA8875::textWrite(const char *buffer, uint16_t len) {
     /// @endcond
     // For others, delay starting with textEnlarge(2)
     // if (_textScale > 1)
-      delay(1);
+      // delay(1);
+      if (_waitPin != 255) {
+        while (digitalRead(_waitPin)==LOW) {}
+      }
+      else {
+        delayMicroseconds(300);
+      }
 /// @cond DISABLE
 #endif
     /// @endcond
