@@ -693,111 +693,124 @@ void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16
 	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5);
 }
 
+static bool drawLayer = false;
+
 bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
 	constexpr int16_t xOffset = 50;
 	constexpr int16_t xGap = 45;
 	constexpr int16_t yOffset = 20;
 	constexpr int16_t yGap = 22;
 	static uint8_t colon = 1;
-	static bool layer = false;
 	uint16_t xStart, yStart;
+	String timeString;
+	int16_t direction;
+	bool result = false;
 
-	layer = !layer;
-	display.setDrawLayer(layer);
-	display.fillScreen(BLACK8);
+	display.setDrawLayer(!drawLayer);
 
-	buffer.setTextSize(1);
-	buffer.setTextColor(WHITE8);
-	buffer.setTextWrap(false);
+	if (*drawIndex == 0) {
+		display.fillScreen(BLACK8);
+
+		buffer.setTextSize(1);
+		buffer.setTextColor(WHITE8);
+		buffer.setTextWrap(false);
+	}
 
 	if (haveFix) {
-		String timeString = timeFromDayMinutes(time, false);
-		if (!colon) {
-			timeString.replace(String(":"), String(" "));
+		switch (*drawIndex) {
+			case 0:
+				// speed
+				xStart = xOffset;
+				yStart = yOffset;
+				buffer.setOffset(xStart, yStart);
+				showCell(buffer, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
+				drawPolarLine(buffer, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
+				buffer.draw(display);
+				break;
+			case 1:
+				// altitude
+				xStart = xOffset+cellWidth+xGap;
+				yStart = yOffset;
+				buffer.setOffset(xStart, yStart);
+				// buffer.fillRect(xStart, yStart, cellWidth, cellHeight, GREEN8);
+				showCell(buffer, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
+				buffer.draw(display);
+				break;
+			case 2:
+				// time
+				timeString = timeFromDayMinutes(time, false);
+				if (!colon) {
+					timeString.replace(String(":"), String(" "));
+				}
+				colon = (colon+1)%5;
+
+				xStart = xOffset;
+				yStart = yOffset+cellHeight+yGap;
+				buffer.setOffset(xStart, yStart);
+				showCell(buffer, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
+				drawTime(buffer, xStart+32, yStart+36, time / 60, time % 60);
+				buffer.draw(display);
+				break;
+			case 3:
+				// heading
+				xStart = xOffset+cellWidth+xGap;
+				yStart = yOffset+cellHeight+yGap;
+				buffer.setOffset(xStart, yStart);
+				direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
+				showCell(buffer, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
+				drawPointer(buffer, xStart+32, yStart+36, heading, 15, 8, 140);
+				buffer.draw(display);
+				break;
+			case 4:
+				// sunrise
+				xStart = xOffset;
+				yStart = yOffset+(cellHeight+yGap)*2;
+				buffer.setOffset(xStart, yStart);
+				showCell(buffer, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
+				buffer.draw(display);
+				break;
+			case 5:
+				// sunset
+				xStart = xOffset+cellWidth+xGap;
+				yStart = yOffset+(cellHeight+yGap)*2;
+				buffer.setOffset(xStart, yStart);
+				showCell(buffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
+				buffer.draw(display);
+				break;
 		}
-		colon = (colon+1)%5;
-
-		// speed
-		xStart = xOffset;
-		yStart = yOffset;
-		buffer.setOffset(xStart, yStart);
-		showCell(buffer, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
-		drawPolarLine(buffer, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
-		buffer.draw(display);
-
-		// altitude
-		xStart = xOffset+cellWidth+xGap;
-		yStart = yOffset;
-		buffer.setOffset(xStart, yStart);
-		// buffer.fillRect(xStart, yStart, cellWidth, cellHeight, GREEN8);
-		showCell(buffer, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
-		buffer.draw(display);
-
-		// time
-		xStart = xOffset;
-		yStart = yOffset+cellHeight+yGap;
-		buffer.setOffset(xStart, yStart);
-		showCell(buffer, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
-		drawTime(buffer, xStart+32, yStart+36, time / 60, time % 60);
-		buffer.draw(display);
-
-		// heading
-		xStart = xOffset+cellWidth+xGap;
-		yStart = yOffset+cellHeight+yGap;
-		buffer.setOffset(xStart, yStart);
-		int16_t direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
-		showCell(buffer, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
-		drawPointer(buffer, xStart+32, yStart+36, heading, 15, 8, 140);
-		buffer.draw(display);
-
-		// sunrise
-		xStart = xOffset;
-		yStart = yOffset+(cellHeight+yGap)*2;
-		buffer.setOffset(xStart, yStart);
-		showCell(buffer, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
-		buffer.draw(display);
-
-		// sunset
-		xStart = xOffset+cellWidth+xGap;
-		yStart = yOffset+(cellHeight+yGap)*2;
-		buffer.setOffset(xStart, yStart);
-		showCell(buffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
-		buffer.draw(display);
-
-		// buffer.setOffset(display_width - 130, display_height - 36);
-		// buffer.setFont(&DejaVuSerifBoldItalic30);
-		// buffer.setCursor(display_width - 10 - getStringWidth(buffer, status), display_height - 10);
-		// buffer.print(status);
-		// buffer.draw(display, 130, 26);
+		(*drawIndex)++;
 	}
 	else {
-		buffer.setOffset(display_width/2 - 100, 100);
-		static uint8_t dotCount = 1;
-		static String acquiring = String("Acquiring");
-		static String dots = String(".....");
+		if (*drawIndex == 0) {
+			buffer.setOffset(display_width/2 - 100, 100);
+			static uint8_t dotCount = 1;
+			static String acquiring = String("Acquiring");
+			static String dots = String(".....");
 
-		status = acquiring+dots.substring(0, dotCount);
-		dotCount = (dotCount % 5)+1;
+			status = acquiring+dots.substring(0, dotCount);
+			dotCount = (dotCount % 5)+1;
 
-		buffer.setFont(&FreeSans18pt7b);
+			buffer.setFont(&FreeSans18pt7b);
 
-		buffer.setCursor(display_width/2 - 100, 130);
-		buffer.print(status);
-		buffer.draw(display);
+			buffer.setCursor(display_width/2 - 100, 130);
+			buffer.print(status);
+			buffer.draw(display);
+		}
+		*drawIndex = 6;
 	}
 
-	// display.drawFastHLine(0, 300, display_width, DARK_GRAY8);
+	if (*drawIndex==6) {
+		tireHandler.drawTires();
+		display.showLayer(!drawLayer);
+		drawLayer = !drawLayer;
+		*drawIndex = 0;
+		result = true;
+	}
+	else {
+		display.setDrawLayer(drawLayer);
+	}
 
-	tireHandler.drawTires();
-
-	// buffer.setTextColor(WHITE8);
-	// buffer.setOffset(4, display_height - 40);
-	// showCell(buffer, 4, display_height - 26, satelliteGlyph, String(satCount), 0, String(""), &FreeSans12pt7b);
-	// buffer.draw(display, 60, 40);
-
-	display.showLayer(layer);
-
-	return true;
+	return result;
 }
 
 #define DEGREES_TO_FLOAT (10000000)
@@ -891,6 +904,7 @@ void loop() {
 		}
 	}
 
+	static uint16_t drawIndex = 0;
 	static elapsedMillis statusTime = 500;
 	if (statusTime >= 350) {
 		statusTime = 0;
@@ -932,7 +946,6 @@ void loop() {
 		// Serial.print(light);
 		// Serial.println("");
 
-		uint16_t drawIndex = 0;
 		uint32_t startTime = millis();
 
 		elapsedMillis drawStart;
@@ -947,6 +960,7 @@ void loop() {
 	tsPoint_t touchPt;
 	if (touchScreen.screenTouch(&touchPt)) {
 		if (touchPt.y < 300) {
+			drawIndex = 0;
 			menu.run();
 		}
 		else {
