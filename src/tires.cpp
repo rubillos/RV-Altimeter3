@@ -34,8 +34,8 @@ void TireHandler::drawTires() {
         int16_t xOffset = -1, yOffset = 0;
 
         // uint16_t temperature = _sensorPackets[i].temperature;
-        uint16_t temperature = temperatures[i];
         // uint16_t pressure = _sensorPackets[i].pressure;
+        uint16_t temperature = temperatures[i];
         uint16_t pressure = pressures[i];
 
         bool tempAlarm = temperature >= *_temperatureMax;
@@ -52,7 +52,7 @@ void TireHandler::drawTires() {
             sensor->stale = true;
         }
 
-        if (0 && _sensorIDs[i] == 0) {
+        if (0 && sensorIDs[i] == 0) {
         	_buffer->setFont(&FreeSansBold30pt7b);
             _buffer->setTextColor(RED8);
             str = "??";
@@ -127,7 +127,7 @@ int16_t TireHandler::indexOfSensor(uint32_t sensor_id) {
     return sIndex;
 
 	for (uint8_t i=0; i<numTires; i++) {
-		if (sensor_id == _sensorIDs[i]) {
+		if (sensor_id == sensorIDs[i]) {
 			return i;
 		}
 	}

@@ -15,9 +15,9 @@ typedef enum {
 } ButtonFlags;
 
 typedef struct {
-	const uint16_t textColor;
-	const uint16_t backColor;
-	const uint16_t borderColor;
+	uint16_t textColor;
+	uint16_t backColor;
+	uint16_t borderColor;
 	uint8_t sizeX;
 	uint8_t sizeY;
 	uint16_t flags;
@@ -40,23 +40,26 @@ class Button {
 			};
 
 		void setTFT(Adafruit_RA8875* tft) { _button_tft = tft; };
-		void setTitle(String title);
+		void setTitle(String title) { _title = title; _dirty = true; };
+		void setTitleInset(uint16_t inset) { _titleInset = inset; };
 
-		uint16_t width() { computeScreenRect(); return _rect.w; }
-		uint16_t height() { computeScreenRect(); return _rect.h; }
+		uint16_t width() { computeScreenRect(); return _rect.w; };
+		uint16_t height() { computeScreenRect(); return _rect.h; };
+		ButtonRect rect() { computeScreenRect(); return _rect; };
 
-		String title() { return _title; };
-
-		bool (*touchFunc)(void*);
+		bool (*touchFunc)(void*, void*);
 		Button** subButtons;
 
+		virtual String title() { return _title; };
+		virtual ButtonScheme* scheme() { return &_scheme; };
 		virtual bool hitTest(tsPoint_t pt, bool widen=false);
 		virtual bool isHeader() { return false; };
 		virtual void draw(bool pressed=false, bool forceBackground=false);
 		virtual void refresh() {};
- 
+
 	protected:
 		void drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borderColor, bool forceBackground);
+		bool hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen);
 		uint16_t titleWidth();
 		uint16_t titleHeight();
 		void computeScreenRect();
@@ -65,6 +68,7 @@ class Button {
 		int16_t _y;
 		int16_t _w;
 		int16_t _h;
+		int16_t _titleInset;
 		String _title;
 		ButtonScheme _scheme;
 
@@ -74,8 +78,8 @@ class Button {
 
 class Label : public Button {
 	public:
-		Label(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme) : Button(x, y, w, h, title, scheme) {
-
+		Label(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0 ) : Button(x, y, w, h, title, scheme) {
+			_titleInset = titleInset;
 		};
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
 };

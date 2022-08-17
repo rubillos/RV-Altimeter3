@@ -560,7 +560,7 @@ void Adafruit_RA8875::textWrite(const char *buffer, uint16_t len) {
     // if (_textScale > 1)
       // delay(1);
       if (_waitPin != 255) {
-        while (digitalRead(_waitPin)==LOW) {}
+        waitUntilDone();
       }
       else {
         delayMicroseconds(300);
@@ -677,6 +677,7 @@ void Adafruit_RA8875::fillRect(void) {
   writeData(RA8875_DCR_LINESQUTRI_STOP | RA8875_DCR_DRAWSQUARE);
   writeData(RA8875_DCR_LINESQUTRI_START | RA8875_DCR_FILL |
             RA8875_DCR_DRAWSQUARE);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -845,6 +846,7 @@ void Adafruit_RA8875::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1139,6 +1141,7 @@ void Adafruit_RA8875::circleHelper(int16_t x, int16_t y, int16_t r,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_CIRCLE_STATUS);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1190,6 +1193,7 @@ void Adafruit_RA8875::rectHelper(int16_t x, int16_t y, int16_t w, int16_t h,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1250,6 +1254,7 @@ void Adafruit_RA8875::triangleHelper(int16_t x0, int16_t y0, int16_t x1,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1296,6 +1301,7 @@ void Adafruit_RA8875::ellipseHelper(int16_t xCenter, int16_t yCenter,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_ELLIPSE_STATUS);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1344,6 +1350,7 @@ void Adafruit_RA8875::curveHelper(int16_t xCenter, int16_t yCenter,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_ELLIPSE_STATUS);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1410,6 +1417,7 @@ void Adafruit_RA8875::roundRectHelper(int16_t x, int16_t y, int16_t w,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_DCR_LINESQUTRI_STATUS);
+  waitUntilDone();
 }
 /**************************************************************************/
 /*!
@@ -1452,6 +1460,7 @@ void Adafruit_RA8875::setScrollWindow(int16_t x, int16_t y, int16_t w,
   // Scroll function setting
   writeCommand(0x52);
   writeData(mode);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1467,6 +1476,7 @@ void Adafruit_RA8875::scrollX(int16_t dist) {
   writeData(dist);
   writeCommand(0x25);
   writeData(dist >> 8);
+  waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1482,6 +1492,7 @@ void Adafruit_RA8875::scrollY(int16_t dist) {
   writeData(dist);
   writeCommand(0x27);
   writeData(dist >> 8);
+  waitUntilDone();
 }
 
 /************************* Mid Level ***********************************/

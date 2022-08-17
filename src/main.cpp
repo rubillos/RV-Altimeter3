@@ -42,23 +42,6 @@
 
 #include "graphics/PX.png.h"
 
-#ifdef DO_SERIAL
-#define Debug_print(...) Serial.print(__VA_ARGS__)
-#define Debug_println(...) Serial.println(__VA_ARGS__)
-// #define Debug_println(str) { Heltec.display->clear(); Heltec.display->drawString(0, 0, str);	Heltec.display->display(); }
-#define Debug_flush(...) Serial.flush()
-#define Debug_begin(...) Serial.begin(__VA_ARGS__)
-#define Debug_begin_wait(...) { Serial.begin(__VA_ARGS__); while (!Serial); Serial.println(); delay(250); }
-#define Debug_delay(...) delay(__VA_ARGS__)
-#define Debug_defined
-#endif
-
-#ifdef __GNUC__
-#define NOT_USED __attribute__ ((unused))
-#else
-#define NOT_USED
-#endif
-
 // GPS - yellow SCL, blue SDA
 
 // #define GPS_SCL 15
@@ -74,6 +57,9 @@
 
 #define BUZZER_PIN 25
 #define LIGHT_SENSOR_PIN 38
+
+#define SWITCH_AND_12V_PIN 2
+#define SWITCH_GND_PIN 13
 
 constexpr int16_t display_width = 800;
 constexpr int16_t display_height = 480;
@@ -101,10 +87,11 @@ Menu menu;
 TireHandler tireHandler;
 Beeper beeper(BUZZER_PIN, LOW);
 
+bool have12v = false;
+bool switchClosed = false;
+
 #define PREFS_VERSION 2
-
 #define LOG_DEPTH 16
-
 #define NUM_TIRES 6
 
 struct {
@@ -119,16 +106,12 @@ struct {
 
 TPMS_Packet sensor_packets[NUM_TIRES];
 
-void wait_tft_done() {
-	while (digitalRead(RA8875_WAIT)==LOW) {}
-}
-
 const char* sensorKeys[] = { "id0", "id1", "id2", "id3", "id4", "id5" };
 
 void readPrefs() {
 	preferences.begin("altometer", false);
 	if (PREFS_VERSION != preferences.getUInt("version")) {
-		Debug_println("Prefs version deos not match, clearing.");
+		Serial.println("Prefs version deos not match, clearing.");
 		preferences.clear();
 	}
 
@@ -234,7 +217,7 @@ void drawPNG(const unsigned char* data, uint32_t length, Adafruit_GFX* dest, int
 		pngY = y;
 		pngDest = dest;
 		if (png.decode(NULL, 0) != PNG_SUCCESS) {
-			Debug_println("PNG Decode Error!");
+			Serial.println("PNG Decode Error!");
 		}
 	}
 }
@@ -256,7 +239,7 @@ void drawPNG8(const unsigned char* data, uint32_t length, Adafruit_RA8875* dest,
 		pngY = y;
 		pngDest8 = dest;
 		if (png.decode(NULL, 0) != PNG_SUCCESS) {
-			Debug_println("PNG Decode Error!");
+			Serial.println("PNG Decode Error!");
 		}
 	}
 }
@@ -265,17 +248,15 @@ void startDisplay() {
 	LCD_SPI.begin(RA8875_SCK, RA8875_MISO, RA8875_MOSI, RA8875_CS);
 
 	if (!display.begin(RA8875_800x480, &LCD_SPI)) {
-		Debug_println("RA8875 Not Found!");
+		Serial.println("RA8875 Not Found!");
 		while (1);
 	}
 
 	display.displayOn(true);
 	display.GPIOX(true);      // Enable display - display enable tied to GPIOX
 	display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
-	// display.PWM1out(255);
-	display.PWM1out(127);
+	display.PWM1out((have12v) ? 255 : 127);
 	display.setLayerMode(true);
-	display.setWaitPin(RA8875_WAIT);
 	display.graphicsMode();                 // go back to graphics mode
 	display.fillScreen(BLACK8);
 
@@ -303,19 +284,21 @@ void startDisplay() {
 	getStringDimensions(display, str3, &w, &h);
 	display.setCursor((display.width() - w) / 2, display_height - 40);
 	display.print(str3);
+
+	display.setWaitPin(RA8875_WAIT);
 }
 
 void scan_bus(TwoWire &bus) {
-	Debug_println("Scanning Bus...");
+	Serial.println("Scanning Bus...");
 	for (uint16_t i=1; i<127; i++) {
 		bus.beginTransmission(i);
 		byte error = bus.endTransmission();
 		if (error == 0) {
-			Debug_print("Device found at addr 0x");
-			Debug_println(String(i, HEX));
+			Serial.print("Device found at addr 0x");
+			Serial.println(String(i, HEX));
 		}
 	}
-	Debug_println("Scan Complete.");
+	Serial.println("Scan Complete.");
 }
 
 constexpr uint16_t oled_line_count = 6;
@@ -332,6 +315,11 @@ OLED_Line oled_lines[6];
 uint16_t oled_line_index = 0;
 uint16_t oled_char_index = 0;
 bool oled_need_scroll = false;
+
+void OLED_Clear() {
+	displayOLED.clear();
+	displayOLED.display();
+}
 
 void OLED_show() {
 	displayOLED.clear();
@@ -352,7 +340,7 @@ void OLED_scrollIfNeeded() {
 }
 
 void OLED_println(const char* str) {
-	Debug_println(str);
+	Serial.println(str);
 
 	if (OLED_inited) {
 		OLED_scrollIfNeeded();
@@ -383,7 +371,7 @@ void OLED_println(float val) {
 }
 
 void OLED_print(const char* str) {
-	Debug_print(str);
+	Serial.print(str);
 
 	if (OLED_inited) {
 		OLED_scrollIfNeeded();
@@ -428,7 +416,7 @@ void packetCheck() {
 	TPMS_Packet packet;
 
 	if (packetMonitor.getPacket(&packet)) {
-		// Debug_println("Got radio packet.");
+		// Serial.println("Got radio packet.");
 		Serial.printf("id=0x%X, pressure=%0.1f, temperature=%0.1f\n", packet.id, packet.pressure, packet.temperature);
 
 		tireHandler.recordPacket(packet);
@@ -436,20 +424,33 @@ void packetCheck() {
 }
 
 void setup() {
-	Debug_delay(3000);
-	Debug_begin(115200);
-	Debug_flush();
-	Debug_delay(50);
+	delay(3000);
+	Serial.begin(115200);
+	Serial.flush();
+	delay(50);
 
-	Debug_println("Begin Startup");
+	Serial.println("Begin Startup");
 
 	analogReadResolution(analog_resolution);
 
-	// Debug_println("Scan Bus");
+	pinMode(SWITCH_GND_PIN, INPUT);
+	pinMode(SWITCH_AND_12V_PIN, INPUT);
+	
+	have12v = analogRead(SWITCH_AND_12V_PIN) > 1500;
+
+	pinMode(SWITCH_AND_12V_PIN, INPUT_PULLUP);
+	pinMode(SWITCH_GND_PIN, OUTPUT);
+	digitalWrite(SWITCH_GND_PIN, LOW);
+
+	switchClosed = digitalRead(SWITCH_AND_12V_PIN) == LOW;
+
+	Serial.printf("12v Power: %s, Switch Closed: %s\n", have12v ? "yes":"no", switchClosed ? "yes":"no");
+
+	// Serial.println("Scan Bus");
 	// displayOLED.connect();
 	// scan_bus(Wire);
 
-	Debug_println("Init OLED");
+	Serial.println("Init OLED");
 	displayOLED.init();
 	displayOLED.flipScreenVertically();
 	displayOLED.setFont(ArialMT_Plain_10);
@@ -493,7 +494,7 @@ void setup() {
 	delay(300);
 	
 	OLED_println("Init Menu System...");
-	menu.begin(&display, &touchScreen, &packetMonitor, &pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
+	menu.begin(&display, &touchScreen, &packetMonitor, &tireHandler, &pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
 
 	tireHandler.begin(display, buffer, beeper, 300, pref_data.sensor_ids,
 						&pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
@@ -906,36 +907,36 @@ void loop() {
 
 		uint32_t curTime = gpsData.gpsTimeDate.hour() * 60 + gpsData.gpsTimeDate.minute();
 
-		// Debug_print("GPS Data: Altitude= ");
-		// Debug_print(gpsData.altitude);
-		// Debug_print(", Heading= ");
-		// Debug_print(gpsData.heading);
-		// Debug_print(", sunrise=");
-		// Debug_print(sunUp);
-		// Debug_print(", sunset=");
-		// Debug_print(sunDown);
-		// Debug_print(", GMTOffset=");
-		// Debug_print(gpsData.zoneOffset);
-		// Debug_print(", fix=");
-		// Debug_print(gpsData.haveFix);
-		// Debug_print(", ");
-		// Debug_print(gpsData.satellites);
-		// Debug_print(" sats");
-		// Debug_print(", lat=");
-		// Debug_print(gpsData.latitude);
-		// Debug_print(", lon=");
-		// Debug_print(gpsData.longitude);
-		// Debug_print(", spd=");
-		// Debug_print(gpsData.speed);
-		// Debug_print(", light=");
-		// Debug_print(light);
-		// Debug_println("");
+		// Serial.print("GPS Data: Altitude= ");
+		// Serial.print(gpsData.altitude);
+		// Serial.print(", Heading= ");
+		// Serial.print(gpsData.heading);
+		// Serial.print(", sunrise=");
+		// Serial.print(sunUp);
+		// Serial.print(", sunset=");
+		// Serial.print(sunDown);
+		// Serial.print(", GMTOffset=");
+		// Serial.print(gpsData.zoneOffset);
+		// Serial.print(", fix=");
+		// Serial.print(gpsData.haveFix);
+		// Serial.print(", ");
+		// Serial.print(gpsData.satellites);
+		// Serial.print(" sats");
+		// Serial.print(", lat=");
+		// Serial.print(gpsData.latitude);
+		// Serial.print(", lon=");
+		// Serial.print(gpsData.longitude);
+		// Serial.print(", spd=");
+		// Serial.print(gpsData.speed);
+		// Serial.print(", light=");
+		// Serial.print(light);
+		// Serial.println("");
 
 		uint16_t drawIndex = 0;
 		uint32_t startTime = millis();
 
 		elapsedMillis drawStart;
-		while (!showData(&drawIndex, curTime, gpsData.altitude, gpsData.heading, gpsData.speed, sunriseTime, sunsetTime, gpsData.satellites, haveHadFix, fixNames[gpsData.fixType])) {
+		while (!touchScreen.touchReady() && !showData(&drawIndex, curTime, gpsData.altitude, gpsData.heading, gpsData.speed, sunriseTime, sunsetTime, gpsData.satellites, haveHadFix, fixNames[gpsData.fixType])) {
 			packetCheck();
 		}
 		drawTime = drawStart;
@@ -957,5 +958,12 @@ void loop() {
 	if (showTime > 500) {
 		Serial.printf("%06d: Draw time=%dms, free memory=%d\n", millis(), drawTime, ESP.getFreeHeap());
 		showTime = 0;
+	}
+
+	static bool oledCleared = false;
+	static elapsedMillis oledClearTime;
+	if (!oledCleared && oledClearTime>12000) {
+		OLED_Clear();
+		oledCleared = true;
 	}
 }

@@ -88,6 +88,10 @@ void TouchScreen::allowNextRepeat() {
     allowRepeat = true;
 }
 
+bool TouchScreen::touchReady() {
+    return touched;
+}
+
 bool TouchScreen::touchEvent(tsPoint_t* touchPt) {
     bool result = false;
 
@@ -148,19 +152,15 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
 
     _tft->fillScreen(RA8875_BLACK);
     _tft->textMode();
-    wait_tft_done();
     _tft->textEnlarge(2);
     _tft->textSetCursor(120, 120);
     _tft->textColor(RA8875_YELLOW, RA8875_BLACK);
     _tft->textWrite("Touch calibration dots..");
     _tft->graphicsMode();
-    wait_tft_done();
 
     for (uint8_t i=0; i<3; i++) {
         _tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE + 4, RA8875_WHITE);
-        wait_tft_done();
         _tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE, RA8875_BLACK);
-        wait_tft_done();
     }
 
     button_back.draw(false, true);
@@ -208,13 +208,11 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
 
         _tft->fillScreen(RA8875_BLACK);
         _tft->textMode();
-        wait_tft_done();
         _tft->textEnlarge(2);
         _tft->textSetCursor(170, 120);
         _tft->textColor(RA8875_GREEN, RA8875_BLACK);
         _tft->textWrite("Touch to test...");
         _tft->graphicsMode();
-        wait_tft_done();
 
         button_done.draw(false, true);
 

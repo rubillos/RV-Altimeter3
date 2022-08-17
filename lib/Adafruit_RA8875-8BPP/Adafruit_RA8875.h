@@ -234,6 +234,7 @@ public:
 
   uint8_t _waitPin = 255;
   void setWaitPin(uint8_t pin) { _waitPin = pin; };
+  void waitUntilDone() { if (_waitPin!=255) { while (digitalRead(_waitPin)==LOW) {} } };
 
   /* Low level access */
   void writeReg(uint8_t reg, uint8_t val);
@@ -330,6 +331,7 @@ constexpr uint16_t RA8875_GREEN = 0x07E0;   ///< Green Color
 constexpr uint16_t RA8875_CYAN = 0x07FF;    ///< Cyan Color
 constexpr uint16_t RA8875_MAGENTA = 0xF81F; ///< Magenta Color
 constexpr uint16_t RA8875_YELLOW = 0xFFE0;  ///< Yellow Color
+constexpr uint16_t RA8875_ORANGE = 0xFC00;  ///< Orange Color
 constexpr uint16_t RA8875_WHITE = 0xFFFF;   ///< White Color
 
 // Command/Data pins for SPI
