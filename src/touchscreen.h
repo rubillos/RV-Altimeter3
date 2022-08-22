@@ -4,9 +4,12 @@
 #include "Adafruit_RA8875.h"
 #include "beep.h"
 
+extern Adafruit_RA8875 _tft;
+
 class TouchScreen {
     public:
-        void begin(Adafruit_RA8875& tft, uint8_t touchIntPin, Beeper* beeper);
+        void startDisplay(bool have12v);
+        void beginTouch();
 
         bool computeCalibrationMatrix(tsPoint_t* displayPts, tsPoint_t* touchPts, tsMatrix_t* matrix);
         tsPoint_t scaleTouchPoint(tsPoint_t touchPt, tsMatrix_t* matrix);
@@ -19,11 +22,7 @@ class TouchScreen {
         void setTouchMatrix(tsMatrix_t* matrix);
 
     private:
-        Adafruit_RA8875* _tft;
         tsMatrix_t _matrix;
-
-        uint8_t _touchIntPin;
-        uint8_t _beeperPin;
 };
 
 #endif

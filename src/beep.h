@@ -3,8 +3,6 @@
 
 #include "Arduino.h"
 
-extern void beep(uint8_t pin, uint8_t state, uint32_t duration);
-
 class Beeper {
 	public:
 		Beeper(uint8_t pin, uint8_t state);
@@ -15,5 +13,7 @@ class Beeper {
 		hw_timer_t* _timer;
 
 };
+
+extern Beeper _beeper;
 
 #endif

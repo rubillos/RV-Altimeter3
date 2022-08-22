@@ -9,18 +9,18 @@
 #include "graphics/Tire2.png.h"
 
 void TireHandler::drawTires() {
-	constexpr uint16_t tire_top_y = 300;
+	constexpr uint16_t tireTopY = 300;
     constexpr uint16_t tireX[] = { 272, 416, 152, 272, 416, 536 };
-    constexpr uint16_t tireY[] = { tire_top_y, tire_top_y, tire_top_y+80, tire_top_y+80, tire_top_y+80, tire_top_y+80 };
+    constexpr uint16_t tireY[] = { tireTopY, tireTopY, tireTopY+80, tireTopY+80, tireTopY+80, tireTopY+80 };
 	constexpr uint16_t tireWidth = 110;
 	constexpr uint16_t tireHeight = 67;
 
     constexpr uint16_t pressures[] = { 23, 86, 91, 102, 112, 108 };
     constexpr uint16_t temperatures[] = { 23, 40, 61, 102, 112, 161 };
 
-	_tft->fillRect(380, tire_top_y+30, 40, 6, WHITE16);
-	_tft->fillRect(262, tire_top_y+110, 280, 6, WHITE16);
-	_tft->fillRect(396, tire_top_y+32, 6, 80, WHITE16);
+	_tft->fillRect(380, tireTopY+30, 40, 6, WHITE16);
+	_tft->fillRect(262, tireTopY+110, 280, 6, WHITE16);
+	_tft->fillRect(396, tireTopY+32, 6, 80, WHITE16);
 
 	uint16_t tirePressure[] = { 87, 87, 90, 102, 92, 90 };
 	uint8_t tireColor[] = { GREEN8, GREEN8, GREEN8, GREEN8, GREEN8, GREEN8 };
@@ -30,7 +30,7 @@ void TireHandler::drawTires() {
     const char* str;
 
 	for (uint16_t i=0; i<6; i++) {
-        TPMS_Packet* sensor = &_sensorPackets[i];
+        TPMSPacket* sensor = &_sensorPackets[i];
         int16_t xOffset = -1, yOffset = 0;
 
         // uint16_t temperature = _sensorPackets[i].temperature;
@@ -48,7 +48,7 @@ void TireHandler::drawTires() {
 		_buffer->setOffset(tireX[i], tireY[i]);
 		drawPNG(Tire2_png, sizeof(Tire2_png), _buffer, tireX[i], tireY[i]);
 
-        if (sensor->time_stamp && !sensor->stale && (time-sensor->time_stamp)>sensorTimeout) {
+        if (sensor->timeStamp && !sensor->stale && (time-sensor->timeStamp)>sensorTimeout) {
             sensor->stale = true;
         }
 
@@ -57,7 +57,7 @@ void TireHandler::drawTires() {
             _buffer->setTextColor(RED8);
             str = "??";
         }
-        else if (0 && (sensor->stale || sensor->time_stamp == 0)) {
+        else if (0 && (sensor->stale || sensor->timeStamp == 0)) {
         	_buffer->setFont(&FreeSansBold30pt7b);
             _buffer->setTextColor(ORANGE8);
             str = "--";
@@ -66,7 +66,7 @@ void TireHandler::drawTires() {
         else if (forceTemperature || _tempTimer < temperatureTime) {
         	_buffer->setFont(&FreeSansBold24pt7bCustom);
             if (tempAlarm) {
-                _buffer->setTextColor(ORANGE8);
+                _buffer->setTextColor(DARKORANGE8);
             }
             else if (tempWarn) {
                 _buffer->setTextColor(YELLOW8);
@@ -122,19 +122,19 @@ void TireHandler::showTemperature() {
 
 uint16_t sIndex = 0;
 
-int16_t TireHandler::indexOfSensor(uint32_t sensor_id) {
+int16_t TireHandler::indexOfSensor(uint32_t sensorID) {
     sIndex = (sIndex+1) % 6;
     return sIndex;
 
 	for (uint8_t i=0; i<numTires; i++) {
-		if (sensor_id == sensorIDs[i]) {
+		if (sensorID == sensorIDs[i]) {
 			return i;
 		}
 	}
 	return -1;
 }
 
-void TireHandler::recordPacket(TPMS_Packet& packet) {
+void TireHandler::recordPacket(TPMSPacket& packet) {
     int16_t index = indexOfSensor(packet.id);
 
     if (index != -1) {
@@ -144,5 +144,5 @@ void TireHandler::recordPacket(TPMS_Packet& packet) {
 }
 
 void TireHandler::sensorIDChanged(uint16_t sensorIndex) {
-    _sensorPackets[sensorIndex].time_stamp = 0;
+    _sensorPackets[sensorIndex].timeStamp = 0;
 }

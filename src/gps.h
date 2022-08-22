@@ -8,20 +8,14 @@
 
 typedef struct {
 	bool haveFix;
-	uint16_t year;
-	uint16_t month;
-	uint16_t day;
-	uint16_t hour;
-	uint16_t minute;
-	uint16_t second;
+	int8_t zoneOffset;
+	uint8_t satellites;
+	uint8_t fixType;
 	float latitude;
 	float longitude;
 	float altitude;
 	float heading;
 	float speed;
-	uint8_t zoneOffset;
-	uint8_t satellites;
-	uint8_t fixType;
 	DateTime gpsTimeDate;
 } GPS_Data;
 

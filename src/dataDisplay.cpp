@@ -2,6 +2,7 @@
 
 #include "defs.h"
 #include "Adafruit_RA8875.h"
+#include "touchscreen.h"
 #include "Buffer8.h"
 #include "tires.h"
 
@@ -12,7 +13,6 @@
 
 #include "fonts/IconFont.h"
 
-extern Adafruit_RA8875 display;
 extern Buffer8 buffer;
 extern TireHandler tireHandler;
 
@@ -236,10 +236,10 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 	int16_t direction;
 	bool result = false;
 
-	display.setDrawLayer(!drawLayer);
+	_tft.setDrawLayer(!drawLayer);
 
 	if (*drawIndex == 0) {
-		display.fillScreen(BLACK8);
+		_tft.fillScreen(BLACK8);
 
 		buffer.setTextSize(1);
 		buffer.setTextColor(WHITE8);
@@ -291,12 +291,12 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 				showCell(buffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
 				break;
 		}
-		buffer.draw(display, -1);
+		buffer.draw(_tft, -1);
 		(*drawIndex)++;
 	}
 	else {
 		if (*drawIndex == 0) {
-			buffer.setOffset(display_width/2 - 100, 100);
+			buffer.setOffset(_tft.width()/2 - 100, 100);
 			static uint8_t dotCount = 1;
 			static String acquiring = String("Acquiring");
 			static String dots = String(".....");
@@ -306,22 +306,22 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 
 			buffer.setFont(&FreeSans18pt7b);
 
-			buffer.setCursor(display_width/2 - 100, 130);
+			buffer.setCursor(_tft.width()/2 - 100, 130);
 			buffer.print(status);
-			buffer.draw(display);
+			buffer.draw(_tft);
 		}
 		*drawIndex = 6;
 	}
 
 	if (*drawIndex==6) {
 		tireHandler.drawTires();
-		display.showLayer(!drawLayer);
+		_tft.showLayer(!drawLayer);
 		drawLayer = !drawLayer;
 		*drawIndex = 0;
 		result = true;
 	}
 	else {
-		display.setDrawLayer(drawLayer);
+		_tft.setDrawLayer(drawLayer);
 	}
 
 	return result;

@@ -22,31 +22,31 @@ ButtonScheme logScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_GRAY_DK, 2, 2 };
 ButtonScheme sensorLabelScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 2, 2, buttonAlignRight };
 ButtonScheme sensorIDScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 3, 2, buttonAlignLeft };
 
-Button button_back(0, 408, -20, 58, "Back", backScheme);
-Button button_done(buttonRightSide, 408, -20, 58, "Done", backScheme);
+Button buttonBack(0, 408, -20, 58, "Back", backScheme);
+Button buttonDone(buttonRightSide, 408, -20, 58, "Done", backScheme);
 
 //-------------------------------------
 Header header_setAlarms(0,  0, 800, 60, "Set Tire Alarms", headerScheme);
 
 Label label_minPressure(0,  120, 400, 50, "Minimum Pressure:", limitsLabelScheme);
-Button button_minPressureMinus(440,  120, 50, 50, "-", minusButtonScheme);
+Button buttonMinPressureMinus(440,  120, 50, 50, "-", minusButtonScheme);
 Label value_minPressure(500,  120, 170, 50, "", limitsValueScheme);
-Button button_minPressurePlus(680,  120, 50, 50, "+", plusButtonScheme);
+Button buttonMinPressurePlus(680,  120, 50, 50, "+", plusButtonScheme);
 
 Label label_maxPressure(0,  200, 400, 50, "Maximum Pressure:", limitsLabelScheme);
-Button button_maxPressureMinus(440,  200, 50, 50, "-", minusButtonScheme);
+Button buttonMaxPressureMinus(440,  200, 50, 50, "-", minusButtonScheme);
 Label value_maxPressure(500,  200, 170, 50, "", limitsValueScheme);
-Button button_maxPressurePlus(680,  200, 50, 50, "+", plusButtonScheme);
+Button buttonMaxPressurePlus(680,  200, 50, 50, "+", plusButtonScheme);
 
 Label label_maxTemperature(0,  280, 400, 50, "Maximum Temperature:", limitsLabelScheme);
-Button button_maxTemperatureMinus(440,  280, 50, 50, "-", minusButtonScheme);
+Button buttonMaxTemperatureMinus(440,  280, 50, 50, "-", minusButtonScheme);
 Label value_maxTemperature(500,  280, 170, 50, "", limitsValueScheme);
-Button button_maxTemperaturePlus(680,  280, 50, 50, "+", plusButtonScheme);
+Button buttonMaxTemperaturePlus(680,  280, 50, 50, "+", plusButtonScheme);
 
-Button* setAlarmsMenu[] = { &header_setAlarms, &button_back,
-									&label_minPressure, &button_minPressureMinus, &value_minPressure, &button_minPressurePlus,
-									&label_maxPressure, &button_maxPressureMinus, &value_maxPressure, &button_maxPressurePlus,
-									&label_maxTemperature, &button_maxTemperatureMinus, &value_maxTemperature, &button_maxTemperaturePlus,
+Button* setAlarmsMenu[] = { &header_setAlarms, &buttonBack,
+									&label_minPressure, &buttonMinPressureMinus, &value_minPressure, &buttonMinPressurePlus,
+									&label_maxPressure, &buttonMaxPressureMinus, &value_maxPressure, &buttonMaxPressurePlus,
+									&label_maxTemperature, &buttonMaxTemperatureMinus, &value_maxTemperature, &buttonMaxTemperaturePlus,
 								NULL };
 
 //-------------------------------------
@@ -68,18 +68,18 @@ SensorButton sensor3(400, sensor_top+3*sensor_offset, 300, sensor_offset, "3", s
 SensorButton sensor4(400, sensor_top+4*sensor_offset, 300, sensor_offset, "4", sensorIDScheme, sensor_inset, &sensorLabel4);
 SensorButton sensor5(400, sensor_top+5*sensor_offset, 300, sensor_offset, "5", sensorIDScheme, sensor_inset, &sensorLabel5);
 
-Button* editSensorsMenu[] = { &header_EditSensors, &button_done, 
+Button* editSensorsMenu[] = { &header_EditSensors, &buttonDone, 
 									&sensorLabel0, &sensorLabel1, &sensorLabel2, &sensorLabel3, &sensorLabel4, &sensorLabel5,
 									&sensor0, &sensor1, &sensor2, &sensor3, &sensor4, &sensor5, NULL };
 
 //-------------------------------------
 Header header_packetMonitor(0,  0, 800, 60, "Sensor Log", headerScheme);
 LogView logView_packetLog(0, 77, 800, 333, "LogView", logScheme);
-Button* packetMonitorMenu[] = { &header_packetMonitor, &button_back, &logView_packetLog, NULL };
+Button* packetMonitorMenu[] = { &header_packetMonitor, &buttonBack, &logView_packetLog, NULL };
 
 //-------------------------------------
 Header header_SystemStatus(0,  0, 800, 60, "System Status", headerScheme);
-Button* systemStatusMenu[] = { &header_SystemStatus, &button_back, NULL };
+Button* systemStatusMenu[] = { &header_SystemStatus, &buttonBack, NULL };
 
 //-------------------------------------
 constexpr uint16_t mb_y = 82;
@@ -88,12 +88,12 @@ constexpr uint16_t mb_w = 500;
 constexpr uint16_t mb_h = 48;
 
 Header header_main(0,  0, 800, 60, "Main Menu", headerScheme);
-Button button_setAlarms(buttonHCenter,  mb_y, mb_w, mb_h, "Set Tire Alarms", mainButtonScheme);
-Button button_editSensors(buttonHCenter, mb_y+1*mb_off, mb_w, mb_h, "Pair Sensors", mainButtonScheme);
-Button button_calibrate(buttonHCenter, mb_y+2*mb_off, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
-Button button_monitor(buttonHCenter, mb_y+3*mb_off, mb_w, mb_h, "Sensor Log", mainButtonScheme);
-Button button_status(buttonHCenter, mb_y+4*mb_off, mb_w, mb_h, "System Status", mainButtonScheme);
-Button* mainMenu[] = { &header_main, &button_done, &button_setAlarms, &button_editSensors, &button_calibrate, &button_monitor, &button_status, NULL };
+Button buttonSetAlarms(buttonHCenter,  mb_y, mb_w, mb_h, "Set Tire Alarms", mainButtonScheme);
+Button buttonEditSensors(buttonHCenter, mb_y+1*mb_off, mb_w, mb_h, "Pair Sensors", mainButtonScheme);
+Button buttonCalibrate(buttonHCenter, mb_y+2*mb_off, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
+Button buttonMonitor(buttonHCenter, mb_y+3*mb_off, mb_w, mb_h, "Sensor Log", mainButtonScheme);
+Button buttonStatus(buttonHCenter, mb_y+4*mb_off, mb_w, mb_h, "System Status", mainButtonScheme);
+Button* mainMenu[] = { &header_main, &buttonDone, &buttonSetAlarms, &buttonEditSensors, &buttonCalibrate, &buttonMonitor, &buttonStatus, NULL };
 
 void setMinPressureTitle(Menu* menu) {
 	value_minPressure.setTitle(String(*menu->_minPressure, 0)+"psi");
@@ -199,12 +199,12 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 	uint16_t count = _buffer->length();
 
-	_button_tft->textMode();
-	_button_tft->textEnlarge(_scheme.sizeX-1, _scheme.sizeY-1);
-	_button_tft->textTransparent(RA8875_GREEN);
+	_tft.textMode();
+	_tft.textEnlarge(_scheme.sizeX-1, _scheme.sizeY-1);
+	_tft.textTransparent(RA8875_GREEN);
 
-	_button_tft->textSetCursor(_rect.x, _rect.y);
-	_button_tft->textWrite("         ID       Press    Temp       Age");
+	_tft.textSetCursor(_rect.x, _rect.y);
+	_tft.textWrite("         ID       Press    Temp       Age");
 
 	if (count) {
 		int16_t firstLine = _pageNumber * logLines;
@@ -215,33 +215,33 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 		uint16_t line = 1;
 		for (uint16_t i=firstLine; i<lastLine; i++) {
-			TPMS_Packet packet = _buffer->lookup(i);
+			TPMSPacket packet = _buffer->lookup(i);
 			uint16_t y = _rect.y + line++ * lineHeight + 3;
 
-			_button_tft->drawFastHLine(_rect.x, y, _rect.w, _scheme.borderColor);
+			_tft.drawFastHLine(_rect.x, y, _rect.w, _scheme.borderColor);
 			drawPacket(packet, y+1);
 		}
 
 	}
-	_button_tft->textTransparent(RA8875_BLACK);
-    _button_tft->graphicsMode();
+	_tft.textTransparent(RA8875_BLACK);
+    _tft.graphicsMode();
 }
 
-void LogView::drawPacket(TPMS_Packet& packet, uint16_t y) {
+void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 	char lineBuff[51];
 
 	// Serial.printf("drawPacket: line=%d, id=0x%X06\n", lineNumber, packet.id);
 
-    _button_tft->textSetCursor(_rect.x, y);
-	_button_tft->textColor(_scheme.textColor, _scheme.backColor);
+    _tft.textSetCursor(_rect.x, y);
+	_tft.textColor(_scheme.textColor, _scheme.backColor);
 
-	uint32_t time = (millis() - packet.time_stamp) / 1000;
+	uint32_t time = (millis() - packet.timeStamp) / 1000;
 	uint16_t minutes = time / 60;
 	uint16_t seconds = time % 60;
 
 	snprintf(lineBuff, sizeof(lineBuff), "       %06X    %3.0fpsi    %3.0f\xBA     %3d:%02d        ", packet.id, packet.pressure, packet.temperature, minutes, seconds);
 
-    _button_tft->textWrite(lineBuff);
+    _tft.textWrite(lineBuff);
 }
 
 void LogView::refresh() {
@@ -256,8 +256,7 @@ void Menu::allowNextRepeat() {
 	_touchScreen->allowNextRepeat();
 }
 
-void Menu::begin(Adafruit_RA8875* tft, TouchScreen *touchScreen, PacketMonitor* packetMonitor, TireHandler* tireHandler, float* minPressure, float* maxPressure, float* maxTemperature) {
-	_tft = tft;
+void Menu::begin(TouchScreen *touchScreen, PacketMonitor* packetMonitor, TireHandler* tireHandler, float* minPressure, float* maxPressure, float* maxTemperature) {
 	_packetMonitor = packetMonitor;
 	_touchScreen = touchScreen;
 	_tireHandler = tireHandler;
@@ -266,25 +265,24 @@ void Menu::begin(Adafruit_RA8875* tft, TouchScreen *touchScreen, PacketMonitor* 
 	_maxPressure = maxPressure;
 	_maxTemperature = maxTemperature;
 
-	button_back.touchFunc = (bool(*)(void*, void*))&menuBack;
-	button_back.setTFT(tft);
+	buttonBack.touchFunc = (bool(*)(void*, void*))&menuBack;
 
-	button_done.touchFunc = (bool(*)(void*, void*))&menuDone;
+	buttonDone.touchFunc = (bool(*)(void*, void*))&menuDone;
 
-	button_setAlarms.subButtons = setAlarmsMenu;
-	button_editSensors.subButtons = editSensorsMenu;
-	button_calibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
-	button_monitor.subButtons = packetMonitorMenu;
-	button_status.subButtons = systemStatusMenu;
+	buttonSetAlarms.subButtons = setAlarmsMenu;
+	buttonEditSensors.subButtons = editSensorsMenu;
+	buttonCalibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
+	buttonMonitor.subButtons = packetMonitorMenu;
+	buttonStatus.subButtons = systemStatusMenu;
 
-	button_minPressureMinus.touchFunc = (bool(*)(void*, void*))&minPressureMinus;
-	button_minPressurePlus.touchFunc = (bool(*)(void*, void*))&minPressurePlus;
+	buttonMinPressureMinus.touchFunc = (bool(*)(void*, void*))&minPressureMinus;
+	buttonMinPressurePlus.touchFunc = (bool(*)(void*, void*))&minPressurePlus;
 
-	button_maxPressureMinus.touchFunc = (bool(*)(void*, void*))&maxPressureMinus;
-	button_maxPressurePlus.touchFunc = (bool(*)(void*, void*))&maxPressurePlus;
+	buttonMaxPressureMinus.touchFunc = (bool(*)(void*, void*))&maxPressureMinus;
+	buttonMaxPressurePlus.touchFunc = (bool(*)(void*, void*))&maxPressurePlus;
 
-	button_maxTemperatureMinus.touchFunc = (bool(*)(void*, void*))&maxTemperatureMinus;
-	button_maxTemperaturePlus.touchFunc = (bool(*)(void*, void*))&maxTemperaturePlus;
+	buttonMaxTemperatureMinus.touchFunc = (bool(*)(void*, void*))&maxTemperatureMinus;
+	buttonMaxTemperaturePlus.touchFunc = (bool(*)(void*, void*))&maxTemperaturePlus;
 
 	logView_packetLog.setPacketLog(packetMonitor->packetLog());
 
@@ -348,7 +346,7 @@ void Menu::run(Button** currentMenu) {
 					needUpdate = true;
 					delay(200);
 				}
-				_button_tft->textTransparent(RA8875_BLACK);
+				_tft.textTransparent(RA8875_BLACK);
 			}
 		}
 
@@ -359,13 +357,13 @@ void Menu::run(Button** currentMenu) {
 
 			if ((*currentMenu)->isHeader()) {
 				uint16_t height = (*currentMenu)->height();
-				_tft->fillRect(0, height, _tft->width(), _tft->height()-height, RA8875_BLACK);
+				_tft.fillRect(0, height, _tft.width(), _tft.height()-height, RA8875_BLACK);
 			}
 			else {
-				_tft->fillScreen(RA8875_BLACK);
+				_tft.fillScreen(RA8875_BLACK);
 			}
 			drawButtons(currentMenu);
-			_button_tft->textTransparent(RA8875_BLACK);
+			_tft.textTransparent(RA8875_BLACK);
 		}
 
 		packetCheck();

@@ -2,12 +2,13 @@
 
 #include "elapsedMillis.h"
 #include "beep.h"
+#include "defs.h"
 #include "button.h"
 #include "SimplyAtomic.h"
 
 extern ButtonScheme backScheme;
-extern Button button_back;
-extern Button button_done;
+extern Button buttonBack;
+extern Button buttonDone;
 
 #define TOUCH_MAX 512
 
@@ -22,6 +23,17 @@ volatile bool allowRepeat = false;
 
 Beeper* touch_beeper = NULL;
 
+#define RA8875_SCK 17
+#define RA8875_MISO 36
+#define RA8875_MOSI 23
+#define RA8875_CS 22
+#define RA8875_RESET 21
+#define RA8875_INT 37
+#define RA8875_WAIT 39
+
+SPIClass LCDSPI(HSPI);
+Adafruit_RA8875 _tft = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
+
 void touchInterrupt() {
     static uint32_t lastTouchTime = 0;
     uint32_t time = millis();
@@ -32,9 +44,7 @@ void touchInterrupt() {
     if (!touched && ((interruptDelay > defaultTouchDelay) || (allowRepeat && (time-lastTouchTime)>repeatTouchDelay))) {
         lastTouchTime = time;
         touched = true;
-        if (touch_beeper) {
-            touch_beeper->beep(beepDuration);
-        }
+        _beeper.beep(beepDuration);
     }
 }
 
@@ -107,7 +117,7 @@ bool TouchScreen::touchEvent(tsPoint_t* touchPt) {
         }
 
         uint16_t x, y;
-        _tft->touchRead(&x, &y);
+        _tft.touchRead(&x, &y);
 
         if (wasTouched) {
             // Serial.printf("Touched: x=0x%3X, y=0x%03X\n", x, y);
@@ -146,24 +156,24 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
     tsPoint_t touchPts[3];
     tsPoint_t screenPts[3];
 
-    screenPts[0] = { _tft->width() * 1 / 10, _tft->height() * 1 / 10 };
-    screenPts[1] = { _tft->width() * 5 / 10, _tft->height() * 9 / 10 };
-    screenPts[2] = { _tft->width() * 9 / 10, _tft->height() * 5 / 10 };
+    screenPts[0] = { _tft.width() * 1 / 10, _tft.height() * 1 / 10 };
+    screenPts[1] = { _tft.width() * 5 / 10, _tft.height() * 9 / 10 };
+    screenPts[2] = { _tft.width() * 9 / 10, _tft.height() * 5 / 10 };
 
-    _tft->fillScreen(RA8875_BLACK);
-    _tft->textMode();
-    _tft->textEnlarge(2);
-    _tft->textSetCursor(120, 120);
-    _tft->textColor(RA8875_YELLOW, RA8875_BLACK);
-    _tft->textWrite("Touch calibration dots..");
-    _tft->graphicsMode();
+    _tft.fillScreen(RA8875_BLACK);
+    _tft.textMode();
+    _tft.textEnlarge(2);
+    _tft.textSetCursor(120, 120);
+    _tft.textColor(RA8875_YELLOW, RA8875_BLACK);
+    _tft.textWrite("Touch calibration dots..");
+    _tft.graphicsMode();
 
     for (uint8_t i=0; i<3; i++) {
-        _tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE + 4, RA8875_WHITE);
-        _tft->fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE, RA8875_BLACK);
+        _tft.fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE + 4, RA8875_WHITE);
+        _tft.fillCircle(screenPts[i].x, screenPts[i].y, CALIBRATION_DOT_SIZE, RA8875_BLACK);
     }
 
-    button_back.draw(false, true);
+    buttonBack.draw(false, true);
 
     uint16_t one_third = TOUCH_MAX/3;
     uint16_t two_thirds = TOUCH_MAX*2/3;
@@ -187,14 +197,14 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
             ptIndex = 2;
         }
         else if (pt.x < one_third && pt.y > two_thirds) {
-            button_back.draw(true, true);
+            buttonBack.draw(true, true);
             delay(200);
             done = true;
         }
 
         if (!done) {
             if (ptIndex != -1) {
-                _tft->fillCircle(screenPts[ptIndex].x, screenPts[ptIndex].y, CALIBRATION_DOT_SIZE - 4, RA8875_GREEN);
+                _tft.fillCircle(screenPts[ptIndex].x, screenPts[ptIndex].y, CALIBRATION_DOT_SIZE - 4, RA8875_GREEN);
                 dotBits &= ~(1<<ptIndex);
                 touchPts[ptIndex] = pt;
             }
@@ -206,48 +216,71 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
     if (!done && computeCalibrationMatrix(screenPts, touchPts, matrix)) {
         result = true;
 
-        _tft->fillScreen(RA8875_BLACK);
-        _tft->textMode();
-        _tft->textEnlarge(2);
-        _tft->textSetCursor(170, 120);
-        _tft->textColor(RA8875_GREEN, RA8875_BLACK);
-        _tft->textWrite("Touch to test...");
-        _tft->graphicsMode();
+        _tft.fillScreen(RA8875_BLACK);
+        _tft.textMode();
+        _tft.textEnlarge(2);
+        _tft.textSetCursor(170, 120);
+        _tft.textColor(RA8875_GREEN, RA8875_BLACK);
+        _tft.textWrite("Touch to test...");
+        _tft.graphicsMode();
 
-        button_done.draw(false, true);
+        buttonDone.draw(false, true);
 
         bool done = false;
         while(!done) {
             tsPoint_t screenPt;
 
             if (screenTouch(&screenPt, matrix)) {
-                done = button_done.hitTest(screenPt);
+                done = buttonDone.hitTest(screenPt);
                 if (done) {
-                    button_done.draw(true, true);
+                    buttonDone.draw(true, true);
                 }
                 else {
-                    _tft->fillCircle(screenPt.x, screenPt.y, 16, RA8875_YELLOW);
+                    _tft.fillCircle(screenPt.x, screenPt.y, 16, RA8875_YELLOW);
                 }
             }
         }
     }
-    _tft->fillScreen(RA8875_BLACK);
+    _tft.fillScreen(RA8875_BLACK);
 
     return result;
 }
 
-void TouchScreen::begin(Adafruit_RA8875& tft, uint8_t touchIntPin, Beeper* beeper) {
-    _tft = &tft;
-    _touchIntPin = touchIntPin;
-    touch_beeper = beeper;
+void TouchScreen::startDisplay(bool have12v) {
+	LCDSPI.begin(RA8875_SCK, RA8875_MISO, RA8875_MOSI, RA8875_CS);
 
-    pinMode(_touchIntPin, INPUT_PULLUP);
+	delay(1000);
+	if (!_tft.begin(RA8875_800x480, &LCDSPI)) {
+		Serial.println("RA8875 Not Found!");
+		while (1);
+	}
+
+	pinMode(RA8875_WAIT, INPUT_PULLUP);
+
+	_tft.setLayerMode(true);
+	_tft.graphicsMode();                 // go back to graphics mode
+	_tft.fillScreen(BLACK8);
+	delay(1);
+
+	_tft.displayOn(true);
+	delay(1);
+
+	_tft.GPIOX(true);      // Enable display - display enable tied to GPIOX
+	delay(100);
+
+	_tft.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
+	delay(100);
+
+	_tft.PWM1out((have12v) ? 255 : 127);	// set backlight
+	_tft.setWaitPin(RA8875_WAIT);
+}
+
+void TouchScreen::beginTouch() {
+    pinMode(RA8875_INT, INPUT_PULLUP);
 
     interruptEnableTime = millis();
-    attachInterrupt(_touchIntPin, touchInterrupt, FALLING);
-
-    Serial.println("Starting touch");
-    _tft->touchEnable(true);
+    attachInterrupt(RA8875_INT, touchInterrupt, FALLING);
+    _tft.touchEnable(true);
 }
 
 void TouchScreen::setTouchMatrix(tsMatrix_t* matrix) {

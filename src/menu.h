@@ -23,7 +23,7 @@ class LogView : public Button {
 		void setPacketLog(PacketBuff* buffer) { _buffer = buffer; };
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
 		void draw(bool pressed=false, bool forceBackground=false);
-		void drawPacket(TPMS_Packet& packet, uint16_t lineNumber);
+		void drawPacket(TPMSPacket& packet, uint16_t lineNumber);
         void refresh();
 		void firstPage() { if (_pageNumber > 0) { _pageNumber==0; draw(); } };
 		void nextPage() { if (_pageNumber+1 < pageCount()) { _pageNumber++; draw(); } };
@@ -87,7 +87,7 @@ class SensorButton : public Label {
 
 class Menu {
 	public:
-		void begin(Adafruit_RA8875* tft, TouchScreen* touchScreen, PacketMonitor* packetMonitor, TireHandler* tireHandler, float* minPressure, float* maxPressure, float* maxTemperature);
+		void begin(TouchScreen* touchScreen, PacketMonitor* packetMonitor, TireHandler* tireHandler, float* minPressure, float* maxPressure, float* maxTemperature);
 
 		void run(Button** currentMenu=NULL);
 		void allowNextRepeat();
@@ -99,7 +99,6 @@ class Menu {
 		float* _maxTemperature;
 
 	private:
-		Adafruit_RA8875* _tft;
 		TouchScreen* _touchScreen;
 		PacketMonitor* _packetMonitor;
 		TireHandler* _tireHandler;

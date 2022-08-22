@@ -13,12 +13,11 @@ constexpr uint16_t numTires = 6;
 
 class TireHandler {
 	public:
-		void begin(Adafruit_RA8875& tft, Buffer8& buffer, Beeper& beeper,
+		void begin(Adafruit_RA8875& tft, Buffer8& buffer,
 						uint16_t yOffset, uint32_t* IDs,
 						float *pressureMin, float* pressureMax, float* temperatureMax) {
 			_tft = &tft;
 			_buffer = &buffer;
-			_beeper = &beeper;
 			_yOffset = yOffset;
 			_pressureMax = pressureMax;
 			_pressureMin = pressureMin;
@@ -29,13 +28,13 @@ class TireHandler {
 
 		void drawTires();
 		void showTemperature();
-		void recordPacket(TPMS_Packet& packet);
+		void recordPacket(TPMSPacket& packet);
 		void sensorIDChanged(uint16_t sensorIndex);
 
 		uint32_t* sensorIDs;
 
 	private:
-		int16_t indexOfSensor(uint32_t sensor_id);
+		int16_t indexOfSensor(uint32_t sensorID);
 
 		Adafruit_RA8875* _tft;
 		Buffer8* _buffer;
@@ -49,7 +48,7 @@ class TireHandler {
 		float* _pressureMax;
 		float* _temperatureMax;
 
-		TPMS_Packet _sensorPackets[numTires];
+		TPMSPacket _sensorPackets[numTires];
 };
 
 #endif

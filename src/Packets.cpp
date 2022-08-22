@@ -107,8 +107,8 @@ void shiftBlockRight(byte *inBytes, byte *outBytes, int size, short bitShift) {
     }
 }
 
-bool PacketMonitor::getPacket(TPMS_Packet* packet) {
-    static TPMS_Packet lastPacket;
+bool PacketMonitor::getPacket(TPMSPacket* packet) {
+    static TPMSPacket lastPacket;
     bool result = false;
 
     while ( !result && packetCount ) {
@@ -128,7 +128,7 @@ bool PacketMonitor::getPacket(TPMS_Packet* packet) {
             shiftBlockRight(byteArr, newArr, 16, 2);      
             decodeManI(newArr, 16);
 
-            packet->time_stamp = millis();
+            packet->timeStamp = millis();
 
             if ( computeChecksum(newArr) ) {
                 showChecksum(newArr);
@@ -142,8 +142,8 @@ bool PacketMonitor::getPacket(TPMS_Packet* packet) {
 
                 packet->stale = false;
 
-                packet->low_battery = (newArr[6] & 0x20) != 0;
-                packet->fast_leak = (newArr[6] & 0x10) != 0;
+                packet->lowBattery = (newArr[6] & 0x20) != 0;
+                packet->fastLeak = (newArr[6] & 0x10) != 0;
 
                 if (packet->id!=0 && packet->pressure<180 && packet->temperature>-20 && packet->temperature<180) {
                     _packetLog->addSample(*packet);

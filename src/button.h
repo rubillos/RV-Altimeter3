@@ -30,8 +30,6 @@ typedef struct {
 	int16_t h;
 } ButtonRect;
 
-extern Adafruit_RA8875* _button_tft;
-
 class Button {
 	public:
 		Button(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme) :
@@ -39,7 +37,6 @@ class Button {
 				_dirty = true;
 			};
 
-		void setTFT(Adafruit_RA8875* tft) { _button_tft = tft; };
 		void setTitle(String title) { _title = title; _dirty = true; };
 		void setTitleInset(uint16_t inset) { _titleInset = inset; };
 

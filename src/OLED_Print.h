@@ -3,101 +3,101 @@
 
 extern SSD1306Wire displayOLED;
 
-bool OLED_inited = false;
+bool OLEDinited = false;
 
-constexpr uint16_t oled_line_count = 6;
-constexpr uint16_t oled_char_count = 32;
-constexpr uint16_t oled_line_height = 10;
+constexpr uint16_t oledLineCount = 6;
+constexpr uint16_t oledCharCount = 32;
+constexpr uint16_t oledLineHeight = 10;
 
 typedef struct {
-	char line[oled_char_count];
+	char line[oledCharCount];
 } OLED_Line;
 
-OLED_Line oled_lines[6];
-uint16_t oled_line_index = 0;
-uint16_t oled_char_index = 0;
-bool oled_need_scroll = false;
+OLED_Line oledLines[6];
+uint16_t oledLineIndex = 0;
+uint16_t oledCharIndex = 0;
+bool oledNeedScroll = false;
 
-void OLED_Clear() {
+void OLEDclear() {
 	displayOLED.clear();
 	displayOLED.display();
 }
 
-void OLED_show() {
+void OLEDshow() {
 	displayOLED.clear();
-	for (uint16_t i=0; i<oled_line_count; i++) {
-		if (oled_lines[i].line[0]) {
-			displayOLED.drawString(0, i*oled_line_height, oled_lines[i].line);
+	for (uint16_t i=0; i<oledLineCount; i++) {
+		if (oledLines[i].line[0]) {
+			displayOLED.drawString(0, i*oledLineHeight, oledLines[i].line);
 		}
 	}
 	displayOLED.display();
 }
 
-void OLED_scrollIfNeeded() {
-	if (oled_need_scroll) {
-		memmove(&oled_lines[0], &oled_lines[1], (oled_line_count-1) * oled_char_count);
-		memset(&oled_lines[oled_line_count-1], 0, oled_char_count);
-		oled_need_scroll = false;
+void OLEDscrollIfNeeded() {
+	if (oledNeedScroll) {
+		memmove(&oledLines[0], &oledLines[1], (oledLineCount-1) * oledCharCount);
+		memset(&oledLines[oledLineCount-1], 0, oledCharCount);
+		oledNeedScroll = false;
 	}
 }
 
-void OLED_println(const char* str, bool serialAlso=true) {
+void OLEDprintln(const char* str, bool serialAlso=true) {
 	if (serialAlso) {
 		Serial.println(str);
 	}
 
-	if (OLED_inited) {
-		OLED_scrollIfNeeded();
-		if (oled_char_index < oled_char_count-1) {
-			memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index)) );
+	if (OLEDinited) {
+		OLEDscrollIfNeeded();
+		if (oledCharIndex < oledCharCount-1) {
+			memcpy(&oledLines[oledLineIndex].line[oledCharIndex], str, min((uint16_t)strlen(str), (uint16_t)(oledCharCount-1-oledCharIndex)) );
 		}
-		oled_char_index = 0;
-		if (oled_line_index < (oled_line_count-1)) {
-			oled_line_index++;
+		oledCharIndex = 0;
+		if (oledLineIndex < (oledLineCount-1)) {
+			oledLineIndex++;
 		}
 		else {
-			oled_need_scroll = true;
+			oledNeedScroll = true;
 		}
-		OLED_show();
+		OLEDshow();
 	}
 }
 
-void OLED_println(int32_t val, bool serialAlso=true) {
+void OLEDprintln(int32_t val, bool serialAlso=true) {
 	char valueBuff[20];
 	itoa(val, valueBuff, 10);
-	OLED_println(valueBuff, serialAlso);
+	OLEDprintln(valueBuff, serialAlso);
 }
 
-void OLED_println(float val, bool serialAlso=true) {
+void OLEDprintln(float val, bool serialAlso=true) {
 	char valueBuff[20];
 	dtostrf(val, 0, 2, valueBuff);
-	OLED_println(valueBuff, serialAlso);
+	OLEDprintln(valueBuff, serialAlso);
 }
 
-void OLED_print(const char* str, bool serialAlso=true) {
+void OLEDprint(const char* str, bool serialAlso=true) {
 	if (serialAlso) {
 		Serial.print(str);
 	}
 
-	if (OLED_inited) {
-		OLED_scrollIfNeeded();
-		if (oled_char_index < oled_char_count-1) {
-			uint16_t charsToCopy = min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index));
-			memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, charsToCopy );
-			oled_char_index += charsToCopy;
+	if (OLEDinited) {
+		OLEDscrollIfNeeded();
+		if (oledCharIndex < oledCharCount-1) {
+			uint16_t charsToCopy = min((uint16_t)strlen(str), (uint16_t)(oledCharCount-1-oledCharIndex));
+			memcpy(&oledLines[oledLineIndex].line[oledCharIndex], str, charsToCopy );
+			oledCharIndex += charsToCopy;
 		}
 	}
 }
 
-void OLED_print(int32_t val, bool serialAlso=true) {
+void OLEDprint(int32_t val, bool serialAlso=true) {
 	char valueBuff[20];
 	itoa(val, valueBuff, 10);
-	OLED_print(valueBuff, serialAlso);
+	OLEDprint(valueBuff, serialAlso);
 }
 
-void OLED_print(float val, bool serialAlso=true) {
+void OLEDprint(float val, bool serialAlso=true) {
 	char valueBuff[20];
 	dtostrf(val, 0, 2, valueBuff);
-	OLED_print(valueBuff, serialAlso);
+	OLEDprint(valueBuff, serialAlso);
 }
 
