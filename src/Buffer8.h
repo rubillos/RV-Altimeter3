@@ -24,10 +24,11 @@ public:
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) {
     GFXcanvas8::drawFastVLine(x-_x, y-_y, h, color);
   }
-  void draw(Adafruit_RA8875& dest, int16_t w=-1, int16_t h=-1) {
+  void draw(Adafruit_RA8875& dest, int16_t w=0, int16_t h=0) {
     uint8_t* srcBuff = getBuffer();
-    if (w==-1) { w=width(); }
-    if (h==-1) { h=height(); }
+    if (w==0) { w=width(); }
+    else if (w==-1) { w=getCursorX()-_x; }
+    if (h==0) { h=height(); }
 
     uint16_t bufferWidth = width();
 
