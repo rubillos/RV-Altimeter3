@@ -8,13 +8,12 @@
 #include <Adafruit_GFX.h>     // Core graphics library
 #include "Adafruit_RA8875.h"
 #include "Buffer8.h"
-#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 #include <Timezone.h>
 #include "sunset.h"
-#include <ZoneCalc.h>
 #include <RTClib.h>
 #include "RingBuff.h"
-#include <PNGdec.h>
+#include "dataDisplay.h"
+#include "png.h"
 #include "packets.h"
 #include "beep.h"
 #include "touchscreen.h"
@@ -22,25 +21,12 @@
 #include "button.h"
 #include "menu.h"
 #include "tires.h"
+#include "gps.h"
 #include "defs.h"
 
-#include "fonts/FreeSans36pt7bCustom.h"
-#include "fonts/FreeSans44pt7b.h"
-#include "fonts/FreeSans16pt7b.h"
+#include "OLED_print.h"
 
-#include "fonts/ModFreeSans44pt.h"
-
-#include "fonts/FreeSans18pt7b.h"
-#include "fonts/FreeSans12pt7b.h"
-
-#include "fonts/IconFont.h"
-
-#include "fonts/DejaVuSerifItalic12pt.h"
-#include "fonts/DejaVuSerifBoldItalic24pt.h"
-#include "fonts/DejaVuSerifBoldItalic30pt.h"
-#include "fonts/DejaVuSerifBoldItalic56pt.h"
-
-#include "graphics/PX.png.h"
+#include "graphics/PX3_Flat.png.h"
 
 // GPS - yellow SCL, blue SDA
 
@@ -61,20 +47,10 @@
 #define SWITCH_AND_12V_PIN 2
 #define SWITCH_GND_PIN 13
 
-constexpr int16_t display_width = 800;
-constexpr int16_t display_height = 480;
-
-constexpr int16_t cellWidth = 330;
-constexpr int16_t cellHeight = 70;
-
-constexpr uint16_t tire_top_y = 300;
-
 SPIClass LCD_SPI(HSPI);
 Adafruit_RA8875 display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
 SSD1306Wire displayOLED = SSD1306Wire(0x3c, SDA_OLED, SCL_OLED, RST_OLED, GEOMETRY_128_64);
 
-SFE_UBLOX_GNSS gps;
-ZoneCalc zoneCalc;
 SunSet sun;
 
 Buffer8 buffer(0, 0, cellWidth, cellHeight);
@@ -85,6 +61,7 @@ PacketMonitor packetMonitor;
 TouchScreen touchScreen;
 Menu menu;
 TireHandler tireHandler;
+GPS gps;
 Beeper beeper(BUZZER_PIN, LOW);
 
 bool have12v = false;
@@ -155,136 +132,30 @@ float readLight() {
 	return lightBuff.average();
 }
 
-uint8_t ascenderForFont(const GFXfont *f, char character = 'A')
-{
-	uint16_t index = character - f->first;
-	int8_t offset = f->glyph[index].yOffset;
-
-	return -offset;
-}
-
-void getStringDimensions(Adafruit_GFX& dest, String str, uint16_t* width, uint16_t* height) {
-	int16_t x, y;
-
-	dest.getTextBounds(str, 0, 0, &x, &y, width, height);
-}
-
-uint16_t getStringWidth(Adafruit_GFX& dest, String str)
-{
-	int16_t x, y;
-	uint16_t width, height;
-
-	dest.getTextBounds(str, 0, 0, &x, &y, &width, &height);
-	return width;
-}
-
-#define rBits 0b1100000000000000
-#define gBits 0b0000011000000000
-#define bBits 0b0000000000011000
-
-#define rShift 8
-#define gShift 6
-#define bShift 3
-
-// #define RGB16to8(v) (((v&rBits)>>rShift) | ((v&gBits)>>gShift) | ((v&bBits)>>bShift))
-
-inline uint16_t RGB16to8(uint16_t v) {
-	uint8_t c = (((v&rBits)>>rShift) | ((v&gBits)>>gShift) | ((v&bBits)>>bShift));
-	c |= (c & 0b10010000) >> 2;
-	return c;
-}
-
-PNG png;
-int16_t pngX, pngY;
-Adafruit_GFX* pngDest;
-Adafruit_RA8875* pngDest8;
-
-void PNGDraw(PNGDRAW *pDraw) {
-	uint16_t pixels[cellWidth];
-
-	png.getLineAsRGB565(pDraw, pixels, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
-	for (uint16_t i = 0; i<pDraw->iWidth; i++) {
-		uint8_t pixel8 = RGB16to8(pixels[i]);
-		if (pixel8) {
-			pngDest->drawPixel(pngX+i, pngY+pDraw->y, pixel8);
-		}
-	}
-}
-
-void drawPNG(const unsigned char* data, uint32_t length, Adafruit_GFX* dest, int16_t x, int16_t y) {
-	if (png.openRAM((uint8_t*)data, length, PNGDraw) == PNG_SUCCESS) {
-		pngX = x;
-		pngY = y;
-		pngDest = dest;
-		if (png.decode(NULL, 0) != PNG_SUCCESS) {
-			Serial.println("PNG Decode Error!");
-		}
-	}
-}
-
-void PNGDraw8(PNGDRAW *pDraw) {
-	uint16_t pixels[pDraw->iWidth];
-	uint8_t pixels8[pDraw->iWidth];
-
-	png.getLineAsRGB565(pDraw, pixels, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
-	for (uint16_t i = 0; i<pDraw->iWidth; i++) {
-		pixels8[i] = RGB16to8(pixels[i]);
-	}
-	pngDest8->drawPixels8(pixels8, pDraw->iWidth, pngX, pngY+pDraw->y);
-}
-
-void drawPNG8(const unsigned char* data, uint32_t length, Adafruit_RA8875* dest, int16_t x, int16_t y) {
-	if (png.openRAM((uint8_t*)data, length, PNGDraw8) == PNG_SUCCESS) {
-		pngX = x;
-		pngY = y;
-		pngDest8 = dest;
-		if (png.decode(NULL, 0) != PNG_SUCCESS) {
-			Serial.println("PNG Decode Error!");
-		}
-	}
-}
-
 void startDisplay() {
 	LCD_SPI.begin(RA8875_SCK, RA8875_MISO, RA8875_MOSI, RA8875_CS);
 
+	delay(1000);
 	if (!display.begin(RA8875_800x480, &LCD_SPI)) {
 		Serial.println("RA8875 Not Found!");
 		while (1);
 	}
 
-	display.displayOn(true);
-	display.GPIOX(true);      // Enable display - display enable tied to GPIOX
-	display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
-	display.PWM1out((have12v) ? 255 : 127);
 	display.setLayerMode(true);
 	display.graphicsMode();                 // go back to graphics mode
 	display.fillScreen(BLACK8);
+	delay(1);
 
-	const GFXfont *f1 = &DejaVuSerifBoldItalic56;
-	const GFXfont *f2 = &DejaVuSerifBoldItalic24;
-	String str1 = String("GPS");
-	String str2 = String("Altometer");
-	String str3 = String("by Randy Ubillos");
-	uint16_t w, h;
+	display.displayOn(true);
+	delay(1);
 
-	display.setFont(f1);
-	display.setTextSize(1);
-	display.setTextColor(WHITE8);
-	display.setTextWrap(false);
+	display.GPIOX(true);      // Enable display - display enable tied to GPIOX
+	delay(100);
 
-	getStringDimensions(display, str1, &w, &h);
-	display.setCursor((display.width()-w)/2, 140);
-	display.print(str1);
+	display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
+	delay(100);
 
-	getStringDimensions(display, str2, &w, &h);
-	display.setCursor((display.width() - w) / 2, display.getCursorY() + 56);
-	display.print(str2);
-
-	display.setFont(f2);
-	getStringDimensions(display, str3, &w, &h);
-	display.setCursor((display.width() - w) / 2, display_height - 40);
-	display.print(str3);
-
+	display.PWM1out((have12v) ? 255 : 127);	// set backlight
 	display.setWaitPin(RA8875_WAIT);
 }
 
@@ -301,115 +172,12 @@ void scan_bus(TwoWire &bus) {
 	Serial.println("Scan Complete.");
 }
 
-constexpr uint16_t oled_line_count = 6;
-constexpr uint16_t oled_char_count = 32;
-constexpr uint16_t oled_line_height = 10;
-
-bool OLED_inited = false;
-
-typedef struct {
-	char line[oled_char_count];
-} OLED_Line;
-
-OLED_Line oled_lines[6];
-uint16_t oled_line_index = 0;
-uint16_t oled_char_index = 0;
-bool oled_need_scroll = false;
-
-void OLED_Clear() {
-	displayOLED.clear();
-	displayOLED.display();
-}
-
-void OLED_show() {
-	displayOLED.clear();
-	for (uint16_t i=0; i<oled_line_count; i++) {
-		if (oled_lines[i].line[0]) {
-			displayOLED.drawString(0, i*oled_line_height, oled_lines[i].line);
-		}
-	}
-	displayOLED.display();
-}
-
-void OLED_scrollIfNeeded() {
-	if (oled_need_scroll) {
-		memmove(&oled_lines[0], &oled_lines[1], (oled_line_count-1) * oled_char_count);
-		memset(&oled_lines[oled_line_count-1], 0, oled_char_count);
-		oled_need_scroll = false;
-	}
-}
-
-void OLED_println(const char* str) {
-	Serial.println(str);
-
-	if (OLED_inited) {
-		OLED_scrollIfNeeded();
-		if (oled_char_index < oled_char_count-1) {
-			memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index)) );
-		}
-		oled_char_index = 0;
-		if (oled_line_index < (oled_line_count-1)) {
-			oled_line_index++;
-		}
-		else {
-			oled_need_scroll = true;
-		}
-		OLED_show();
-	}
-}
-
-void OLED_println(int32_t val) {
-	char valueBuff[20];
-	itoa(val, valueBuff, 10);
-	OLED_println(valueBuff);
-}
-
-void OLED_println(float val) {
-	char valueBuff[20];
-	dtostrf(val, 0, 2, valueBuff);
-	OLED_println(valueBuff);
-}
-
-void OLED_print(const char* str) {
-	Serial.print(str);
-
-	if (OLED_inited) {
-		OLED_scrollIfNeeded();
-		if (oled_char_index < oled_char_count-1) {
-			uint16_t charsToCopy = min((uint16_t)strlen(str), (uint16_t)(oled_char_count-1-oled_char_index));
-			memcpy(&oled_lines[oled_line_index].line[oled_char_index], str, charsToCopy );
-			oled_char_index += charsToCopy;
-		}
-	}
-}
-
-void OLED_print(int32_t val) {
-	char valueBuff[20];
-	itoa(val, valueBuff, 10);
-	OLED_print(valueBuff);
-}
-
-void OLED_print(float val) {
-	char valueBuff[20];
-	dtostrf(val, 0, 2, valueBuff);
-	OLED_print(valueBuff);
-}
-
 void doCalibrate() {
 	if (touchScreen.runCalibration(&pref_data.touch_calibration)) {
 		touchScreen.setTouchMatrix(&pref_data.touch_calibration);
-		OLED_println("Writing prefs.");
+		Serial.println("Writing prefs.");
 		writePrefs();
 	}
-}
-
-int8_t indexOfSensor(uint32_t sensor_id) {
-	for (uint8_t i=0; i<NUM_TIRES; i++) {
-		if (sensor_id == pref_data.sensor_ids[i]) {
-			return i;
-		}
-	}
-	return -1;
 }
 
 void packetCheck() {
@@ -457,7 +225,7 @@ void setup() {
 	displayOLED.setLogBuffer(6, 40);
 	OLED_inited = true;
 
-	OLED_println("GPS Altometer");
+	Serial.println("GPS Altometer");
 
 	// test_zones();
 	OLED_println("Init Prefs...");
@@ -466,427 +234,35 @@ void setup() {
 	OLED_println("Init TFT display...");
 	startDisplay();
 
-	// drawPNG8(PX_png, sizeof(PX_png), &display, 0, 0);
-	// delay(2000);
+	drawPNG8(PX3_Flat_png, sizeof(PX3_Flat_png), &display, 0, 0, true);
+	delay(2000);
 
 	OLED_println("Init Touchscreen...");
 	pinMode(RA8875_WAIT, INPUT_PULLUP);
 	touchScreen.begin(display, RA8875_INT, &beeper);
 
-	OLED_println("Init PacketRadio...");
+	Serial.println("Init PacketRadio...");
 	packetMonitor.begin();
 
-	OLED_println("Init GPS...");
-	if (!gps.begin(Wire)) { //Connect to the u-blox module using Wire port
-		OLED_println("GPS not found!");
-		while (1);
-	}
-
-	gps.setI2CpollingWait(25); // Set i2cPollingWait to 25ms
-	gps.setI2COutput(COM_TYPE_UBX);                 //Set the I2C port to output UBX only (turn off NMEA noise)
-	gps.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
-	if (!gps.setDynamicModel(DYN_MODEL_AUTOMOTIVE)) {
-		OLED_println("* setDynamicModel failed!");
-	}
-
-	// gps.enableDebugging();
-
-	delay(300);
+	Serial.println("Init GPS...");
+	gps.begin();
 	
-	OLED_println("Init Menu System...");
+	Serial.println("Init Menu System...");
 	menu.begin(&display, &touchScreen, &packetMonitor, &tireHandler, &pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
 
 	tireHandler.begin(display, buffer, beeper, 300, pref_data.sensor_ids,
 						&pref_data.alarm_pressure_min, &pref_data.alarm_pressure_max, &pref_data.alarm_temp_max);
 
-	OLED_println("Check touchscreen...");
+	Serial.println("Check touchscreen...");
 	if (!pref_data.touch_calibration.Divider) {
-		OLED_println("Calibrating...");
+		Serial.println("Calibrating...");
 		doCalibrate();
 	}
 
-	OLED_println("Init Done!");
+	Serial.println("Init Done!");
 }
 
-String timeFromDayMinutes(double dayMinutes, bool includeSeconds) {
-	uint16_t hours = dayMinutes / 60;
-	uint16_t minutes = ((uint32_t)dayMinutes) % 60;
-	uint16_t seconds = (dayMinutes - (uint32_t)dayMinutes) * 60.0;
-
-	// hours = 12;
-
-	if (hours >= 13) {
-		hours -= 12;
-	}
-	else if (hours < 1) {
-		hours += 12;
-	}
-
-	String result = String(hours) + ":";
-	
-	if (minutes < 10) {
-		result = result + String("0");
-	}
-
-	result = result + String(minutes);
-	
-	if (includeSeconds) {
-		result = result + String(":");
-		if (seconds < 10) {
-			result = result + String("0");
-		}
-		result = result + String(seconds);
-	}
-
-	return result;
-}
-
-String suffixFromDayMinutes(double dayMinutes) {
-	uint16_t hours = dayMinutes / 60;
-	bool pm = hours >= 12 && hours <= 24;
-
-	return String((pm) ? "pm" : "am");
-}
-
-const char* directionNames[] = { "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW" };
-const char *directionGlyphs = "KLMFGHIJ";
-const char *speedGlyphs = "NOPQRSTUV";
 const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
-char timeGlyph = 'A';
-char altitudeGlyph = 'B';
-char speedGlyph = 'C';
-char sunriseGlyph = 'D';
-char sunsetGlyph = 'E';
-char satelliteGlyph = 'Z';
-char emptySpeedlyph = 'W';
-char emptyTimeGlyph = 'X';
-char emptyDirectionGlyph = 'Y';
-
-const GFXfont *textFont = &ModFreeSans44pt7b;
-const GFXfont *suffixFont = &FreeSans16pt7b;
-const GFXfont *glyphFont = &iconFont;
-
-void offsetCursor(Adafruit_GFX& dest, int16_t xOffset, int16_t yOffset) {
-	dest.setCursor(dest.getCursorX() + xOffset, dest.getCursorY() + yOffset);
-}
-
-void showCell(Adafruit_GFX& dest, int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, String suffix, const GFXfont* strFont = textFont, const GFXfont* sufFont = suffixFont) {
-	uint16_t ascender = ascenderForFont(strFont, glyph);
-	uint16_t xOffset = -2;
-
-	if (str.startsWith(String("1"))) {
-		xOffset += oneOffset;
-	}
-
-	dest.setFont(glyphFont);
-	dest.setCursor(x, y + ascender + 6);
-	dest.print(glyph);
-	dest.setFont(strFont);
-	offsetCursor(dest, xOffset + 4, -5);
-	dest.print(str);
-	if (suffix) {
-		dest.setFont(sufFont);
-		dest.print(suffix);
-	}
-}
-
-#define swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
-
-void writePixel(Adafruit_GFX& dest, int16_t x, int16_t y, uint16_t color, uint16_t thickness) {
-	if (thickness >= 5) {
-		dest.writeFastHLine(x - 1, y - 2, 3, color);
-		dest.writeFastHLine(x - 2, y - 1, 5, color);
-		dest.writeFastHLine(x - 2, y, 5, color);
-		dest.writeFastHLine(x - 2, y + 1, 5, color);
-		dest.writeFastHLine(x - 1, y + 2, 3, color);
-	}
-	else if (thickness >= 3) {
-		dest.writePixel(x, y - 1, color);
-		dest.writeFastHLine(x - 1, y, 3, color);
-		dest.writePixel(x, y + 1, color);
-	}
-	else {
-		dest.writePixel(x, y, color);
-	}
-}
-
-void drawThickLine(Adafruit_GFX& dest, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t thickness, uint16_t color)
-{
-	int16_t steep = abs(y1 - y0) > abs(x1 - x0);
-	if (steep) {
-		swap_int16_t(x0, y0);
-		swap_int16_t(x1, y1);
-	}
-
-	if (x0 > x1) {
-		swap_int16_t(x0, x1);
-		swap_int16_t(y0, y1);
-	}
-
-	int16_t dx, dy;
-	dx = x1 - x0;
-	dy = abs(y1 - y0);
-
-	int16_t err = dx / 2;
-	int16_t ystep;
-
-	if (y0 < y1) {
-		ystep = 1;
-	}
-	else {
-		ystep = -1;
-	}
-
-	for (; x0 <= x1; x0++) {
-		if (steep) {
-			writePixel(dest, y0, x0, color, thickness);
-		}
-		else {
-			writePixel(dest, x0, y0, color, thickness);
-		}
-		err -= dy;
-		if (err < 0) {
-			y0 += ystep;
-			err += dx;
-		}
-	}
-}
-
-#ifndef M_PI
-		#define M_PI 3.14159265358979323846
-#endif
-
-void centerRotLenToPoint(int16_t centerX, int16_t centerY, float angle, float length, int16_t* outX, int16_t* outY) {
-	float radAngle = angle * (2.0 * M_PI) / 360.0;
-
-	*outX = round(centerX + sin(radAngle) * length);
-	*outY = round(centerY - cos(radAngle) * length);
-}
-
-uint16_t hoursLen = 9;
-uint16_t minutesLen = 16;
-
-void drawPolarLine(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t length, int16_t thickness) {
-	int16_t destX, destY;
-
-	centerRotLenToPoint(x, y, angle, length, &destX, &destY);
-	
-	if (thickness > 1) {
-		drawThickLine(dest, x, y, destX, destY, thickness, WHITE8);
-	}
-	else {
-		dest.drawLine(x, y, destX, destY, WHITE8);
-	}
-}
-
-void drawPointer(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t majorLen, uint16_t minorLen, uint16_t cornerAngle) {
-	int16_t x1, x2, x3, y1, y2, y3;
-
-	centerRotLenToPoint(x, y, angle, majorLen, &x1, &y1);
-	centerRotLenToPoint(x, y, angle - cornerAngle, minorLen, &x2, &y2);
-	centerRotLenToPoint(x, y, angle + cornerAngle, minorLen, &x3, &y3);
-	dest.fillTriangle(x1, y1, x2, y2, x3, y3, WHITE8);
-}
-
-void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16_t minutes) {
-	drawPolarLine(dest, x, y, hours * 360.0 / 12.0, hoursLen, 5);
-	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5);
-}
-
-static bool drawLayer = false;
-
-bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
-	constexpr int16_t xOffset = 50;
-	constexpr int16_t xGap = 45;
-	constexpr int16_t yOffset = 20;
-	constexpr int16_t yGap = 22;
-	static uint8_t colon = 1;
-	uint16_t xStart, yStart;
-	String timeString;
-	int16_t direction;
-	bool result = false;
-
-	display.setDrawLayer(!drawLayer);
-
-	if (*drawIndex == 0) {
-		display.fillScreen(BLACK8);
-
-		buffer.setTextSize(1);
-		buffer.setTextColor(WHITE8);
-		buffer.setTextWrap(false);
-	}
-
-	if (haveFix) {
-		switch (*drawIndex) {
-			case 0:
-				// speed
-				xStart = xOffset;
-				yStart = yOffset;
-				buffer.setOffset(xStart, yStart);
-				showCell(buffer, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
-				drawPolarLine(buffer, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
-				buffer.draw(display);
-				break;
-			case 1:
-				// altitude
-				xStart = xOffset+cellWidth+xGap;
-				yStart = yOffset;
-				buffer.setOffset(xStart, yStart);
-				// buffer.fillRect(xStart, yStart, cellWidth, cellHeight, GREEN8);
-				showCell(buffer, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
-				buffer.draw(display);
-				break;
-			case 2:
-				// time
-				timeString = timeFromDayMinutes(time, false);
-				if (!colon) {
-					timeString.replace(String(":"), String(" "));
-				}
-				colon = (colon+1)%5;
-
-				xStart = xOffset;
-				yStart = yOffset+cellHeight+yGap;
-				buffer.setOffset(xStart, yStart);
-				showCell(buffer, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
-				drawTime(buffer, xStart+32, yStart+36, time / 60, time % 60);
-				buffer.draw(display);
-				break;
-			case 3:
-				// heading
-				xStart = xOffset+cellWidth+xGap;
-				yStart = yOffset+cellHeight+yGap;
-				buffer.setOffset(xStart, yStart);
-				direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
-				showCell(buffer, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
-				drawPointer(buffer, xStart+32, yStart+36, heading, 15, 8, 140);
-				buffer.draw(display);
-				break;
-			case 4:
-				// sunrise
-				xStart = xOffset;
-				yStart = yOffset+(cellHeight+yGap)*2;
-				buffer.setOffset(xStart, yStart);
-				showCell(buffer, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
-				buffer.draw(display);
-				break;
-			case 5:
-				// sunset
-				xStart = xOffset+cellWidth+xGap;
-				yStart = yOffset+(cellHeight+yGap)*2;
-				buffer.setOffset(xStart, yStart);
-				showCell(buffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
-				buffer.draw(display);
-				break;
-		}
-		(*drawIndex)++;
-	}
-	else {
-		if (*drawIndex == 0) {
-			buffer.setOffset(display_width/2 - 100, 100);
-			static uint8_t dotCount = 1;
-			static String acquiring = String("Acquiring");
-			static String dots = String(".....");
-
-			status = acquiring+dots.substring(0, dotCount);
-			dotCount = (dotCount % 5)+1;
-
-			buffer.setFont(&FreeSans18pt7b);
-
-			buffer.setCursor(display_width/2 - 100, 130);
-			buffer.print(status);
-			buffer.draw(display);
-		}
-		*drawIndex = 6;
-	}
-
-	if (*drawIndex==6) {
-		tireHandler.drawTires();
-		display.showLayer(!drawLayer);
-		drawLayer = !drawLayer;
-		*drawIndex = 0;
-		result = true;
-	}
-	else {
-		display.setDrawLayer(drawLayer);
-	}
-
-	return result;
-}
-
-#define DEGREES_TO_FLOAT (10000000)
-#define HEADING_TO_FLOAT (100000)
-#define SPEED_TO_FLOAT_MPH (447.04)
-#define DISTANCE_TO_FLOAT_FLOAT (304.8)
-
-typedef struct {
-	bool haveFix;
-	uint16_t year;
-	uint16_t month;
-	uint16_t day;
-	uint16_t hour;
-	uint16_t minute;
-	uint16_t second;
-	float latitude;
-	float longitude;
-	float altitude;
-	float heading;
-	float speed;
-	uint8_t zoneOffset;
-	uint8_t satellites;
-	uint8_t fixType;
-	DateTime gpsTimeDate;
-} GPS_Data;
-
-void getGPSData(GPS_Data& data) {
-	data.haveFix = gps.getGnssFixOk();
-	data.year = gps.getYear();
-	data.month = gps.getMonth();
-	data.day = gps.getDay();
-	data.hour = gps.getHour();
-	data.minute = gps.getMinute();
-	data.second = gps.getSecond();
-	data.latitude = (float)gps.getLatitude() / DEGREES_TO_FLOAT;
-	data.longitude = (float)gps.getLongitude() / DEGREES_TO_FLOAT;
-	data.altitude = gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
-	data.heading = (float)gps.getHeading() / HEADING_TO_FLOAT;
-	data.speed = (float)gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
-	data.satellites = gps.getSIV();
-	data.fixType = gps.getFixType();
-
-#if 1
-	if (!data.haveFix) {
-		static elapsedMillis upTime;
-
-		data.latitude = 37.7775;
-		data.longitude = -122.416389;
-		data.year = 2021;
-		data.month = 4;
-		data.day = 25;
-		uint32_t milliTime = upTime;
-		uint32_t minutes = milliTime / 1000 / 60;
-		data.hour = 12 + (minutes / 60);
-		data.minute = minutes % 60;
-		uint32_t seconds = (milliTime / 1000) % 60;
-		static int16_t headingNum = 0;
-		data.heading = headingNum;
-		headingNum = (headingNum + 10) % 360;
-		data.speed = seconds * 80.0 / 60.0;
-		data.altitude = 12005;
-		data.haveFix = (upTime > 2000);
-	}
-#endif
-
-	static int16_t lastZoneOffset = -7;
-	bool isDST = zoneCalc.dateIsDST(data.year, data.month, data.day, data.hour, data.minute, lastZoneOffset);
-	float zoneOffset = zoneCalc.zoneOffsetForGPSCoord(data.latitude, data.longitude, isDST);
-	int8_t zoneHour = zoneOffset;
-	int8_t zoneMinute = (zoneOffset * 60) - (zoneHour * 60);
-
-	lastZoneOffset = zoneOffset + (isDST ? 1 : 0);
-
-	data.zoneOffset = lastZoneOffset;
-	data.gpsTimeDate = DateTime(data.year, data.month, data.day, data.hour, data.minute, data.second) + TimeSpan(0, zoneHour, zoneMinute, 0);
-}
 
 void loop() {
 	static bool haveHadFix = false;
@@ -897,7 +273,7 @@ void loop() {
 	static elapsedMillis gpsTime = 800;
 	if (gpsTime >= 1000) {
 		gpsTime = 0;
-		getGPSData(gpsData);
+		gps.getData(gpsData);
 		if (gpsData.haveFix) {
 			haveHadFix = true;
 			gpsDataTime = 0;
@@ -906,7 +282,7 @@ void loop() {
 
 	static uint16_t drawIndex = 0;
 	static elapsedMillis statusTime = 500;
-	if (statusTime >= 350) {
+	if (statusTime >= 300) {
 		statusTime = 0;
 
 		float light = readLight();
@@ -921,32 +297,9 @@ void loop() {
 
 		uint32_t curTime = gpsData.gpsTimeDate.hour() * 60 + gpsData.gpsTimeDate.minute();
 
-		// Serial.print("GPS Data: Altitude= ");
-		// Serial.print(gpsData.altitude);
-		// Serial.print(", Heading= ");
-		// Serial.print(gpsData.heading);
-		// Serial.print(", sunrise=");
-		// Serial.print(sunUp);
-		// Serial.print(", sunset=");
-		// Serial.print(sunDown);
-		// Serial.print(", GMTOffset=");
-		// Serial.print(gpsData.zoneOffset);
-		// Serial.print(", fix=");
-		// Serial.print(gpsData.haveFix);
-		// Serial.print(", ");
-		// Serial.print(gpsData.satellites);
-		// Serial.print(" sats");
-		// Serial.print(", lat=");
-		// Serial.print(gpsData.latitude);
-		// Serial.print(", lon=");
-		// Serial.print(gpsData.longitude);
-		// Serial.print(", spd=");
-		// Serial.print(gpsData.speed);
-		// Serial.print(", light=");
-		// Serial.print(light);
-		// Serial.println("");
-
-		uint32_t startTime = millis();
+		// Serial.printf("GPS Data: Alt=%0.1f, Heading=%0.2f, Sunrise=%s, Sunset=%s, GMTOffset=%d, fix=%d, sat#=%d, lat=%0.3f, lon=%0.3f, speed=%0.1f, light=%0.2f\n",
+		// 						gpsData.altitude, gpsData.heading, sunUp, sunDown, gpsData.zoneOffset, gpsData.haveFix, gpsData.satellites,
+		// 						gpsData.latitude,  gpsData.longitude, gpsData.speed, light);
 
 		elapsedMillis drawStart;
 		while (!touchScreen.touchReady() && !showData(&drawIndex, curTime, gpsData.altitude, gpsData.heading, gpsData.speed, sunriseTime, sunsetTime, gpsData.satellites, haveHadFix, fixNames[gpsData.fixType])) {
@@ -965,6 +318,7 @@ void loop() {
 		}
 		else {
 			tireHandler.showTemperature();
+			statusTime = 500;
 		}
 	}
 

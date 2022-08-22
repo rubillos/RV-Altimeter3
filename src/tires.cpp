@@ -19,7 +19,7 @@ void TireHandler::drawTires() {
     constexpr uint16_t temperatures[] = { 23, 40, 61, 102, 112, 161 };
 
 	_tft->fillRect(380, tire_top_y+30, 40, 6, WHITE16);
-	_tft->fillRect(262, tire_top_y+110, 300, 6, WHITE16);
+	_tft->fillRect(262, tire_top_y+110, 280, 6, WHITE16);
 	_tft->fillRect(396, tire_top_y+32, 6, 80, WHITE16);
 
 	uint16_t tirePressure[] = { 87, 87, 90, 102, 92, 90 };
@@ -43,7 +43,7 @@ void TireHandler::drawTires() {
         bool pressureAlarm = (pressure <= *_pressureMin) || (pressure >= *_pressureMax);
         bool pressureWarn = (pressure <= *_pressureMin+5) || (pressure >= *_pressureMax-5);
 
-        bool forceTemperature = tempWarn && ((millis()/1500) % 2)==0;
+        bool forceTemperature = tempWarn && ((millis()/1000) % 2)==0;
 
 		_buffer->setOffset(tireX[i], tireY[i]);
 		drawPNG(Tire2_png, sizeof(Tire2_png), _buffer, tireX[i], tireY[i]);
@@ -66,16 +66,16 @@ void TireHandler::drawTires() {
         else if (forceTemperature || _tempTimer < temperatureTime) {
         	_buffer->setFont(&FreeSansBold24pt7bCustom);
             if (tempAlarm) {
-                _buffer->setTextColor(RED8);
-            }
-            else if (tempWarn) {
                 _buffer->setTextColor(ORANGE8);
             }
-            else if (temperature < 40) {
-                _buffer->setTextColor(CYAN8);
+            else if (tempWarn) {
+                _buffer->setTextColor(YELLOW8);
+            }
+            else if (temperature < 33) {
+                _buffer->setTextColor(LIGHTBLUE8);
             }
             else {
-                _buffer->setTextColor(GREEN8);
+                _buffer->setTextColor(CYAN8);
             }
             snprintf(buffer, sizeof(buffer), "%d~", temperature);
             str = buffer;

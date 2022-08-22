@@ -9,8 +9,10 @@
 #define BLACK8 Color8(0x00, 0x00, 0x00)
 #define WHITE8 Color8(0xFF, 0xFF, 0xFF)
 #define GREEN8 Color8(0x00, 0xFF, 0x00)
+#define LIGHTRED8 Color8(0xFF, 0x40, 0x40)
 #define RED8 Color8(0xFF, 0x00, 0x00)
 #define BLUE8 Color8(0x00, 0x00, 0xFF)
+#define LIGHTBLUE8 Color8(0x00, 0x40, 0xFF)
 #define ORANGE8 Color8(0xFF, 0x80, 0x00)
 #define YELLOW8 Color8(0xFF, 0xFF, 0x00)
 #define CYAN8 Color8(0x00, 0xFF, 0xFF)
@@ -19,6 +21,14 @@
 #define DARK_GRAY8 0b01101101
 
 #define WHITE16 0xFFFF
+
+constexpr int16_t display_width = 800;
+constexpr int16_t display_height = 480;
+
+constexpr int16_t cellWidth = 330;
+constexpr int16_t cellHeight = 70;
+
+constexpr uint16_t tire_top_y = 300;
 
 extern void drawPNG(const unsigned char* data, uint32_t length, Adafruit_GFX* dest, int16_t x, int16_t y);
 extern uint8_t ascenderForFont(const GFXfont *f, char character);
