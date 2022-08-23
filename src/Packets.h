@@ -56,4 +56,6 @@ class PacketMonitor {
         PacketBuff* _packetLog;
 };
 
+extern PacketMonitor _packetMonitor;
+
 #endif

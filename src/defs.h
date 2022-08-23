@@ -23,6 +23,8 @@
 
 #define WHITE16 0xFFFF
 
+constexpr int16_t NUM_TIRES = 6;
+
 constexpr int16_t display_width = 800;
 constexpr int16_t display_height = 480;
 

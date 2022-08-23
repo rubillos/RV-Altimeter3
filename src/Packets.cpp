@@ -160,3 +160,5 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
     }
     return result;
 }
+
+PacketMonitor _packetMonitor;

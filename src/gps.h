@@ -5,6 +5,7 @@
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 #include <RTClib.h>
 #include <ZoneCalc.h>
+#include "elapsedMillis.h"
 
 typedef struct {
 	bool haveFix;
@@ -17,16 +18,25 @@ typedef struct {
 	float heading;
 	float speed;
 	DateTime gpsTimeDate;
-} GPS_Data;
+	uint32_t movingSeconds;
+	uint32_t stoppedSeconds;
+} GPSData;
 
 class GPS {
 	public:
         void begin();
-        void getData(GPS_Data& data);
+        bool update();
 
     private:
         SFE_UBLOX_GNSS _gps;
         ZoneCalc _zoneCalc;
+
+		elapsedMillis _gpsDataTime;
+		elapsedSeconds _movingSeconds;
+		elapsedSeconds _stoppedSeconds;
 };
+
+extern GPSData _gpsData;
+extern GPS _gps;
 
 #endif

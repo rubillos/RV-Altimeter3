@@ -51,20 +51,20 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
 
     if (backColor == borderColor) {
         if (forceBackground || backColor) {
-            _tft.fillRect(_rect.x, _rect.y, _rect.w, _rect.h, backColor);
+            _display.fillRect(_rect.x, _rect.y, _rect.w, _rect.h, backColor);
         }
     }
     else {
-        _tft.drawRect(_rect.x, _rect.y, _rect.w, _rect.h, borderColor);
-        _tft.drawRect(_rect.x+1, _rect.y+1, _rect.w-2, _rect.h-2, borderColor);
-        _tft.drawRect(_rect.x+2, _rect.y+2, _rect.w-4, _rect.h-4, borderColor);
+        _display.drawRect(_rect.x, _rect.y, _rect.w, _rect.h, borderColor);
+        _display.drawRect(_rect.x+1, _rect.y+1, _rect.w-2, _rect.h-2, borderColor);
+        _display.drawRect(_rect.x+2, _rect.y+2, _rect.w-4, _rect.h-4, borderColor);
         if (forceBackground || backColor) {
-            _tft.fillRect(_rect.x+3, _rect.y+3, _rect.w-6, _rect.h-6, backColor);
+            _display.fillRect(_rect.x+3, _rect.y+3, _rect.w-6, _rect.h-6, backColor);
         }
     }
-    _tft.textMode();
-    _tft.textEnlarge(sc->sizeX-1, sc->sizeY-1);
-    _tft.textTransparent(textColor);
+    _display.textMode();
+    _display.textEnlarge(sc->sizeX-1, sc->sizeY-1);
+    _display.textTransparent(textColor);
 
     uint16_t x;
     uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (sc->sizeY-1)*2;
@@ -78,11 +78,11 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
     else {
         x = _rect.x + (_rect.w - titleWidth())/2;
     }
-    _tft.textSetCursor(x, y);
+    _display.textSetCursor(x, y);
 
-    _tft.textWrite(title().c_str());
-    _tft.textTransparent(RA8875_BLACK);
-    _tft.graphicsMode();
+    _display.textWrite(title().c_str());
+    _display.textTransparent(RA8875_BLACK);
+    _display.graphicsMode();
 }
 
 void Button::draw(bool pressed, bool forceBackground) {
@@ -139,16 +139,16 @@ void Button::computeScreenRect() {
             _rect.h = _h;
         }
         if (_x == buttonHCenter) {   // horiz center
-            _rect.x = (_tft.width() - _rect.w) / 2;
+            _rect.x = (_display.width() - _rect.w) / 2;
         }
         else if (_x == buttonRightSide) {   // align right
-            _rect.x = _tft.width() - _rect.w;
+            _rect.x = _display.width() - _rect.w;
         }
         else {
             _rect.x = _x;
         }
         if (_y < 0) {   // vert center
-            _rect.y = (_tft.height() - _rect.h) / 2;
+            _rect.y = (_display.height() - _rect.h) / 2;
         }
         else {
             _rect.y = _y;

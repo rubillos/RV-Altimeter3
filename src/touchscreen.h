@@ -3,8 +3,7 @@
 
 #include "Adafruit_RA8875.h"
 #include "beep.h"
-
-extern Adafruit_RA8875 _tft;
+#include "Buffer8.h"
 
 class TouchScreen {
     public:
@@ -24,5 +23,9 @@ class TouchScreen {
     private:
         tsMatrix_t _matrix;
 };
+
+extern TouchScreen _touchScreen;
+extern Adafruit_RA8875 _display;
+extern Buffer8 _displayBuffer;
 
 #endif

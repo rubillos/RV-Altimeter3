@@ -13,9 +13,6 @@
 
 #include "fonts/IconFont.h"
 
-extern Buffer8 buffer;
-extern TireHandler tireHandler;
-
 uint8_t ascenderForFont(const GFXfont *f, char character)
 {
 	uint16_t index = character - f->first;
@@ -236,14 +233,14 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 	int16_t direction;
 	bool result = false;
 
-	_tft.setDrawLayer(!drawLayer);
+	_display.setDrawLayer(!drawLayer);
 
 	if (*drawIndex == 0) {
-		_tft.fillScreen(BLACK8);
+		_display.fillScreen(BLACK8);
 
-		buffer.setTextSize(1);
-		buffer.setTextColor(WHITE8);
-		buffer.setTextWrap(false);
+		_displayBuffer.setTextSize(1);
+		_displayBuffer.setTextColor(WHITE8);
+		_displayBuffer.setTextWrap(false);
 	}
 
 	if (haveFix) {
@@ -252,18 +249,18 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 
 		xStart = xOffset+col*(cellWidth+xGap);
 		yStart = yOffset+row*(cellHeight+yGap);
-		buffer.setOffset(xStart, yStart);
+		_displayBuffer.setOffset(xStart, yStart);
 
 		switch (*drawIndex) {
 			case 0:
 				// speed
-				showCell(buffer, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
-				drawPolarLine(buffer, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
+				showCell(_displayBuffer, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
+				drawPolarLine(_displayBuffer, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
 				break;
 			case 1:
 				// altitude
-				// buffer.fillRect(xStart, yStart, cellWidth, cellHeight, GREEN8);
-				showCell(buffer, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
+				// _displayBuffer.fillRect(xStart, yStart, cellWidth, cellHeight, GREEN8);
+				showCell(_displayBuffer, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
 				break;
 			case 2:
 				// time
@@ -273,30 +270,30 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 				}
 				colon = (colon+1)%4;
 
-				showCell(buffer, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
-				drawTime(buffer, xStart+32, yStart+36, time / 60, time % 60);
+				showCell(_displayBuffer, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
+				drawTime(_displayBuffer, xStart+32, yStart+36, time / 60, time % 60);
 				break;
 			case 3:
 				// heading
 				direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
-				showCell(buffer, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
-				drawPointer(buffer, xStart+32, yStart+36, heading, 15, 8, 140);
+				showCell(_displayBuffer, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
+				drawPointer(_displayBuffer, xStart+32, yStart+36, heading, 15, 8, 140);
 				break;
 			case 4:
 				// sunrise
-				showCell(buffer, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
+				showCell(_displayBuffer, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
 				break;
 			case 5:
 				// sunset
-				showCell(buffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
+				showCell(_displayBuffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
 				break;
 		}
-		buffer.draw(_tft, -1);
+		_displayBuffer.draw(_display, -1);
 		(*drawIndex)++;
 	}
 	else {
 		if (*drawIndex == 0) {
-			buffer.setOffset(_tft.width()/2 - 100, 100);
+			_displayBuffer.setOffset(_display.width()/2 - 100, 100);
 			static uint8_t dotCount = 1;
 			static String acquiring = String("Acquiring");
 			static String dots = String(".....");
@@ -304,24 +301,24 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 			status = acquiring+dots.substring(0, dotCount);
 			dotCount = (dotCount % 5)+1;
 
-			buffer.setFont(&FreeSans18pt7b);
+			_displayBuffer.setFont(&FreeSans18pt7b);
 
-			buffer.setCursor(_tft.width()/2 - 100, 130);
-			buffer.print(status);
-			buffer.draw(_tft);
+			_displayBuffer.setCursor(_display.width()/2 - 100, 130);
+			_displayBuffer.print(status);
+			_displayBuffer.draw(_display);
 		}
 		*drawIndex = 6;
 	}
 
 	if (*drawIndex==6) {
-		tireHandler.drawTires();
-		_tft.showLayer(!drawLayer);
+		_tireHandler.drawTires();
+		_display.showLayer(!drawLayer);
 		drawLayer = !drawLayer;
 		*drawIndex = 0;
 		result = true;
 	}
 	else {
-		_tft.setDrawLayer(drawLayer);
+		_display.setDrawLayer(drawLayer);
 	}
 
 	return result;

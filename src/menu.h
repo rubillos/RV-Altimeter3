@@ -4,8 +4,11 @@
 #include "elapsedMillis.h"
 #include "button.h"
 #include "touchscreen.h"
+#include "tires.h"
 #include "packets.h"
 #include "tires.h"
+#include "gps.h"
+#include "prefs.h"
 
 extern void packetCheck();
 
@@ -20,7 +23,6 @@ constexpr uint16_t logLineHeight = 17;
 class LogView : public Button {
 	public:
 		LogView(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme) : Button(x, y, w, h, title, scheme) { };
-		void setPacketLog(PacketBuff* buffer) { _buffer = buffer; };
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
 		void draw(bool pressed=false, bool forceBackground=false);
 		void drawPacket(TPMSPacket& packet, uint16_t lineNumber);
@@ -29,10 +31,9 @@ class LogView : public Button {
 		void nextPage() { if (_pageNumber+1 < pageCount()) { _pageNumber++; draw(); } };
 		void previousPage() { if (_pageNumber>0) { _pageNumber--; draw(); } };
 		uint16_t pageNumber() { return _pageNumber; };
-		uint16_t pageCount() { return (_buffer->length()+logLines-1) / logLines; };
+		uint16_t pageCount() { return (_packetMonitor.packetLog()->length()+logLines-1) / logLines; };
  
 	private:
-		PacketBuff* _buffer;
 		elapsedMillis _drawTime;
 		uint32_t _bufferHash = 0;
 		uint16_t _pageNumber;
@@ -47,12 +48,7 @@ class SensorButton : public Label {
 		uint32_t sensorID() {
 			uint8_t sensorIndex = _title.c_str()[0] - '0';
 			
-			if (_tireHandler) {
-				return _tireHandler->sensorIDs[sensorIndex];
-			}
-			else {
-				return 0;
-			}
+			return _tireHandler.sensorIDs[sensorIndex];
 		};
 
 		ButtonScheme* scheme() {
@@ -77,35 +73,34 @@ class SensorButton : public Label {
 			}
 		};
 
-		void setTireHandler(TireHandler* tireHandler) { _tireHandler = tireHandler; };
 		bool hitTest(tsPoint_t pt, bool widen=false) { return Button::hitTest(pt, widen) || Button::hitTestInternal(pt, _label->rect(), widen); };
 
 	private:
-		TireHandler* _tireHandler;
 		Label* _label;
 };
 
 class Menu {
 	public:
-		void begin(TouchScreen* touchScreen, PacketMonitor* packetMonitor, TireHandler* tireHandler, float* minPressure, float* maxPressure, float* maxTemperature);
+		void begin();
 
 		void run(Button** currentMenu=NULL);
 		void allowNextRepeat();
 
-		bool _goBack = false;
-		bool _prefsDirty = false;
-		float* _minPressure;
-		float* _maxPressure;
-		float* _maxTemperature;
+		void goBack() { _goBack = true; };
+		void prefsDirty() { _prefsDirty = true; };
 
 	private:
-		TouchScreen* _touchScreen;
-		PacketMonitor* _packetMonitor;
-		TireHandler* _tireHandler;
-
 		Button** _menuStack[10];
 		uint16_t _menuStackIndex = 0;
 
+		bool _goBack = false;
+		bool _prefsDirty = false;
 };
+
+extern Menu _menu;
+
+extern ButtonScheme backScheme;
+extern Button buttonBack;
+extern Button buttonDone;
 
 #endif

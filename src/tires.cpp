@@ -1,5 +1,7 @@
 #include "tires.h"
 #include "defs.h"
+#include "touchscreen.h"
+#include "prefs.h"
 
 // https://tchapi.github.io/Adafruit-GFX-Font-Customiser/
 // ./fontconvert freefont-ttf/sfd/FreeSansBold.ttf 24 32 126 '~°' > Fonts/FreeSansBold24pt7bCustom.h
@@ -18,15 +20,15 @@ void TireHandler::drawTires() {
     constexpr uint16_t pressures[] = { 23, 86, 91, 102, 112, 108 };
     constexpr uint16_t temperatures[] = { 23, 40, 61, 102, 112, 161 };
 
-	_tft->fillRect(380, tireTopY+30, 40, 6, WHITE16);
-	_tft->fillRect(262, tireTopY+110, 280, 6, WHITE16);
-	_tft->fillRect(396, tireTopY+32, 6, 80, WHITE16);
+	_display.fillRect(380, tireTopY+30, 40, 6, WHITE16);
+	_display.fillRect(262, tireTopY+110, 280, 6, WHITE16);
+	_display.fillRect(396, tireTopY+32, 6, 80, WHITE16);
 
 	uint16_t tirePressure[] = { 87, 87, 90, 102, 92, 90 };
 	uint8_t tireColor[] = { GREEN8, GREEN8, GREEN8, GREEN8, GREEN8, GREEN8 };
 
     uint32_t time = millis();
-    char buffer[10];
+    char stringBuff[10];
     const char* str;
 
 	for (uint16_t i=0; i<6; i++) {
@@ -38,47 +40,47 @@ void TireHandler::drawTires() {
         uint16_t temperature = temperatures[i];
         uint16_t pressure = pressures[i];
 
-        bool tempAlarm = temperature >= *_temperatureMax;
-        bool tempWarn = temperature >= *_temperatureMax-5;
-        bool pressureAlarm = (pressure <= *_pressureMin) || (pressure >= *_pressureMax);
-        bool pressureWarn = (pressure <= *_pressureMin+5) || (pressure >= *_pressureMax-5);
+        bool tempAlarm = temperature >= _prefData.alarmTempMax;
+        bool tempWarn = temperature >= _prefData.alarmTempMax-5;
+        bool pressureAlarm = (pressure <= _prefData.alarmPressureMin) || (pressure >= _prefData.alarmPressureMax);
+        bool pressureWarn = (pressure <= _prefData.alarmPressureMin+5) || (pressure >= _prefData.alarmPressureMax-5);
 
         bool forceTemperature = tempWarn && ((millis()/1000) % 2)==0;
 
-		_buffer->setOffset(tireX[i], tireY[i]);
-		drawPNG(Tire2_png, sizeof(Tire2_png), _buffer, tireX[i], tireY[i]);
+		_displayBuffer.setOffset(tireX[i], tireY[i]);
+		drawPNG(Tire2_png, sizeof(Tire2_png),&_displayBuffer, tireX[i], tireY[i]);
 
         if (sensor->timeStamp && !sensor->stale && (time-sensor->timeStamp)>sensorTimeout) {
             sensor->stale = true;
         }
 
         if (0 && sensorIDs[i] == 0) {
-        	_buffer->setFont(&FreeSansBold30pt7b);
-            _buffer->setTextColor(RED8);
+        	_displayBuffer.setFont(&FreeSansBold30pt7b);
+            _displayBuffer.setTextColor(RED8);
             str = "??";
         }
         else if (0 && (sensor->stale || sensor->timeStamp == 0)) {
-        	_buffer->setFont(&FreeSansBold30pt7b);
-            _buffer->setTextColor(ORANGE8);
+        	_displayBuffer.setFont(&FreeSansBold30pt7b);
+            _displayBuffer.setTextColor(ORANGE8);
             str = "--";
             yOffset = -6;
         }
         else if (forceTemperature || _tempTimer < temperatureTime) {
-        	_buffer->setFont(&FreeSansBold24pt7bCustom);
+        	_displayBuffer.setFont(&FreeSansBold24pt7bCustom);
             if (tempAlarm) {
-                _buffer->setTextColor(DARKORANGE8);
+                _displayBuffer.setTextColor(DARKORANGE8);
             }
             else if (tempWarn) {
-                _buffer->setTextColor(YELLOW8);
+                _displayBuffer.setTextColor(YELLOW8);
             }
             else if (temperature < 33) {
-                _buffer->setTextColor(LIGHTBLUE8);
+                _displayBuffer.setTextColor(LIGHTBLUE8);
             }
             else {
-                _buffer->setTextColor(CYAN8);
+                _displayBuffer.setTextColor(CYAN8);
             }
-            snprintf(buffer, sizeof(buffer), "%d~", temperature);
-            str = buffer;
+            snprintf(stringBuff, sizeof(stringBuff), "%d~", temperature);
+            str = stringBuff;
             yOffset -= 5;
             if (str[0]=='1') {
                 xOffset -= 2;
@@ -88,18 +90,18 @@ void TireHandler::drawTires() {
             }
         }
         else {
-        	_buffer->setFont(&FreeSansBold30pt7b);
+        	_displayBuffer.setFont(&FreeSansBold30pt7b);
             if (pressureAlarm) {
-                _buffer->setTextColor(RED8);
+                _displayBuffer.setTextColor(RED8);
             }
             else if (pressureWarn) {
-                _buffer->setTextColor(ORANGE8);
+                _displayBuffer.setTextColor(ORANGE8);
             }
             else {
-                _buffer->setTextColor(GREEN8);
+                _displayBuffer.setTextColor(GREEN8);
             }
-            snprintf(buffer, sizeof(buffer), "%d", pressure);
-            str = buffer;
+            snprintf(stringBuff, sizeof(stringBuff), "%d", pressure);
+            str = stringBuff;
             yOffset -= 1;
             if (str[0]=='1') {
                 xOffset -= 4;
@@ -109,10 +111,10 @@ void TireHandler::drawTires() {
         int16_t x, y;
         uint16_t width, height;
 
-        _buffer->getTextBounds(str, 0, 0, &x, &y, &width, &height);
-        _buffer->setCursor(tireX[i] + (tireWidth-width)/2 + xOffset, tireY[i]+tireHeight-13+yOffset);
-        _buffer->print(str);
-		_buffer->draw(*_tft, tireWidth, tireHeight);
+        _displayBuffer.getTextBounds(str, 0, 0, &x, &y, &width, &height);
+        _displayBuffer.setCursor(tireX[i] + (tireWidth-width)/2 + xOffset, tireY[i]+tireHeight-13+yOffset);
+        _displayBuffer.print(str);
+		_displayBuffer.draw(_display, tireWidth, tireHeight);
 	}
 }
 
@@ -146,3 +148,5 @@ void TireHandler::recordPacket(TPMSPacket& packet) {
 void TireHandler::sensorIDChanged(uint16_t sensorIndex) {
     _sensorPackets[sensorIndex].timeStamp = 0;
 }
+
+TireHandler _tireHandler;
