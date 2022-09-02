@@ -403,14 +403,8 @@ void Adafruit_RA8875::textSetCursor(uint16_t x, uint16_t y) {
   y = applyRotationY(y);
 
   /* Set cursor location */
-  writeCommand(0x2A);
-  writeData(x & 0xFF);
-  writeCommand(0x2B);
-  writeData(x >> 8);
-  writeCommand(0x2C);
-  writeData(y & 0xFF);
-  writeCommand(0x2D);
-  writeData(y >> 8);
+  writeReg16(0x2A, x);
+  writeReg16(0x2C, y);
 }
 
 /**************************************************************************/
@@ -431,12 +425,9 @@ void Adafruit_RA8875::writeColor(uint8_t reg, uint16_t color) {
     green >>= 3;
     blue >>= 3;
   }
-  writeCommand(reg);
-  writeData(red);
-  writeCommand(reg+1);
-  writeData(green);
-  writeCommand(reg+2);
-  writeData(blue);
+  writeReg(reg, red);
+  writeReg(reg+1, green);
+  writeReg(reg+2, blue);
 }
 
 void Adafruit_RA8875::textColor(uint16_t foreColor, uint16_t bgColor) {
@@ -527,8 +518,7 @@ void Adafruit_RA8875::cursorBlink(uint8_t rate) {
 
   if (rate > 255)
     rate = 255;
-  writeCommand(RA8875_BTCR);
-  writeData(rate);
+  writeReg(RA8875_BTCR, rate);
 }
 
 /**************************************************************************/
@@ -814,35 +804,22 @@ void Adafruit_RA8875::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
   y1 = applyRotationY(y1);
 
   /* Set X */
-  writeCommand(0x91);
-  writeData(x0);
-  writeCommand(0x92);
-  writeData(x0 >> 8);
+  writeReg16(0x91, x0);
 
   /* Set Y */
-  writeCommand(0x93);
-  writeData(y0);
-  writeCommand(0x94);
-  writeData(y0 >> 8);
+  writeReg16(0x93, y0);
 
   /* Set X1 */
-  writeCommand(0x95);
-  writeData(x1);
-  writeCommand(0x96);
-  writeData((x1) >> 8);
+  writeReg16(0x95, x1);
 
   /* Set Y1 */
-  writeCommand(0x97);
-  writeData(y1);
-  writeCommand(0x98);
-  writeData((y1) >> 8);
+  writeReg16(0x97, y1);
 
   /* Set Color */
   writeColor(0x63, color);
 
   /* Draw! */
-  writeCommand(RA8875_DCR);
-  writeData(0x80);
+  writeReg(RA8875_DCR, 0x80);
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
@@ -1113,20 +1090,13 @@ void Adafruit_RA8875::circleHelper(int16_t x, int16_t y, int16_t r,
   y = applyRotationY(y);
 
   /* Set X */
-  writeCommand(0x99);
-  writeData(x);
-  writeCommand(0x9a);
-  writeData(x >> 8);
+  writeReg16(0x99, x);
 
   /* Set Y */
-  writeCommand(0x9b);
-  writeData(y);
-  writeCommand(0x9c);
-  writeData(y >> 8);
+  writeReg16(0x9b, y);
 
   /* Set Radius */
-  writeCommand(0x9d);
-  writeData(r);
+  writeReg(0x9d, r);
 
   /* Set Color */
   writeColor(0x63, color);
@@ -1156,29 +1126,13 @@ void Adafruit_RA8875::rectHelper(int16_t x, int16_t y, int16_t w, int16_t h,
   w = applyRotationX(w);
   h = applyRotationY(h);
 
-  /* Set X */
-  writeCommand(0x91);
-  writeData(x);
-  writeCommand(0x92);
-  writeData(x >> 8);
+  /* Set X,Y */
+  writeReg16(0x91, x);
+  writeReg16(0x93, y);
 
-  /* Set Y */
-  writeCommand(0x93);
-  writeData(y);
-  writeCommand(0x94);
-  writeData(y >> 8);
-
-  /* Set X1 */
-  writeCommand(0x95);
-  writeData(w);
-  writeCommand(0x96);
-  writeData((w) >> 8);
-
-  /* Set Y1 */
-  writeCommand(0x97);
-  writeData(h);
-  writeCommand(0x98);
-  writeData((h) >> 8);
+  /* Set X1,Y1 */
+  writeReg16(0x95, w);
+  writeReg16(0x97, h);
 
   /* Set Color */
   writeColor(0x63, color);
@@ -1212,34 +1166,16 @@ void Adafruit_RA8875::triangleHelper(int16_t x0, int16_t y0, int16_t x1,
   y2 = applyRotationY(y2);
 
   /* Set Point 0 */
-  writeCommand(0x91);
-  writeData(x0);
-  writeCommand(0x92);
-  writeData(x0 >> 8);
-  writeCommand(0x93);
-  writeData(y0);
-  writeCommand(0x94);
-  writeData(y0 >> 8);
+  writeReg16(0x91, x0);
+  writeReg16(0x93, y0);
 
   /* Set Point 1 */
-  writeCommand(0x95);
-  writeData(x1);
-  writeCommand(0x96);
-  writeData(x1 >> 8);
-  writeCommand(0x97);
-  writeData(y1);
-  writeCommand(0x98);
-  writeData(y1 >> 8);
+  writeReg16(0x95, x1);
+  writeReg16(0x97, y1);
 
   /* Set Point 2 */
-  writeCommand(0xA9);
-  writeData(x2);
-  writeCommand(0xAA);
-  writeData(x2 >> 8);
-  writeCommand(0xAB);
-  writeData(y2);
-  writeCommand(0xAC);
-  writeData(y2 >> 8);
+  writeReg16(0xA9, x2);
+  writeReg16(0xAB, y2);
 
   /* Set Color */
   writeColor(0x63, color);
@@ -1269,24 +1205,12 @@ void Adafruit_RA8875::ellipseHelper(int16_t xCenter, int16_t yCenter,
   yCenter = applyRotationY(yCenter);
 
   /* Set Center Point */
-  writeCommand(0xA5);
-  writeData(xCenter);
-  writeCommand(0xA6);
-  writeData(xCenter >> 8);
-  writeCommand(0xA7);
-  writeData(yCenter);
-  writeCommand(0xA8);
-  writeData(yCenter >> 8);
+  writeReg16(0xA5, xCenter);
+  writeReg16(0xA7, yCenter);
 
   /* Set Long and Short Axis */
-  writeCommand(0xA1);
-  writeData(longAxis);
-  writeCommand(0xA2);
-  writeData(longAxis >> 8);
-  writeCommand(0xA3);
-  writeData(shortAxis);
-  writeCommand(0xA4);
-  writeData(shortAxis >> 8);
+  writeReg16(0xA1, longAxis);
+  writeReg16(0xA3, shortAxis);
 
   /* Set Color */
   writeColor(0x63, color);
@@ -1318,24 +1242,12 @@ void Adafruit_RA8875::curveHelper(int16_t xCenter, int16_t yCenter,
   curvePart = (curvePart + _rotation) % 4;
 
   /* Set Center Point */
-  writeCommand(0xA5);
-  writeData(xCenter);
-  writeCommand(0xA6);
-  writeData(xCenter >> 8);
-  writeCommand(0xA7);
-  writeData(yCenter);
-  writeCommand(0xA8);
-  writeData(yCenter >> 8);
+  writeReg16(0xA5, xCenter);
+  writeReg16(0xA7, yCenter);
 
   /* Set Long and Short Axis */
-  writeCommand(0xA1);
-  writeData(longAxis);
-  writeCommand(0xA2);
-  writeData(longAxis >> 8);
-  writeCommand(0xA3);
-  writeData(shortAxis);
-  writeCommand(0xA4);
-  writeData(shortAxis >> 8);
+  writeReg16(0xA1, longAxis);
+  writeReg16(0xA3, shortAxis);
 
   /* Set Color */
   writeColor(0x63, color);
@@ -1371,38 +1283,20 @@ void Adafruit_RA8875::roundRectHelper(int16_t x, int16_t y, int16_t w,
     swap(y, h);
 
   /* Set X */
-  writeCommand(0x91);
-  writeData(x);
-  writeCommand(0x92);
-  writeData(x >> 8);
+  writeReg16(0x91, x);
 
   /* Set Y */
-  writeCommand(0x93);
-  writeData(y);
-  writeCommand(0x94);
-  writeData(y >> 8);
+  writeReg16(0x93, y);
 
   /* Set X1 */
-  writeCommand(0x95);
-  writeData(w);
-  writeCommand(0x96);
-  writeData((w) >> 8);
+  writeReg16(0x95, w);
 
   /* Set Y1 */
-  writeCommand(0x97);
-  writeData(h);
-  writeCommand(0x98);
-  writeData((h) >> 8);
+  writeReg16(0x97, h);
 
-  writeCommand(0xA1);
-  writeData(r);
-  writeCommand(0xA2);
-  writeData((r) >> 8);
-
-  writeCommand(0xA3);
-  writeData(r);
-  writeCommand(0xA4);
-  writeData((r) >> 8);
+  // corner radius x,y
+  writeReg16(0xA1, r);
+  writeReg16(0xA3, r);
 
   /* Set Color */
   writeColor(0x63, color);
@@ -1434,32 +1328,19 @@ void Adafruit_RA8875::roundRectHelper(int16_t x, int16_t y, int16_t w,
 void Adafruit_RA8875::setScrollWindow(int16_t x, int16_t y, int16_t w,
                                       int16_t h, uint8_t mode) {
   // Horizontal Start point of Scroll Window
-  writeCommand(0x38);
-  writeData(x);
-  writeCommand(0x39);
-  writeData(x >> 8);
+  writeReg16(0x38, x);
 
   // Vertical Start Point of Scroll Window
-  writeCommand(0x3a);
-  writeData(y);
-  writeCommand(0x3b);
-  writeData(y >> 8);
+  writeReg16(0x3a, y);
 
   // Horizontal End Point of Scroll Window
-  writeCommand(0x3c);
-  writeData(x + w);
-  writeCommand(0x3d);
-  writeData((x + w) >> 8);
+  writeReg16(0x3c, x + w);
 
   // Vertical End Point of Scroll Window
-  writeCommand(0x3e);
-  writeData(y + h);
-  writeCommand(0x3f);
-  writeData((y + h) >> 8);
+  writeReg16(0x3e, y + h);
 
   // Scroll function setting
-  writeCommand(0x52);
-  writeData(mode);
+  writeReg(0x52, mode);
   waitUntilDone();
 }
 
@@ -1472,10 +1353,7 @@ void Adafruit_RA8875::setScrollWindow(int16_t x, int16_t y, int16_t w,
  */
 /**************************************************************************/
 void Adafruit_RA8875::scrollX(int16_t dist) {
-  writeCommand(0x24);
-  writeData(dist);
-  writeCommand(0x25);
-  writeData(dist >> 8);
+  writeReg16(0x24, dist);
   waitUntilDone();
 }
 
@@ -1488,10 +1366,7 @@ void Adafruit_RA8875::scrollX(int16_t dist) {
  */
 /**************************************************************************/
 void Adafruit_RA8875::scrollY(int16_t dist) {
-  writeCommand(0x26);
-  writeData(dist);
-  writeCommand(0x27);
-  writeData(dist >> 8);
+  writeReg16(0x26, dist);
   waitUntilDone();
 }
 
@@ -1736,6 +1611,13 @@ uint8_t Adafruit_RA8875::readData(void) {
 /**************************************************************************/
 void Adafruit_RA8875::writeCommand(uint8_t d) {
   spi_dev->write(&d, sizeof(d), &RA8875_CMDWRITE, sizeof(RA8875_CMDWRITE));
+}
+
+void Adafruit_RA8875::writeReg16(uint8_t reg, uint16_t val) {
+  writeCommand(reg);
+  writeData(val);
+  writeCommand(reg+1);
+  writeData(val >> 8);
 }
 
 /**************************************************************************/
