@@ -7,7 +7,10 @@ class Beeper {
 	public:
 		Beeper(uint8_t pin, uint8_t state);
 
-		void beep(uint32_t duration);
+		void beep(uint32_t duration, bool ignoreMute=false);
+
+		bool muted();
+		void setMute(bool muted);
 	
 	private:
 		hw_timer_t* _timer;
