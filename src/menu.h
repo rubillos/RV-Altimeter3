@@ -9,6 +9,7 @@
 #include "tires.h"
 #include "gps.h"
 #include "prefs.h"
+#include "accel.h"
 
 extern void packetCheck();
 
@@ -48,17 +49,19 @@ class SensorButton : public Label {
 		uint32_t sensorID() {
 			uint8_t sensorIndex = _title.c_str()[0] - '0';
 			
-			return _tireHandler.sensorIDs[sensorIndex];
+			return _prefData.sensorIDs[sensorIndex];
 		};
 
-		ButtonScheme* scheme() {
+		ButtonScheme scheme(bool pressed = false) {
+			ButtonScheme sc = Label::scheme(pressed);
+
 			if (sensorID()) {
-				_scheme.textColor = RA8875_GREEN;
+				sc.textColor = RA8875_GREEN;
 			}
 			else {
-				_scheme.textColor = RA8875_ORANGE;
+				sc.textColor = RA8875_ORANGE;
 			}
-			return &_scheme;
+			return sc;
 		};
 
 		String title() {
@@ -87,7 +90,7 @@ class Menu {
 		void allowNextRepeat();
 
 		void goBack() { _goBack = true; };
-		void prefsDirty() { _prefsDirty = true; };
+		void prefsDirty() { _prefsDirty = true; _prefsDirtyTime = 0; };
 
 	private:
 		Button** _menuStack[10];
@@ -95,6 +98,7 @@ class Menu {
 
 		bool _goBack = false;
 		bool _prefsDirty = false;
+		elapsedMillis _prefsDirtyTime;
 };
 
 extern Menu _menu;

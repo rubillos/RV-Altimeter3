@@ -2,9 +2,12 @@
 
 #include "elapsedMillis.h"
 #include "touchscreen.h"
+#include "beep.h"
 #include "defs.h"
 
 extern void doCalibrate();
+
+constexpr uint32_t prefWriteTime = 2000;
 
 #define MIN_PRESSURE 20.0
 #define MAX_PRESSURE 125.0
@@ -80,8 +83,12 @@ Button* packetMonitorMenu[] = { &headerPacketMonitor, &buttonBack, &logView_pack
 
 //-------------------------------------
 Header headerSystemStatus(0,  0, 800, 60, "System Status", headerScheme);
-FormatLabel systemCoordinate(0, 80, 800, 20, "lat=%0.4f, lon=%0.4f", systemTextScheme);
-Button* systemStatusMenu[] = { &headerSystemStatus, &buttonBack, &systemCoordinate, NULL };
+FloatLabel systemCoordinate(0, 80, 800, 32, "    Lat=%0.5f, Lon=%0.5f    ", systemTextScheme);
+FloatLabel systemSpeed(0, 120, 800, 32, "    Speed=%0.1f, Heading=%0.1f    ", systemTextScheme);
+FloatLabel systemSatellites(0, 160, 800, 32, "    Satellites=%0.0f    ", systemTextScheme);
+FloatLabel systemMotion(0, 200, 800, 32, "    Moving=%0.0f, Stopped=%0.0f    ", systemTextScheme);
+Button systemSleep(buttonRightSide, 408, -20, 58, "Sleep", backScheme);
+Button* systemStatusMenu[] = { &headerSystemStatus, &buttonBack, &systemSleep, &systemCoordinate, &systemSpeed, &systemSatellites, &systemMotion, NULL };
 
 //-------------------------------------
 constexpr uint16_t mb_y = 82;
@@ -95,7 +102,8 @@ Button buttonEditSensors(buttonHCenter, mb_y+1*mb_off, mb_w, mb_h, "Pair Sensors
 Button buttonCalibrate(buttonHCenter, mb_y+2*mb_off, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 Button buttonMonitor(buttonHCenter, mb_y+3*mb_off, mb_w, mb_h, "Sensor Log", mainButtonScheme);
 Button buttonStatus(buttonHCenter, mb_y+4*mb_off, mb_w, mb_h, "System Status", mainButtonScheme);
-Button* mainMenu[] = { &headerMain, &buttonDone, &buttonSetAlarms, &buttonEditSensors, &buttonCalibrate, &buttonMonitor, &buttonStatus, NULL };
+SlashButton systemMute(0, 408, 70, 58, "\x0E", backScheme);
+Button* mainMenu[] = { &headerMain, &buttonDone, &systemMute, &buttonSetAlarms, &buttonEditSensors, &buttonCalibrate, &buttonMonitor, &buttonStatus, NULL };
 
 void setMinPressureTitle(Menu* menu) {
 	valueMinPressure.setTitle(String(_prefData.alarmPressureMin, 0)+"psi");
@@ -164,6 +172,20 @@ bool doScreenCalibrate(Menu* menu, Button* button) {
 	return true;
 }
 
+bool doSleep(Menu* menu, Button* button) {
+	delay(200);
+	sleepUntilTouch();
+	return false;
+}
+
+bool toggleMute(Menu* menu, SlashButton* button) {
+	delay(200);
+	_beeper.setMute(!_beeper.muted());
+	button->setState(!_beeper.muted());
+	menu->prefsDirty();
+	return false;
+}
+
 bool menuBack(Menu* menu, Button* button) {
 	menu->goBack();
 	delay(200);
@@ -177,12 +199,11 @@ bool menuDone(Menu* menu, Button* button) {
 
 //-------------------------------------------------------
 bool doPairSensor(Menu* menu, SensorButton* button) {
-
+	delay(200);
 	return true;
 }
 
 //-------------------------------------------------------
-
 void LogView::draw(bool pressed, bool forceBackground) {
 	_drawTime = 0;
 
@@ -282,6 +303,14 @@ void Menu::begin() {
 
 	systemCoordinate.setParameter(0, &_gpsData.latitude);
 	systemCoordinate.setParameter(1, &_gpsData.longitude);
+	systemSpeed.setParameter(0, &_gpsData.speed);
+	systemSpeed.setParameter(1, &_gpsData.heading);
+	systemSatellites.setParameter(0, &_gpsData.satellites);
+	systemMotion.setParameter(0, &_gpsData.movingSeconds);
+	systemMotion.setParameter(1, &_gpsData.stoppedSeconds);
+	systemMute.setState(!_beeper.muted());
+	systemMute.touchFunc = (bool(*)(void*, void*))toggleMute;
+	systemSleep.touchFunc = (bool(*)(void*, void*))&doSleep;
 }
 
 void Menu::run(Button** currentMenu) {
@@ -346,10 +375,18 @@ void Menu::run(Button** currentMenu) {
 		}
 
 		packetCheck();
+		_gps.update();
+		_accel.update();
+
 		Button** list = currentMenu;
 		while (*list) {
 			(*list)->refresh();
 			list++;
+		}
+
+		if (_prefsDirty && _prefsDirtyTime > prefWriteTime) {
+			_prefs.writePrefs();
+			_prefsDirty = false;
 		}
 
 		static elapsedMillis showTime;

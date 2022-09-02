@@ -18,9 +18,15 @@ inline uint16_t RGB16to8(uint16_t v) {
 }
 
 PNG png;
-int16_t pngX, pngY;
-Adafruit_GFX* pngDest;
-Adafruit_RA8875* pngDest8;
+
+struct {
+	int16_t pngX, pngY;
+	Adafruit_GFX* pngDest;
+	Adafruit_RA8875* pngDest8;
+	uint8_t blackColor;
+	uint8_t midColor;
+	uint8_t whiteColor;
+} _pngData;
 
 void PNGDraw(PNGDRAW *pDraw) {
 	uint16_t pixels[pDraw->iWidth];
@@ -29,16 +35,16 @@ void PNGDraw(PNGDRAW *pDraw) {
 	for (uint16_t i = 0; i<pDraw->iWidth; i++) {
 		uint8_t pixel8 = RGB16to8(pixels[i]);
 		if (pixel8) {
-			pngDest->drawPixel(pngX+i, pngY+pDraw->y, pixel8);
+			_pngData.pngDest->drawPixel(_pngData.pngX+i, _pngData.pngY+pDraw->y, pixel8);
 		}
 	}
 }
 
 void drawPNG(const unsigned char* data, uint32_t length, Adafruit_GFX* dest, int16_t x, int16_t y) {
 	if (png.openRAM((uint8_t*)data, length, PNGDraw) == PNG_SUCCESS) {
-		pngX = x;
-		pngY = y;
-		pngDest = dest;
+		_pngData.pngX = x;
+		_pngData.pngY = y;
+		_pngData.pngDest = dest;
 		if (png.decode(NULL, 0) != PNG_SUCCESS) {
 			Serial.println("PNG Decode Error!");
 		}
@@ -53,7 +59,7 @@ void PNGDraw8(PNGDRAW *pDraw) {
 	for (uint16_t i = 0; i<pDraw->iWidth; i++) {
 		pixels8[i] = RGB16to8(pixels[i]);
 	}
-	pngDest8->drawPixels8(pixels8, pDraw->iWidth, pngX, pngY+pDraw->y);
+	_pngData.pngDest8->drawPixels8(pixels8, pDraw->iWidth, _pngData.pngX, _pngData.whiteColor+pDraw->y);
 }
 
 void PNGDraw8MidGray(PNGDRAW *pDraw) {
@@ -65,18 +71,12 @@ void PNGDraw8MidGray(PNGDRAW *pDraw) {
 		uint16_t pixel = pixels[i];
 		uint8_t pixel8;
 
-		if (pixel==0) {
-			pixel8 = 0;
-		}
-		else if (pixel==0xFFFF) {
-			pixel8 = WHITE8;
-		}
-		else {
-			pixel8 = DARK_GRAY8;
-		}
+		if (pixel==0) { pixel8 = 0; }
+		else if (pixel==0xFFFF) { pixel8 = WHITE8; }
+		else { pixel8 = DARK_GRAY8; }
 		pixels8[i] = pixel8;
 	}
-	pngDest8->drawPixels8(pixels8, pDraw->iWidth, pngX, pngY+pDraw->y);
+	_pngData.pngDest8->drawPixels8(pixels8, pDraw->iWidth, _pngData.pngX, _pngData.pngY+pDraw->y);
 }
 
 void PNGDraw8MidGray2(PNGDRAW *pDraw) {
@@ -84,44 +84,75 @@ void PNGDraw8MidGray2(PNGDRAW *pDraw) {
 
 	png.getLineAsRGB565(pDraw, pixels, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
 
-	int16_t lastPixel = -1;
+	int32_t lastPixel = -1;
 	uint16_t lastX = 0;
 	uint16_t width = 0;
 
 	for (uint16_t i = 0; i<pDraw->iWidth; i++) {
 		uint16_t pixel = pixels[i];
-		uint8_t pixel8;
 
-		if (pixel==0) { pixel8 = 0; }
-		else if (pixel==0xFFFF) { pixel8 = WHITE8; }
-		else { pixel8 = DARK_GRAY8; }
+		if (pixel!=0 && pixel!=0xFFFF) {
+			pixel = 0b0110001100001000;
+		}
 		
-		if (pixel8 == lastPixel) {
+		if (pixel == lastPixel) {
 			width++;
 		}
 		else {
 			if (width) {
-				pngDest8->drawFastHLine(pngX+lastX, pngY+pDraw->y, width, lastPixel);
+				_pngData.pngDest8->drawFastHLine(_pngData.pngX+lastX, _pngData.pngY+pDraw->y, width, lastPixel);
 			}
 
-			lastPixel = pixel8;
+			lastPixel = pixel;
 			lastX = i;
 			width = 1;
 		}
 	}
 	if (width) {
-		pngDest8->drawFastHLine(pngX+lastX, pngY+pDraw->y, width, lastPixel);
+		_pngData.pngDest8->drawFastHLine(_pngData.pngX+lastX, _pngData.pngY+pDraw->y, width, lastPixel);
 	}
 }
 
 void drawPNG8(const unsigned char* data, uint32_t length, Adafruit_RA8875* dest, int16_t x, int16_t y, bool midGray) {
 	if (png.openRAM((uint8_t*)data, length, (midGray)?PNGDraw8MidGray:PNGDraw8) == PNG_SUCCESS) {
-		pngX = x;
-		pngY = y;
-		pngDest8 = dest;
+		_pngData.pngX = x;
+		_pngData.pngY = y;
+		_pngData.pngDest8 = dest;
 		if (png.decode(NULL, 0) != PNG_SUCCESS) {
 			Serial.println("PNG Decode Error!");
 		}
 	}
 }
 
+void PNGDraw83(PNGDRAW *pDraw) {
+	uint16_t pixels[pDraw->iWidth];
+
+	png.getLineAsRGB565(pDraw, pixels, PNG_RGB565_BIG_ENDIAN, 0xffffffff);
+	for (uint16_t i = 0; i<pDraw->iWidth; i++) {
+		uint16_t pixel = pixels[i];
+		uint8_t pixel8;
+
+		if (pixel==0) { pixel8 = _pngData.blackColor; }
+		else if (pixel==0xFFFF) { pixel8 = _pngData.whiteColor; }
+		else { pixel8 = _pngData.midColor; }
+
+		if (pixel8) {
+			_pngData.pngDest->drawPixel(_pngData.pngX+i, _pngData.pngY+pDraw->y, pixel8);
+		}
+	}
+}
+
+void drawPNG83(const unsigned char* data, uint32_t length, Adafruit_GFX* dest, int16_t x, int16_t y, uint8_t whiteColor, uint8_t blackColor, uint8_t midColor) {
+	if (png.openRAM((uint8_t*)data, length, PNGDraw83) == PNG_SUCCESS) {
+		_pngData.pngX = x;
+		_pngData.pngY = y;
+		_pngData.pngDest = dest;
+		_pngData.blackColor = blackColor;
+		_pngData.midColor = midColor;
+		_pngData.whiteColor = whiteColor;
+
+		if (png.decode(NULL, 0) != PNG_SUCCESS) {
+			Serial.println("PNG Decode Error!");
+		}
+	}
+}

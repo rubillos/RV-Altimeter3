@@ -1,7 +1,6 @@
 #ifndef DEF_PACKETS_H
 #define DEF_PACKETS_H
 #include <RadioLib.h>
-#include "elapsedMillis64.h"
 
 typedef struct {
     uint32_t timeStamp;

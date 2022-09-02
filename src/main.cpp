@@ -1,7 +1,6 @@
 #include <Arduino.h>
 
-#define defaultMaxWait 250
-
+#include "defs.h"
 #include "heltec.h"
 #include "TimeLib.h"
 #include <elapsedMillis.h>
@@ -19,9 +18,11 @@
 #include "tires.h"
 #include "gps.h"
 #include "prefs.h"
-#include "defs.h"
+#include "accel.h"
 #include "OLED_print.h"
 #include "pins.h"
+
+#include <esp_sleep.h>
 
 #include "graphics/PX3_Flat.png.h"
 
@@ -36,7 +37,7 @@ bool switchClosed = false;
 
 constexpr uint16_t lightAverageCount = 16;
 constexpr uint16_t analogResolution = 12;
-constexpr float lightMax = 4096.0;
+constexpr float lightMax = 2 ^ analogResolution;
 
 RingBuff<float> lightBuff(100);
 
@@ -65,6 +66,15 @@ void scanBus(TwoWire &bus) {
 	Serial.println("Scan Complete.");
 }
 
+float sequenceInterp(float* values, int16_t count, float percent) {
+	uint16_t startIndex = (float)count * percent;
+	float frac = ((float)count * percent) - startIndex;
+	float startValue = values[startIndex];
+	float endValue = values[(startIndex + 1) % count];
+
+	return startValue + (endValue - startValue) * frac;
+}
+
 void doCalibrate() {
 	if (_touchScreen.runCalibration(&_prefData.touchCalibration)) {
 		_touchScreen.setTouchMatrix(&_prefData.touchCalibration);
@@ -82,6 +92,26 @@ void packetCheck() {
 	}
 }
 
+bool switchState() {
+	pinMode(SWITCH_AND_12V_PIN, INPUT_PULLUP);
+	pinMode(SWITCH_GND_PIN, OUTPUT);
+	digitalWrite(SWITCH_GND_PIN, LOW);
+
+	bool switchClosed = digitalRead(SWITCH_AND_12V_PIN) == LOW;
+
+	pinMode(SWITCH_GND_PIN, INPUT);
+	pinMode(SWITCH_AND_12V_PIN, INPUT);
+
+	return switchClosed;
+}
+
+uint16_t voltageValue() {
+	pinMode(SWITCH_GND_PIN, INPUT);
+	pinMode(SWITCH_AND_12V_PIN, INPUT);
+	
+	return analogRead(SWITCH_AND_12V_PIN);
+}
+
 void setup() {
 	delay(3000);
 	Serial.begin(115200);
@@ -92,18 +122,8 @@ void setup() {
 
 	analogReadResolution(analogResolution);
 
-	pinMode(SWITCH_GND_PIN, INPUT);
-	pinMode(SWITCH_AND_12V_PIN, INPUT);
-	
-	have12v = analogRead(SWITCH_AND_12V_PIN) > 1500;
-
-	pinMode(SWITCH_AND_12V_PIN, INPUT_PULLUP);
-	pinMode(SWITCH_GND_PIN, OUTPUT);
-	digitalWrite(SWITCH_GND_PIN, LOW);
-
-	switchClosed = digitalRead(SWITCH_AND_12V_PIN) == LOW;
-
-	pinMode(SWITCH_GND_PIN, INPUT);
+	have12v = voltageValue() > 1500;
+	switchClosed = switchState() == LOW;
 
 	Serial.printf("12v Power: %s, Switch Closed: %s\n", have12v ? "yes":"no", switchClosed ? "yes":"no");
 
@@ -122,11 +142,12 @@ void setup() {
 
 	// test_zones();
 	OLEDprintln("Init Prefs...");
-	_prefs.readPrefs(_touchScreen);
+	_prefs.readPrefs();
 
 	OLEDprintln("Init TFT display...");
 	_touchScreen.startDisplay(have12v);
 
+	OLEDprintln("Show splash screen...");
 	drawPNG8(PX3_Flat_png, sizeof(PX3_Flat_png), &_display, 0, 0, true);
 	delay(2000);
 
@@ -139,6 +160,10 @@ void setup() {
 	OLEDprintln("Init GPS...");
 	_gps.begin();
 	
+	OLEDprintln("Init Accelerometer...");
+	_accel.begin();
+	_accel.setShakeLimits(0.4, 0.4, 0.4);
+	
 	OLEDprintln("Init Menu System...");
 	_menu.begin();
 
@@ -150,8 +175,39 @@ void setup() {
 		Serial.println("Calibrating...");
 		doCalibrate();
 	}
-
+	
 	OLEDprintln("Init Done!");
+}
+
+void sleepUntilTouch() {
+	bool done = false;
+	tsPoint_t touchPt;
+
+	_gps.setPowerSaveMode(true);
+
+	_touchScreen.enableBacklight(false);
+	_display.PWM1config(false, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
+	_display.GPIOX(false);
+	_display.displayOn(false);
+
+	while (!done) {
+		esp_sleep_enable_timer_wakeup(50 * 1000); // 20ms in microseconds
+		esp_light_sleep_start();
+
+		if (_touchScreen.screenTouch(&touchPt) || _accel.didShake()) {
+			done = true;
+		}
+	}
+
+	_gps.setPowerSaveMode(false);
+
+	_display.displayOn(true);
+	delay(1);
+	_display.GPIOX(true);
+	delay(200);
+	_display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
+	delay(100);
+	_touchScreen.enableBacklight(true);
 }
 
 const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
@@ -173,23 +229,22 @@ void loop() {
 
 		uint32_t sunriseTime = sun.calcSunrise();
 		uint32_t sunsetTime = sun.calcSunset();
-		String sunUp = timeFromDayMinutes(sunriseTime, false);
-		String sunDown = timeFromDayMinutes(sunsetTime, false);
+
+		String sunUp = _dataDisplay.timeFromDayMinutes(sunriseTime, false);
+		String sunDown = _dataDisplay.timeFromDayMinutes(sunsetTime, false);
 
 		uint32_t curTime = _gpsData.gpsTimeDate.hour() * 60 + _gpsData.gpsTimeDate.minute();
 
-		Serial.printf("GPS Data: Alt=%0.1f, Heading=%0.2f, Sunrise=%s, Sunset=%s, GMTOffset=%d, fix=%d, sat#=%d, lat=%0.3f, lon=%0.3f, speed=%0.1f, light=%0.2f\n",
-								_gpsData.altitude, _gpsData.heading, sunUp, sunDown, _gpsData.zoneOffset, _gpsData.haveFix, _gpsData.satellites,
-								_gpsData.latitude,  _gpsData.longitude, _gpsData.speed, light);
-
 		elapsedMillis drawStart;
-		while (!_touchScreen.touchReady() && !showData(&drawIndex, curTime, _gpsData.altitude, _gpsData.heading, _gpsData.speed, sunriseTime, sunsetTime, _gpsData.satellites, haveHadFix, fixNames[_gpsData.fixType])) {
+		while (!_touchScreen.touchReady() && !_dataDisplay.showData(&drawIndex, curTime, _gpsData.altitude, _gpsData.heading, _gpsData.speed, sunriseTime, sunsetTime, _gpsData.satellites, haveHadFix, fixNames[_gpsData.fixType])) {
 			packetCheck();
+			_accel.update();
 		}
 		drawTime = drawStart;
 	}
 
 	packetCheck();
+	_accel.update();
 
 	tsPoint_t touchPt;
 	if (_touchScreen.screenTouch(&touchPt)) {
@@ -206,6 +261,15 @@ void loop() {
 	static elapsedMillis showTime;
 	if (showTime > 500) {
 		Serial.printf("%06d: Draw time=%dms, free memory=%d\n", millis(), drawTime, ESP.getFreeHeap());
+
+		// sensors_event_t movement;
+		// _accel.getEvent(movement);
+		// Serial.printf("Accel: x=%f, y=%f, z=%f\n", movement.acceleration.x, movement.acceleration.y, movement.acceleration.z);
+
+		if (_accel.didShake()) {
+			Serial.println("Shake!");
+		}
+
 		showTime = 0;
 	}
 

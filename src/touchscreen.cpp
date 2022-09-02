@@ -8,7 +8,8 @@
 #include "pins.h"
 #include "menu.h"
 
-#define TOUCH_MAX 512
+constexpr uint16_t touchMax = 512;
+#define touchMax 512
 
 constexpr uint32_t defaultTouchDelay = 500;
 constexpr uint32_t repeatTouchDelay = 300;
@@ -21,7 +22,8 @@ volatile bool allowRepeat = false;
 
 SPIClass LCDSPI(HSPI);
 Adafruit_RA8875 _display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
-Buffer8 _displayBuffer(0, 0, cellWidth, cellHeight);
+Buffer8 _displayBuffer8(0, 0, cellWidth, cellHeight);
+Buffer1 _displayBuffer1(0, 0, cellWidth, cellHeight);
 
 void touchInterrupt() {
     static uint32_t lastTouchTime = 0;
@@ -105,6 +107,8 @@ bool TouchScreen::touchEvent(tsPoint_t* touchPt) {
             interruptEnableTime = time;
         }
 
+        // Serial.printf("%d: Was interrupted\n", millis());
+
         uint16_t x, y;
         _display.touchRead(&x, &y);
 
@@ -164,8 +168,8 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
 
     buttonBack.draw(false, true);
 
-    uint16_t one_third = TOUCH_MAX/3;
-    uint16_t two_thirds = TOUCH_MAX*2/3;
+    uint16_t one_third = touchMax/3;
+    uint16_t two_thirds = touchMax*2/3;
     tsPoint_t pt;
     bool done = false;
 
@@ -235,21 +239,31 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
     return result;
 }
 
+void TouchScreen::enableBacklight(bool enable) {
+    if (enable) {
+        _display.PWM1out((_have12v) ? 255 : 127);	// set backlight
+    }
+    else {
+        _display.PWM1out(0);	// set backlight
+    }
+}
+
 void TouchScreen::startDisplay(bool have12v) {
 	LCDSPI.begin(RA8875_SCK, RA8875_MISO, RA8875_MOSI, RA8875_CS);
 
-	delay(1000);
 	if (!_display.begin(RA8875_800x480, &LCDSPI)) {
 		Serial.println("RA8875 Not Found!");
 		while (1);
 	}
 
+    _have12v = have12v;
+
 	pinMode(RA8875_WAIT, INPUT_PULLUP);
+	_display.setWaitPin(RA8875_WAIT);
 
 	_display.setLayerMode(true);
 	_display.graphicsMode();                 // go back to graphics mode
 	_display.fillScreen(BLACK8);
-	delay(1);
 
 	_display.displayOn(true);
 	delay(1);
@@ -260,8 +274,7 @@ void TouchScreen::startDisplay(bool have12v) {
 	_display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
 	delay(100);
 
-	_display.PWM1out((have12v) ? 255 : 127);	// set backlight
-	_display.setWaitPin(RA8875_WAIT);
+	enableBacklight(true);
 }
 
 void TouchScreen::beginTouch() {

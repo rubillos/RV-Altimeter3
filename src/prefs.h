@@ -6,7 +6,7 @@
 #include <Preferences.h>
 #include "touchscreen.h"
 
-#define PREFS_VERSION 3
+#define PREFS_VERSION 4
 
 typedef struct {
 	uint32_t sensorIDs[NUM_TIRES];
@@ -20,7 +20,7 @@ typedef struct {
 
 class Prefs {
 	public:
-        void readPrefs(TouchScreen& touchScreen);
+        void readPrefs();
         void writePrefs();
 
     private:

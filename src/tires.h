@@ -22,8 +22,6 @@ class TireHandler {
 		void recordPacket(TPMSPacket& packet);
 		void sensorIDChanged(uint16_t sensorIndex);
 
-		uint32_t* sensorIDs;
-
 	private:
 		int16_t indexOfSensor(uint32_t sensorID);
 
