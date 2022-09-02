@@ -48,10 +48,11 @@ class Button {
 		Button** subButtons;
 
 		virtual String title() { return _title; };
-		virtual ButtonScheme* scheme() { return &_scheme; };
+		virtual ButtonScheme scheme(bool pressed = false);
 		virtual bool hitTest(tsPoint_t pt, bool widen=false);
 		virtual bool isHeader() { return false; };
 		virtual void draw(bool pressed=false, bool forceBackground=false);
+		virtual bool transparentText() { return true; };
 		virtual void refresh() {};
 
 	protected:
@@ -73,6 +74,23 @@ class Button {
 		ButtonRect _rect;
 };
 
+class SlashButton : public Button {
+	public:
+		SlashButton(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, bool state=false ) :
+			Button(x, y, w, h, title, scheme) {
+				_state = state;
+		};
+		void draw(bool pressed=false, bool forceBackground=false);
+		void setState(bool state) { _state=state; _dirty=true; };
+		void refresh() {
+			if (_dirty) {
+				draw(false, false);
+			}
+		};
+	private:
+		bool _state;
+};
+
 class Label : public Button {
 	public:
 		Label(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0 ) :
@@ -80,6 +98,7 @@ class Label : public Button {
 				_titleInset = titleInset;
 		};
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
+		bool transparentText() { return false; };
 };
 
 class Header : public Button {
@@ -92,35 +111,45 @@ class Header : public Button {
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
 };
 
-class FormatLabel : public Label {
+class FloatLabel : public Label {
 	public:
-		FormatLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0,
+		FloatLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0,
 				void* param1=NULL, void* param2=NULL, void* param3=NULL, void* param4=NULL ) : 
 			Label(x, y, w, h, title, scheme, titleInset) {
 				
 		};
-		void setParameter(uint8_t index, void* param) {
+		void setParameter(uint8_t index, float* param) {
 			_param[index] = param;
-			_values[index] = 0xFFFFFFFF;
+			_values[index] = *param;
+		};
+		void updateValues(bool setDirty) {
+			for (uint8_t i=0; i<4; i++) {
+				if (_param[i]) {
+					float value = *(_param[i]);
+					if (value != _values[i]) {
+						_values[i] = value;
+						if (setDirty) {
+							_dirty = true;
+						}
+					}
+				}
+			}
 		};
 		String title() {
 			char buffer[50];
-			getValues(_values);
-			Serial.printf("Sizeof float=%d", sizeof(float));
-			Serial.printf("Values:   v1=0x%08X, v2=0x%08X, v3=0x%08X, v4=0x%08X\n", _values[0], _values[1], _values[2], _values[3]);
-			Serial.printf("Floats:   v1=%10.4F, v2=%10.4F, v3=%10.4F, v4=%10.4F\n", _values[0], _values[1], _values[2], _values[3]);
-			Serial.printf("Pointers: v1=0x%08X, v2=0x%08X, v3=0x%08X, v4=0x%08X\n\n", _param[0], _param[1], _param[2], _param[3]);
+			updateValues(false);
 			snprintf(buffer, sizeof(buffer), _title.c_str(), _values[0], _values[1], _values[2], _values[3]);
 			return buffer;
-		 };
-	private:
-		void getValues(uint32_t* values) {
-			for (uint16_t i=0; i<4; i++) {
-				values[i] = (_param[i] != NULL) ? *((uint32_t*)_param[i]) : 0;
+		};
+		void refresh() {
+			updateValues(true);
+			if (_dirty) {
+				draw(false, false);
 			}
-		}
-		void* _param[4] = { NULL, NULL, NULL, NULL };
-		uint32_t _values[4];
+		};
+	private:
+		float* _param[4] = { NULL, NULL, NULL, NULL };
+		float _values[4];
 };
 
 void drawButtons(Button** buttons);

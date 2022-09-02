@@ -1,5 +1,7 @@
 #include "button.h"
 #include "touchscreen.h"
+#include "dataDisplay.h"
+#include "defs.h"
 
 void drawButtons(Button** buttons) {
     while (*buttons) {
@@ -47,7 +49,7 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
 
     // Serial.printf("draw '%s': text=0x%X, back=0x%X, border=0x%X\n", title().c_str(), textColor, backColor, borderColor);
 
-    ButtonScheme* sc = scheme();
+    ButtonScheme sc = scheme();
 
     if (backColor == borderColor) {
         if (forceBackground || backColor) {
@@ -63,16 +65,21 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
         }
     }
     _display.textMode();
-    _display.textEnlarge(sc->sizeX-1, sc->sizeY-1);
-    _display.textTransparent(textColor);
+    _display.textEnlarge(sc.sizeX-1, sc.sizeY-1);
+    if (transparentText()) {
+        _display.textTransparent(textColor);
+    }
+    else {
+        _display.textColor(textColor, backColor);
+    }
 
     uint16_t x;
-    uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (sc->sizeY-1)*2;
+    uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (sc.sizeY-1)*2;
 
-    if (sc->flags & buttonAlignLeft) {
+    if (sc.flags & buttonAlignLeft) {
         x = _rect.x + _titleInset;
     }
-    else if (sc->flags & buttonAlignRight) {
+    else if (sc.flags & buttonAlignRight) {
         x = _rect.x + _rect.w - titleWidth() - _titleInset;
     }
     else {
@@ -85,47 +92,48 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
     _display.graphicsMode();
 }
 
-void Button::draw(bool pressed, bool forceBackground) {
+ButtonScheme Button::scheme(bool pressed) {
     uint16_t text, back, border;
-    ButtonScheme* sc = scheme();
+    ButtonScheme scheme = _scheme;
+
+    scheme.sizeX = max(1, min(4, (int)scheme.sizeX));
+    scheme.sizeY = max(1, min(4, (int)scheme.sizeY));
 
     if (pressed) {
-        text = sc->backColor;
-        back = sc->textColor;
-        if (sc->backColor==sc->borderColor) {
-            if (sc->textColor == 0) {
-                border = sc->backColor;
+        scheme.textColor = _scheme.backColor;
+        scheme.backColor = _scheme.textColor;
+        if (_scheme.backColor==_scheme.borderColor) {
+            if (_scheme.textColor == 0) {
+                scheme.borderColor = _scheme.backColor;
             }
             else {
-                border = sc->textColor;
+                scheme.borderColor = _scheme.textColor;
             }
         }
         else {
-            border = sc->borderColor;
+            scheme.borderColor = _scheme.borderColor;
         }
     }
-    else {
-        text = sc->textColor;
-        back = sc->backColor;
-        border = sc->borderColor;
-    }
-    drawInternal(text, back, border, forceBackground);
+
+    return scheme;
+}
+
+void Button::draw(bool pressed, bool forceBackground) {
+    ButtonScheme sc = scheme(pressed);
+
+    drawInternal(sc.textColor, sc.backColor, sc.borderColor, forceBackground);
 }
 
 uint16_t Button::titleWidth() {
-    return title().length() * 8 * scheme()->sizeX;
+    return title().length() * 8 * scheme().sizeX;
 }
 
 uint16_t Button::titleHeight() {
-    return 16 * scheme()->sizeY;
+    return 16 * scheme().sizeY;
 }
 
 void Button::computeScreenRect() {
     if (_dirty) {
-        ButtonScheme* sc = scheme();;
-        
-        sc->sizeX = max(1, min(4, (int)sc->sizeX));
-        sc->sizeY = max(1, min(4, (int)sc->sizeY));
         if (_w <= 0) {  // size from title, with inset
             _rect.w = titleWidth() + -_w*2;
         }
@@ -153,5 +161,15 @@ void Button::computeScreenRect() {
         else {
             _rect.y = _y;
         }
+        _dirty = false;
+    }
+}
+
+void SlashButton::draw(bool pressed, bool forceBackground) {
+    Button::draw(pressed, forceBackground);
+    if (!_state) {
+        ButtonScheme sc = scheme();
+
+        _dataDisplay.drawThickLine(_display, _rect.x+5, _rect.y+_rect.h-6, _rect.x+_rect.w-7, _rect.y+5, 5, RA8875_RED);
     }
 }
