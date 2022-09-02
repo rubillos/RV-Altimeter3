@@ -13,7 +13,7 @@
 
 #include "fonts/IconFont.h"
 
-uint8_t ascenderForFont(const GFXfont *f, char character)
+uint8_t DataDisplay::ascenderForFont(const GFXfont *f, char character)
 {
 	uint16_t index = character - f->first;
 	int8_t offset = f->glyph[index].yOffset;
@@ -21,13 +21,13 @@ uint8_t ascenderForFont(const GFXfont *f, char character)
 	return -offset;
 }
 
-void getStringDimensions(Adafruit_GFX& dest, String str, uint16_t* width, uint16_t* height) {
+void DataDisplay::getStringDimensions(Adafruit_GFX& dest, String str, uint16_t* width, uint16_t* height) {
 	int16_t x, y;
 
 	dest.getTextBounds(str, 0, 0, &x, &y, width, height);
 }
 
-uint16_t getStringWidth(Adafruit_GFX& dest, String str)
+uint16_t DataDisplay::getStringWidth(Adafruit_GFX& dest, String str)
 {
 	int16_t x, y;
 	uint16_t width, height;
@@ -36,7 +36,7 @@ uint16_t getStringWidth(Adafruit_GFX& dest, String str)
 	return width;
 }
 
-String timeFromDayMinutes(double dayMinutes, bool includeSeconds) {
+String DataDisplay::timeFromDayMinutes(double dayMinutes, bool includeSeconds) {
 	uint16_t hours = dayMinutes / 60;
 	uint16_t minutes = ((uint32_t)dayMinutes) % 60;
 	uint16_t seconds = (dayMinutes - (uint32_t)dayMinutes) * 60.0;
@@ -69,7 +69,7 @@ String timeFromDayMinutes(double dayMinutes, bool includeSeconds) {
 	return result;
 }
 
-String suffixFromDayMinutes(double dayMinutes) {
+String DataDisplay::suffixFromDayMinutes(double dayMinutes) {
 	uint16_t hours = dayMinutes / 60;
 	bool pm = hours >= 12 && hours <= 24;
 
@@ -97,7 +97,7 @@ void offsetCursor(Adafruit_GFX& dest, int16_t xOffset, int16_t yOffset) {
 	dest.setCursor(dest.getCursorX() + xOffset, dest.getCursorY() + yOffset);
 }
 
-void showCell(Adafruit_GFX& dest, int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, String suffix, const GFXfont* strFont = textFont, const GFXfont* sufFont = suffixFont) {
+void DataDisplay::showCell(Adafruit_GFX& dest, int16_t x, int16_t y, char glyph, String str, int16_t oneOffset, String suffix, const GFXfont* strFont, const GFXfont* sufFont) {
 	uint16_t ascender = ascenderForFont(strFont, glyph);
 	uint16_t xOffset = -2;
 
@@ -137,8 +137,7 @@ void writePixel(Adafruit_GFX& dest, int16_t x, int16_t y, uint16_t color, uint16
 	}
 }
 
-void drawThickLine(Adafruit_GFX& dest, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t thickness, uint16_t color)
-{
+void DataDisplay::drawThickLine(Adafruit_GFX& dest, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t thickness, uint16_t color) {
 	int16_t steep = abs(y1 - y0) > abs(x1 - x0);
 	if (steep) {
 		swap_int16_t(x0, y0);
@@ -193,7 +192,7 @@ void centerRotLenToPoint(int16_t centerX, int16_t centerY, float angle, float le
 uint16_t hoursLen = 9;
 uint16_t minutesLen = 16;
 
-void drawPolarLine(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t length, int16_t thickness) {
+void DataDisplay::drawPolarLine(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t length, int16_t thickness) {
 	int16_t destX, destY;
 
 	centerRotLenToPoint(x, y, angle, length, &destX, &destY);
@@ -206,7 +205,7 @@ void drawPolarLine(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16
 	}
 }
 
-void drawPointer(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t majorLen, uint16_t minorLen, uint16_t cornerAngle) {
+void DataDisplay::drawPointer(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t majorLen, uint16_t minorLen, uint16_t cornerAngle) {
 	int16_t x1, x2, x3, y1, y2, y3;
 
 	centerRotLenToPoint(x, y, angle, majorLen, &x1, &y1);
@@ -215,32 +214,30 @@ void drawPointer(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t
 	dest.fillTriangle(x1, y1, x2, y2, x3, y3, WHITE8);
 }
 
-void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16_t minutes) {
+void DataDisplay::drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16_t minutes) {
 	drawPolarLine(dest, x, y, hours * 360.0 / 12.0, hoursLen, 5);
 	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5);
 }
 
-static bool drawLayer = false;
-
-bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
+bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
 	constexpr int16_t xOffset = 50;
-	constexpr int16_t xGap = 45;
-	constexpr int16_t yOffset = 20;
-	constexpr int16_t yGap = 22;
+	constexpr int16_t xGap = 50;
+	constexpr int16_t yOffset = 18;
+	constexpr int16_t yGap = 20;
 	static uint8_t colon = 1;
 	uint16_t xStart, yStart;
 	String timeString;
 	int16_t direction;
 	bool result = false;
 
-	_display.setDrawLayer(!drawLayer);
+	_display.setDrawLayer(!_drawLayer);
 
 	if (*drawIndex == 0) {
 		_display.fillScreen(BLACK8);
 
-		_displayBuffer.setTextSize(1);
-		_displayBuffer.setTextColor(WHITE8);
-		_displayBuffer.setTextWrap(false);
+		_displayBuffer8.setTextSize(1);
+		_displayBuffer8.setTextColor(WHITE8);
+		_displayBuffer8.setTextWrap(false);
 	}
 
 	if (haveFix) {
@@ -249,18 +246,19 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 
 		xStart = xOffset+col*(cellWidth+xGap);
 		yStart = yOffset+row*(cellHeight+yGap);
-		_displayBuffer.setOffset(xStart, yStart);
+		_displayBuffer8.setOffset(xStart, yStart);
+
+		// _displayBuffer8.fillRect(xStart, yStart+2, cellWidth, cellHeight, GREEN8);
 
 		switch (*drawIndex) {
 			case 0:
 				// speed
-				showCell(_displayBuffer, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
-				drawPolarLine(_displayBuffer, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
+				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
+				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
 				break;
 			case 1:
 				// altitude
-				// _displayBuffer.fillRect(xStart, yStart, cellWidth, cellHeight, GREEN8);
-				showCell(_displayBuffer, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
+				showCell(_displayBuffer8, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
 				break;
 			case 2:
 				// time
@@ -270,30 +268,30 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 				}
 				colon = (colon+1)%4;
 
-				showCell(_displayBuffer, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
-				drawTime(_displayBuffer, xStart+32, yStart+36, time / 60, time % 60);
+				showCell(_displayBuffer8, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
+				drawTime(_displayBuffer8, xStart+32, yStart+36, time / 60, time % 60);
 				break;
 			case 3:
 				// heading
 				direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
-				showCell(_displayBuffer, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
-				drawPointer(_displayBuffer, xStart+32, yStart+36, heading, 15, 8, 140);
+				showCell(_displayBuffer8, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
+				drawPointer(_displayBuffer8, xStart+32, yStart+36, heading, 15, 8, 140);
 				break;
 			case 4:
 				// sunrise
-				showCell(_displayBuffer, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
+				showCell(_displayBuffer8, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
 				break;
 			case 5:
 				// sunset
-				showCell(_displayBuffer, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
+				showCell(_displayBuffer8, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
 				break;
 		}
-		_displayBuffer.draw(_display, -1);
+		_displayBuffer8.draw(_display, -1);
 		(*drawIndex)++;
 	}
 	else {
 		if (*drawIndex == 0) {
-			_displayBuffer.setOffset(_display.width()/2 - 100, 100);
+			_displayBuffer8.setOffset(_display.width()/2 - 100, 100);
 			static uint8_t dotCount = 1;
 			static String acquiring = String("Acquiring");
 			static String dots = String(".....");
@@ -301,26 +299,27 @@ bool showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float headin
 			status = acquiring+dots.substring(0, dotCount);
 			dotCount = (dotCount % 5)+1;
 
-			_displayBuffer.setFont(&FreeSans18pt7b);
+			_displayBuffer8.setFont(&FreeSans18pt7b);
 
-			_displayBuffer.setCursor(_display.width()/2 - 100, 130);
-			_displayBuffer.print(status);
-			_displayBuffer.draw(_display);
+			_displayBuffer8.setCursor(_display.width()/2 - 100, 130);
+			_displayBuffer8.print(status);
+			_displayBuffer8.draw(_display);
 		}
 		*drawIndex = 6;
 	}
 
 	if (*drawIndex==6) {
 		_tireHandler.drawTires();
-		_display.showLayer(!drawLayer);
-		drawLayer = !drawLayer;
+		_display.showLayer(!_drawLayer);
+		_drawLayer = !_drawLayer;
 		*drawIndex = 0;
 		result = true;
 	}
 	else {
-		_display.setDrawLayer(drawLayer);
+		_display.setDrawLayer(_drawLayer);
 	}
 
 	return result;
 }
 
+DataDisplay _dataDisplay;
