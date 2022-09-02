@@ -9,10 +9,10 @@
 #define SWITCH_GND_PIN 13
 
 #define RA8875_SCK 17
-#define RA8875_MISO 36
-#define RA8875_MOSI 23
-#define RA8875_CS 22
 #define RA8875_RESET 21
+#define RA8875_CS 22
+#define RA8875_MOSI 23
+#define RA8875_MISO 36
 #define RA8875_INT 37
 #define RA8875_WAIT 39
 
