@@ -15,6 +15,7 @@ class TouchScreen {
         bool computeCalibrationMatrix(tsPoint_t* displayPts, tsPoint_t* touchPts, tsMatrix_t* matrix);
         tsPoint_t scaleTouchPoint(tsPoint_t touchPt, tsMatrix_t* matrix);
         bool touchEvent(tsPoint_t* touchPt);
+        void touchRefresh();
         bool screenTouch(tsPoint_t* screenPt, tsMatrix_t* matrix=NULL);
         bool touchReady();
         void allowNextRepeat();
