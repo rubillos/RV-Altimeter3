@@ -37,7 +37,7 @@ bool switchClosed = false;
 
 constexpr uint16_t lightAverageCount = 16;
 constexpr uint16_t analogResolution = 12;
-constexpr float lightMax = 2 ^ analogResolution;
+constexpr float analogMax = 2 ^ analogResolution;
 
 RingBuff<float> lightBuff(100);
 
@@ -48,7 +48,7 @@ float readLight() {
 		total += analogRead(LIGHT_SENSOR_PIN);
 	}
 
-	lightBuff.addSample((float)total / (lightAverageCount * lightMax));
+	lightBuff.addSample((float)total / (lightAverageCount * analogMax));
 
 	return lightBuff.average();
 }
@@ -105,11 +105,19 @@ bool switchState() {
 	return switchClosed;
 }
 
-uint16_t voltageValue() {
+float voltageValue() {
 	pinMode(SWITCH_GND_PIN, INPUT);
 	pinMode(SWITCH_AND_12V_PIN, INPUT);
+
+	uint16_t value = analogRead(SWITCH_AND_12V_PIN);
+
+	if (value < 10) {
+		value = 0;
+	}
+
+	// Serial.printf("voltageValue=%d\n", value);
 	
-	return analogRead(SWITCH_AND_12V_PIN);
+	return (float)value / analogMax * 32.0;
 }
 
 void setup() {
@@ -122,8 +130,10 @@ void setup() {
 
 	analogReadResolution(analogResolution);
 
-	have12v = voltageValue() > 1500;
-	switchClosed = switchState() == LOW;
+	Serial.printf("Voltage: %0.2f\n", voltageValue());
+
+	have12v = voltageValue() > 15.0;
+	switchClosed = switchState();
 
 	Serial.printf("12v Power: %s, Switch Closed: %s\n", have12v ? "yes":"no", switchClosed ? "yes":"no");
 
@@ -156,6 +166,7 @@ void setup() {
 
 	OLEDprintln("Init PacketRadio...");
 	_packetMonitor.begin();
+	_packetMonitor.setFakePackets(true);
 
 	OLEDprintln("Init GPS...");
 	_gps.begin();
@@ -175,6 +186,8 @@ void setup() {
 		Serial.println("Calibrating...");
 		doCalibrate();
 	}
+
+	_prefData.sensorIDs[0] = 0xAA2365;
 	
 	OLEDprintln("Init Done!");
 }
@@ -184,14 +197,10 @@ void sleepUntilTouch() {
 	tsPoint_t touchPt;
 
 	_gps.setPowerSaveMode(true);
-
 	_touchScreen.enableBacklight(false);
-	_display.PWM1config(false, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
-	_display.GPIOX(false);
-	_display.displayOn(false);
 
 	while (!done) {
-		esp_sleep_enable_timer_wakeup(50 * 1000); // 20ms in microseconds
+		esp_sleep_enable_timer_wakeup(50 * 1000); // 50ms
 		esp_light_sleep_start();
 
 		if (_touchScreen.screenTouch(&touchPt) || _accel.didShake()) {
@@ -200,22 +209,21 @@ void sleepUntilTouch() {
 	}
 
 	_gps.setPowerSaveMode(false);
-
-	_display.displayOn(true);
-	delay(1);
-	_display.GPIOX(true);
-	delay(200);
-	_display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
-	delay(100);
 	_touchScreen.enableBacklight(true);
 }
 
 const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
 
+bool systemUpdate() {
+	packetCheck();
+	_accel.update();
+	return _gps.update();
+}
+
 void loop() {
 	static uint32_t drawTime;
 
-	bool haveHadFix = _gps.update();
+	bool haveHadFix = systemUpdate();
 
 	static uint16_t drawIndex = 0;
 	static elapsedMillis statusTime = 500;
@@ -242,9 +250,6 @@ void loop() {
 		}
 		drawTime = drawStart;
 	}
-
-	packetCheck();
-	_accel.update();
 
 	tsPoint_t touchPt;
 	if (_touchScreen.screenTouch(&touchPt)) {
