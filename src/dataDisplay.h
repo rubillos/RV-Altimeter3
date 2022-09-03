@@ -21,6 +21,10 @@ class DataDisplay {
         void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16_t minutes);
         void drawPointer(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t majorLen, uint16_t minorLen, uint16_t cornerAngle);
 
+        void drawAltLayer();
+        void drawCurrentLayer();
+        void switchToAltLayer();
+        
     private:
         bool _drawLayer = false;
 };

@@ -219,9 +219,22 @@ void DataDisplay::drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t 
 	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5);
 }
 
+void DataDisplay::drawAltLayer() {
+	_display.setDrawLayer(!_drawLayer);
+}
+
+void DataDisplay::drawCurrentLayer() {
+	_display.setDrawLayer(_drawLayer);
+}
+
+void DataDisplay::switchToAltLayer() {
+	_display.showLayer(!_drawLayer);
+	_drawLayer = !_drawLayer;
+}
+
 bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
-	constexpr int16_t xOffset = 50;
-	constexpr int16_t xGap = 50;
+	constexpr int16_t xOffset = 60;
+	constexpr int16_t xGap = 40;
 	constexpr int16_t yOffset = 18;
 	constexpr int16_t yGap = 20;
 	static uint8_t colon = 1;
@@ -230,7 +243,7 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 	int16_t direction;
 	bool result = false;
 
-	_display.setDrawLayer(!_drawLayer);
+	drawAltLayer();
 
 	if (*drawIndex == 0) {
 		_display.fillScreen(BLACK8);
@@ -308,15 +321,14 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 		*drawIndex = 6;
 	}
 
-	if (*drawIndex==6) {
+	if (*drawIndex>=6) {
 		_tireHandler.drawTires();
-		_display.showLayer(!_drawLayer);
-		_drawLayer = !_drawLayer;
+		switchToAltLayer();
 		*drawIndex = 0;
 		result = true;
 	}
 	else {
-		_display.setDrawLayer(_drawLayer);
+		drawCurrentLayer();
 	}
 
 	return result;
