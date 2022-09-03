@@ -4,6 +4,11 @@
 #include <RadioLib.h>
 #include "elapsedMillis.h"
 
+// negative pressure or temperature indicates last value before stopping
+constexpr float noDataValue = -1000;		// no data yet
+constexpr float timedOutValue = -1001;		// sensor is offline
+constexpr float sensorNotPaired = -1002;
+
 typedef struct {
 		uint32_t timeStamp;
 		uint32_t id;
@@ -11,7 +16,6 @@ typedef struct {
 		float temperature;
 		bool lowBattery;
 		bool fastLeak;
-		bool stale;
 } TPMSPacket;
 
 class PacketBuff {

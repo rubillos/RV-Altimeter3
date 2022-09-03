@@ -247,10 +247,7 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 
 	if (*drawIndex == 0) {
 		_display.fillScreen(BLACK8);
-
-		_displayBuffer8.setTextSize(1);
 		_displayBuffer8.setTextColor(WHITE8);
-		_displayBuffer8.setTextWrap(false);
 	}
 
 	if (haveFix) {

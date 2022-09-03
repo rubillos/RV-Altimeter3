@@ -29,6 +29,15 @@ class Buffer8 : public GFXcanvas8 {
 			GFXcanvas8::drawFastVLine(x-_x, y-_y, h, color);
 		}
 
+		void drawCenteredText(String str, int16_t x, int16_t y) {
+			int16_t ax, ay;
+			uint16_t width, height;
+
+            getTextBounds(str, 0, 0, &ax, &ay, &width, &height);
+            setCursor(x - width/2, y);
+            print(str);
+		}
+
 		void draw(Adafruit_RA8875& dest, int16_t w=0, int16_t h=0) {
 			uint8_t* srcBuff = getBuffer();
 			if (w==0) { w=width(); }
@@ -73,7 +82,7 @@ class Buffer1 : public GFXcanvas8 {
 			GFXcanvas8::drawFastVLine(x-_x, y-_y, h, color);
 		}
 
-		void draw(Adafruit_RA8875& dest, int16_t w=0, int16_t h=0) {
+		void draw(Adafruit_RA8875& dest, int16_t w=0, int16_t h=0, bool layer2=false) {
 			uint8_t* srcBuff = getBuffer();
 			if (w==0) { w=width(); }
 			else if (w==-1) { w=getCursorX()-_x; }
@@ -85,7 +94,7 @@ class Buffer1 : public GFXcanvas8 {
 			uint16_t byteWidth = (w+7)/8;
 
 			dest.writeReg16(0x58, _x);
-			dest.writeReg16(0x5A, _y);
+			dest.writeReg16(0x5A, _y | (layer2?0x8000:0));
 			dest.writeReg16(0x5C, w);
 			dest.writeReg16(0x5E, h);
 			dest.writeColor(0x60, RA8875_BLACK);
@@ -94,16 +103,22 @@ class Buffer1 : public GFXcanvas8 {
 			dest.writeReg(0x51, 0x08);
 			dest.writeReg(0x50, 0x80);
 
-			delay(1);
+			// Serial.println("Set up BTE");
+			// delay(1);
 			// dest.waitUntilDone();
+			dest.Chk_BTE_Busy();
+			// Serial.println("Ready to go.");
 
 			for (uint16_t y=0; y<h; y++) {
+				// Serial.printf("Writing line %d\n", y);
 				for (uint16_t x=0; x<byteWidth; x++) {
+					// Serial.printf("Writing byte %d\n", x);
 					dest.writeData(srcBuff[y*rowBytes+x]);
-					delay(1);
+					// delay(1);
 					// dest.waitUntilDone();
 				}
 			}
+			dest.Chk_BTE_Busy();
 		}
 
 	private:

@@ -51,12 +51,12 @@ class Button {
 		virtual ButtonScheme scheme(bool pressed = false);
 		virtual bool hitTest(tsPoint_t pt, bool widen=false);
 		virtual bool isHeader() { return false; };
+		virtual void performDraw(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor);
 		virtual void draw(bool pressed=false, bool forceBackground=false);
 		virtual bool transparentText() { return true; };
 		virtual bool refresh() { return false; };
 
 	protected:
-		void drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borderColor, bool forceBackground);
 		bool hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen);
 		uint16_t titleWidth();
 		uint16_t titleHeight();

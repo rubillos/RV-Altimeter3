@@ -58,6 +58,7 @@ TextManager::TextManager() {
 		'l', 't',
 		'r', 'i',
 		'r', 'l',
+		'L', 'T',
 		'T', 'a',
 		'T', 'e',
 		'T', 'i',
@@ -113,16 +114,25 @@ bool TextManager::isKernPair(char c1, char c2) {
 uint16_t TextManager::widthOfString(String str, uint8_t scale) {
 	const char* chars = str.c_str();
 	uint16_t len = strlen(chars);
+	uint16_t charCount = len;
 	uint16_t offset = 0;
 
 	for (uint16_t i=0; i<len; i++) {
-		offset += charLeftShift[chars[i]] + charRightShift[chars[i]];
+		uint8_t c = chars[i];
+
+		if (c == '\b' && i<len-1) {
+			charCount -= 2;
+			i += 1;
+		}
+		else {
+			offset += charLeftShift[c] + charRightShift[c];
+		}
 	}
 
-	return (8 * len + offset) * scale;
+	return (8 * charCount + offset) * scale;
 }
 
-void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, uint8_t yScale, uint16_t textColor, int32_t backColor) {
+void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, uint8_t yScale, uint16_t textColor, int32_t backColor, uint16_t* otherColors) {
 	_display.textMode();
 	_display.textEnlarge(xScale-1, yScale-1);
 
@@ -131,27 +141,46 @@ void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, u
 	uint16_t charSpacing = 8 * xScale;
 	uint16_t charHeight = 16 * yScale;
 
+	uint16_t currentColor = textColor;
+
 	for (uint16_t i=0; i<len; i++) {
-		int16_t leftShift = _textManager.charLeftShift[chars[i]] * xScale;
-		int16_t rightShift = _textManager.charRightShift[chars[i]] * xScale;
+		uint8_t c = chars[i];
 
-		if (backColor != -1) {
-			_display.fillRect(x, y, charSpacing + leftShift + rightShift, charHeight, backColor);
-		}
+		if (c=='\b' && i<len-1) {
+			if (otherColors != NULL) {
+				int8_t colorIndex = chars[i+1] - '0' - 1;
 
-		x += leftShift;
-
-		if (i>0) {
-			if (_textManager.isKernPair(chars[i-1], chars[i])) {
-				x -= xScale;
+				if (colorIndex==-1) {
+					currentColor = textColor;
+				}
+				else {
+					currentColor = otherColors[colorIndex];
+				}
 			}
+			i += 1;
 		}
+		else {
+			int16_t leftShift = _textManager.charLeftShift[c] * xScale;
+			int16_t rightShift = _textManager.charRightShift[c] * xScale;
 
-		_display.textTransparent(textColor);
-		_display.textSetCursor(x, y + ((charVertShift[chars[i]] * yScale)>>1));
-		_display.textWrite(chars+i, 1);
-		
-		x += charSpacing + rightShift;
+			if (backColor != -1) {
+				_display.fillRect(x, y, charSpacing + leftShift + rightShift, charHeight, backColor);
+			}
+
+			x += leftShift;
+
+			if (i>0) {
+				if (_textManager.isKernPair(chars[i-1], c)) {
+					x -= xScale;
+				}
+			}
+
+			_display.textTransparent(currentColor);
+			_display.textSetCursor(x, y + ((charVertShift[c] * yScale)>>1));
+			_display.textWrite(chars+i, 1);
+			
+			x += charSpacing + rightShift;
+		}
 	}
 
 	_display.textTransparent(RA8875_BLACK);

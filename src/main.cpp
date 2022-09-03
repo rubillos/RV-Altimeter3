@@ -37,7 +37,7 @@ bool switchClosed = false;
 
 constexpr uint16_t lightAverageCount = 16;
 constexpr uint16_t analogResolution = 12;
-constexpr float analogMax = 2 ^ analogResolution;
+constexpr float analogMax = (1 << analogResolution);
 
 RingBuff<float> lightBuff(100);
 
@@ -188,7 +188,12 @@ void setup() {
 	}
 
 	_prefData.sensorIDs[0] = 0xAA2365;
-	
+	_prefData.sensorIDs[1] = 0xAA6721;
+	_prefData.sensorIDs[2] = 0x437812;
+	_prefData.sensorIDs[3] = 0x327812;
+	_prefData.sensorIDs[4] = 0xAA7712;
+	_prefData.sensorIDs[5] = 0x213876;
+
 	OLEDprintln("Init Done!");
 }
 
@@ -215,9 +220,14 @@ void sleepUntilTouch() {
 const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
 
 bool systemUpdate() {
+	bool haveHadFix;
+
 	packetCheck();
 	_accel.update();
-	return _gps.update();
+	haveHadFix = _gps.update();
+	_tireHandler.checkSensorData(_gpsData.movingSeconds>0);
+
+	return haveHadFix;
 }
 
 void loop() {
@@ -253,7 +263,13 @@ void loop() {
 
 	tsPoint_t touchPt;
 	if (_touchScreen.screenTouch(&touchPt)) {
-		if (touchPt.y < 300) {
+		int16_t tireIndex = _tireHandler.indexOfTireAtPoint(touchPt);
+
+		if (tireIndex != -1 && _tireHandler.pressureForSensor(tireIndex)==sensorNotPaired) {
+			_tireHandler.pressTire(tireIndex);
+			delay(200);
+		}
+		else if (touchPt.y < 300) {
 			drawIndex = 0;
 			_menu.run();
 		}

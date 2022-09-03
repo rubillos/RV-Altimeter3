@@ -74,6 +74,12 @@ void TouchScreen::startDisplay(bool have12v) {
 	_display.fillScreen(BLACK8);
 
 	enableBacklight(true);
+
+    _displayBuffer8.setTextSize(1);
+    _displayBuffer8.setTextWrap(false);
+    _displayBuffer1.setTextSize(1);
+    _displayBuffer1.setTextWrap(false);
+
 }
 
 void TouchScreen::beginTouch() {
@@ -280,6 +286,7 @@ bool TouchScreen::runCalibration(tsMatrix_t* matrix) {
         _display.textColor(RA8875_GREEN, RA8875_BLACK);
         _display.textWrite("Touch to test...");
         _display.graphicsMode();
+        _display.textTransparent(RA8875_BLACK);
 
         buttonDone.draw(false, true);
 

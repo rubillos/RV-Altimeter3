@@ -46,43 +46,6 @@ bool Button::hitTest(tsPoint_t pt, bool widen) {
     return hitTestInternal(pt, _rect, widen);
 };
 
-void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borderColor, bool forceBackground) {
-    computeScreenRect();
-
-    // Serial.printf("draw '%s': text=0x%X, back=0x%X, border=0x%X\n", title().c_str(), textColor, backColor, borderColor);
-
-    ButtonScheme sc = scheme();
-    bool transparent = transparentText();
-
-    if (backColor == borderColor) {
-        if (forceBackground || backColor) {
-            _display.fillRect(_rect.x, _rect.y, _rect.w, _rect.h, backColor);
-        }
-    }
-    else {
-        _display.drawRect(_rect.x, _rect.y, _rect.w, _rect.h, borderColor);
-        _display.drawRect(_rect.x+1, _rect.y+1, _rect.w-2, _rect.h-2, borderColor);
-        _display.drawRect(_rect.x+2, _rect.y+2, _rect.w-4, _rect.h-4, borderColor);
-        if (forceBackground || backColor) {
-            _display.fillRect(_rect.x+3, _rect.y+3, _rect.w-6, _rect.h-6, backColor);
-        }
-    }
-    uint16_t x;
-    uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (sc.sizeY-1)*2;
-
-    if (sc.flags & buttonAlignLeft) {
-        x = _rect.x + _titleInset;
-    }
-    else if (sc.flags & buttonAlignRight) {
-        x = _rect.x + _rect.w - titleWidth() - _titleInset;
-    }
-    else {
-        x = _rect.x + (_rect.w - titleWidth())/2;
-    }
-
-    _textManager.drawString(title(), x, y, sc.sizeX, sc.sizeY, textColor, (transparent)?-1:backColor);
-}
-
 ButtonScheme Button::scheme(bool pressed) {
     uint16_t text, back, border;
     ButtonScheme scheme = _scheme;
@@ -111,8 +74,48 @@ ButtonScheme Button::scheme(bool pressed) {
 
 void Button::draw(bool pressed, bool forceBackground) {
     ButtonScheme sc = scheme(pressed);
+    
+    uint16_t textColor = sc.textColor;
+    uint16_t backColor = sc.backColor;
+    uint16_t borderColor = sc.borderColor;
 
-    drawInternal(sc.textColor, sc.backColor, sc.borderColor, forceBackground);
+    computeScreenRect();
+
+    // Serial.printf("draw '%s': text=0x%X, back=0x%X, border=0x%X\n", title().c_str(), textColor, backColor, borderColor);
+
+    bool transparent = transparentText();
+
+    if (backColor == borderColor) {
+        if (forceBackground || backColor) {
+            _display.fillRect(_rect.x, _rect.y, _rect.w, _rect.h, backColor);
+        }
+    }
+    else {
+        _display.drawRect(_rect.x, _rect.y, _rect.w, _rect.h, borderColor);
+        _display.drawRect(_rect.x+1, _rect.y+1, _rect.w-2, _rect.h-2, borderColor);
+        _display.drawRect(_rect.x+2, _rect.y+2, _rect.w-4, _rect.h-4, borderColor);
+        if (forceBackground || backColor) {
+            _display.fillRect(_rect.x+3, _rect.y+3, _rect.w-6, _rect.h-6, backColor);
+        }
+    }
+    uint16_t x;
+    uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (sc.sizeY-1)*2;
+
+    if (sc.flags & buttonAlignLeft) {
+        x = _rect.x + _titleInset;
+    }
+    else if (sc.flags & buttonAlignRight) {
+        x = _rect.x + _rect.w - titleWidth() - _titleInset;
+    }
+    else {
+        x = _rect.x + (_rect.w - titleWidth())/2;
+    }
+
+    performDraw(title(), x, y, sc.sizeX, sc.sizeY, textColor, (transparent)?-1:backColor);
+}
+
+void Button::performDraw(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor) {
+    _textManager.drawString(title, x, y, sizeX, sizeY, textColor, backColor);
 }
 
 uint16_t Button::titleWidth() {

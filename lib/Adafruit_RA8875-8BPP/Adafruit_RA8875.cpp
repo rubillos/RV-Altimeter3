@@ -571,7 +571,7 @@ void Adafruit_RA8875::textWrite(const char *buffer, uint16_t len) {
 void Adafruit_RA8875::graphicsMode(void) {
   writeCommand(RA8875_MWCR0);
   uint8_t temp = readData();
-  temp &= ~RA8875_MWCR0_TXTMODE; // bit #7
+  temp &= ~(RA8875_MWCR0_TXTMODE | RA8875_MWCR0_CURSOR); // bit #7
   writeData(temp);
 }
 
@@ -593,6 +593,20 @@ boolean Adafruit_RA8875::waitPoll(uint8_t regname, uint8_t waitflag) {
       return true;
   }
   return false; // MEMEFIX: yeah i know, unreached! - add timeout?
+}
+
+void Adafruit_RA8875::Chk_Busy(void) {
+	uint8_t temp; 	
+	do {
+	  temp=readStatus();
+	} while((temp&0x80)==0x80);		   
+}
+
+void Adafruit_RA8875::Chk_BTE_Busy(void) {
+	uint8_t temp; 	
+	do {
+	  temp=readStatus();
+	} while((temp&0x40)==0x40);		   
 }
 
 /**************************************************************************/
@@ -721,6 +735,11 @@ int16_t Adafruit_RA8875::applyRotationY(int16_t y) {
       @param color The RGB565 color to use when drawing the pixel
 */
 /**************************************************************************/
+//convert a 16bit color(565) into 8bit color(332) as requested by RA8875 datasheet
+inline __attribute__((always_inline)) uint8_t _color16To8bpp(uint16_t color) {
+	return ((color & 0xe000) >> 8) | ((color & 0x700) >> 6) | ((color & 0x18) >> 3);
+}
+
 void Adafruit_RA8875::drawPixel(int16_t x, int16_t y, uint16_t color) {
   x = applyRotationX(x);
   y = applyRotationY(y);
@@ -732,7 +751,7 @@ void Adafruit_RA8875::drawPixel(int16_t x, int16_t y, uint16_t color) {
   writeCommand(RA8875_MRWC);
 
   if (_layerModeOn) {
-    uint8_t color8 = color;
+    uint8_t color8 = _color16To8bpp(color);
     spi_dev->write(&color8, sizeof(color8), &RA8875_DATAWRITE, sizeof(RA8875_DATAWRITE));
   }
   else {

@@ -11,9 +11,6 @@ constexpr uint32_t temperatureTime = 4000;
 constexpr uint32_t sensorTimeout = 20 * 60 * 1000;
 constexpr uint16_t numTires = 6;
 
-constexpr float noDataValue = -1000;
-constexpr float timedOutValue = -1001;
-
 class TireHandler {
 	public:
 		void begin(uint16_t yOffset) {
@@ -29,26 +26,48 @@ class TireHandler {
 		void recordPacket(TPMSPacket& packet);
 		void sensorIDChanged(uint16_t sensorIndex);
 
+		int16_t indexOfTireAtPoint(tsPoint_t pt);
+		void pressTire(uint16_t index);
+
+		void checkSensorData(bool moving);
+
 		const char* tireName(uint16_t index);
 		const char* noDataString();
 		const char* timedOutString();
 
-		String pressureString(float pressure, bool addPSI=true);
-		String temperatureString(float temperature, uint8_t addDegrees=1);
+		uint16_t pressureColor(float pressure);
+		uint16_t pressureColorForSensor(uint16_t index);
+		uint16_t temperatureColor(float temperature);
+		uint16_t temperatureColorForSensor(uint16_t index);
 
 		uint32_t idForSensor(uint16_t index);
 		float pressureForSensor(uint16_t index);
 		float temperatureForSensor(uint16_t index);
 
+		String pressureString(float pressure, bool addPSI=true);
+		String pressureStringForSensor(uint16_t index, bool addPSI=true);
+		String temperatureString(float temperature, uint8_t addDegrees=1);
+		String temperatureStringForSensor(uint16_t index, uint8_t addDegrees=1);
+
+		bool temperatureWarning(float temperature);
+		bool temperatureAlarm(float temperature);
+		bool pressureWarning(float pressure);
+		bool pressureAlarm(float pressure);
+
 	private:
 		int16_t indexOfSensor(uint32_t sensorID);
 		bool sensorTimedOut(uint16_t index);
+
+		int32_t codedColor(float value);
+		String codedString(float value);
 
 		uint16_t _yOffset;
 		elapsedMillis _tempTimer = temperatureTime;
 
 		bool _alarms[numTires];
 		TPMSPacket _sensorPackets[numTires];
+
+		elapsedMillis _sensorCheckTime;
 };
 
 extern TireHandler _tireHandler;

@@ -4,6 +4,7 @@
 #include "elapsedMillis.h"
 #include "button.h"
 #include "touchscreen.h"
+#include "textManager.h"
 #include "tires.h"
 #include "packets.h"
 #include "tires.h"
@@ -95,7 +96,7 @@ class SensorButton : public Label {
 			ButtonScheme sc = Label::scheme(pressed);
 
 			if (sensorID()) {
-				sc.textColor = RA8875_GREEN;
+				sc.textColor = RA8875_GRAY_LT;
 			}
 			else {
 				sc.textColor = RA8875_ORANGE;
@@ -103,15 +104,25 @@ class SensorButton : public Label {
 			return sc;
 		};
 
+		//         00011122
+		// 0000011111122222
+
+		uint16_t Color8to16(uint8_t color) {
+			return ((color & 0xE0) << 8) | ((color & 0x1C) << 6) | ((color & 0x03) << 3);
+		};
+
 		String title() {
 			uint32_t id = sensorID();
 			if (id) {
 				uint8_t index = _title.c_str()[0] - '0';
-				String pressure = _tireHandler.pressureString(_tireHandler.pressureForSensor(index), true);
-				String temperature = _tireHandler.temperatureString(_tireHandler.temperatureForSensor(index), 2);
+				String pressure = _tireHandler.pressureStringForSensor(index, true);
+				String temperature = _tireHandler.temperatureStringForSensor(index, 2);
+
+				_colors[0] = Color8to16(_tireHandler.pressureColorForSensor(index));
+				_colors[1] = Color8to16(_tireHandler.temperatureColorForSensor(index));
 
 				char buffer[30];
-				snprintf(buffer, sizeof(buffer), "%06X  (%s,%s)", id, pressure, temperature);
+				snprintf(buffer, sizeof(buffer), "%06X  (\b1%s\b0,\b2%s\b0)", id, pressure, temperature);
 				return String(buffer);
 			}
 			else {
@@ -119,10 +130,15 @@ class SensorButton : public Label {
 			}
 		};
 
+		void performDraw(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor) {
+			_textManager.drawString(title, x, y, sizeX, sizeY, textColor, backColor, _colors);
+		}
+
 		bool hitTest(tsPoint_t pt, bool widen=false) { return Button::hitTest(pt, widen) || Button::hitTestInternal(pt, _label->rect(), widen); };
 
 	private:
 		Label* _label;
+		uint16_t _colors[2];
 };
 
 class Menu {

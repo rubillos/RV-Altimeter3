@@ -11,7 +11,7 @@ class TextManager {
 
         bool isKernPair(char c1, char c2);
         uint16_t widthOfString(String str, uint8_t scale);
-        void drawString(String str, int16_t x, int16_t y, uint8_t xScale, uint8_t yScale, uint16_t textColor, int32_t backColor=-1);
+        void drawString(String str, int16_t x, int16_t y, uint8_t xScale, uint8_t yScale, uint16_t textColor, int32_t backColor=-1, uint16_t* otherColors=NULL);
 
         int8_t charLeftShift[256];
         int8_t charRightShift[256];

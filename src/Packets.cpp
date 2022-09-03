@@ -1,6 +1,7 @@
 #include "packets.h"
 
 #include "SimplyAtomic.h"
+#include "defs.h"
 
 // https://github.com/cterwilliger/tst_tpms
 
@@ -125,23 +126,26 @@ void PacketMonitor::setFakePackets(bool doFakes) {
 constexpr uint32_t fakeIDs[] = { 0xAA2365, 0xAA6721, 0x437812, 0xAA9812, 0x327812, 0xAA7712, 0x213876, 0x887766 };
 constexpr uint16_t fakeIDCount = sizeof(fakeIDs) / sizeof(uint32_t);
 
+float pressureList[] = { 90, 95, 90, 100, 105, 76, 124 };
+constexpr uint16_t pressureCount = sizeof(pressureList) / sizeof(float);
+
+float tempList[] = { 65, 70, 80, 85, 80, 150, 80, 30 };
+constexpr uint16_t tempCount = sizeof(tempList) / sizeof(float);
+
 void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
-    static float pressure = 90.0;
-    static float pressIncrement = 1.0;
-    static float temperature = 80.0;
     static int16_t idIndex = 0;
+    static float tireP[] = { 0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35 };
 
     packet->timeStamp = millis();
     packet->id = fakeIDs[idIndex];
-    packet->pressure = pressure;
-    packet->temperature = temperature;
+    packet->pressure = sequenceInterp(pressureList, pressureCount, tireP[idIndex]);
+    packet->temperature = sequenceInterp(tempList, tempCount, tireP[idIndex]);
     packet->lowBattery = false;
-    packet->stale = false;
     packet->fastLeak = false;
 
-    pressure += pressIncrement;
-    if (pressure > 120 || pressure < 80) {
-        pressIncrement = -pressIncrement;
+    tireP[idIndex] += 0.01;
+    if (tireP[idIndex]>=1.0) {
+        tireP[idIndex] -= 1.0;
     }
     idIndex = (idIndex+1) % fakeIDCount;
 }
@@ -185,8 +189,6 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                 packet->pressure = (press / 0.4) / 6.895;  // kPa then psi
 
                 packet->temperature = ((newArr[5] - 50) * 1.8) + 32;  // deg C to F
-
-                packet->stale = false;
 
                 packet->lowBattery = (newArr[6] & 0x20) != 0;
                 packet->fastLeak = (newArr[6] & 0x10) != 0;
