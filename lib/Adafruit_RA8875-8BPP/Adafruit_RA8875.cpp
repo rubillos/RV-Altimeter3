@@ -622,14 +622,22 @@ void Adafruit_RA8875::setXY(uint16_t x, uint16_t y) {
 /**************************************************************************/
 void Adafruit_RA8875::setWindow(uint16_t xStart, uint16_t xEnd, uint16_t yStart,
                                 uint16_t yEnd) {
-  writeReg(RA8875_HSAW0, (uint8_t)(xStart & 0x0FF));
-  writeReg(RA8875_HSAW1, (uint8_t)(xStart >> 8));
-  writeReg(RA8875_VSAW0, (uint8_t)(yStart & 0x0FF));
-  writeReg(RA8875_VSAW1, (uint8_t)(yStart >> 8));
-  writeReg(RA8875_HEAW0, (uint8_t)(xEnd & 0x0FF));
-  writeReg(RA8875_HEAW1, (uint8_t)(xEnd >> 8));
-  writeReg(RA8875_VEAW0, (uint8_t)(yEnd & 0x0FF));
-  writeReg(RA8875_VEAW1, (uint8_t)(yEnd >> 8));
+  if (xStart != 0xFFFF) {
+    writeReg(RA8875_HSAW0, (uint8_t)(xStart & 0x0FF));
+    writeReg(RA8875_HSAW1, (uint8_t)(xStart >> 8));
+  }
+  if (yStart != 0xFFFF) {
+    writeReg(RA8875_VSAW0, (uint8_t)(yStart & 0x0FF));
+    writeReg(RA8875_VSAW1, (uint8_t)(yStart >> 8));
+  }
+  if (xEnd != 0xFFFF) {
+    writeReg(RA8875_HEAW0, (uint8_t)(xEnd & 0x0FF));
+    writeReg(RA8875_HEAW1, (uint8_t)(xEnd >> 8));
+  }
+  if (yEnd != 0xFFFF) {
+    writeReg(RA8875_VEAW0, (uint8_t)(yEnd & 0x0FF));
+    writeReg(RA8875_VEAW1, (uint8_t)(yEnd >> 8));
+  }
 }
 
 /**************************************************************************/
