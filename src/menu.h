@@ -27,7 +27,7 @@ class LogView : public Button {
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
 		void draw(bool pressed=false, bool forceBackground=false);
 		void drawPacket(TPMSPacket& packet, uint16_t lineNumber);
-        void refresh();
+        bool refresh();
 		void firstPage() { if (_pageNumber > 0) { _pageNumber==0; draw(); } };
 		void nextPage() { if (_pageNumber+1 < pageCount()) { _pageNumber++; draw(); } };
 		void previousPage() { if (_pageNumber>0) { _pageNumber--; draw(); } };
@@ -38,6 +38,45 @@ class LogView : public Button {
 		elapsedMillis _drawTime;
 		uint32_t _bufferHash = 0;
 		uint16_t _pageNumber;
+};
+
+class TireLabel : public Label {
+	public:
+		TireLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset = 0) : Label(x, y, w, h, title, scheme, titleInset) {};
+		String title() {
+			_mergedTitle = String(_tireHandler.tireName(_title.c_str()[0] - '0')) + String(&_title.c_str()[1]);
+			return _mergedTitle.c_str();
+		}
+
+	private:
+		String _mergedTitle;
+};
+
+class VoltageLabel : public FloatLabel {
+	public:
+		VoltageLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset = 0) :
+									FloatLabel(x, y, w, h, title, scheme, titleInset) {
+										setParameter(0, &_voltage);
+										_voltage = voltageValue();
+									};
+		bool refresh() {
+			_voltage = voltageValue();
+			return FloatLabel::refresh();
+		};
+
+		String title() {
+			updateValues(false);
+			if (*_param[0]<5.0) {
+				String str = String(_title);
+
+				str.replace("%0.2f", "USB");
+				return str;
+			}
+			return FloatLabel::title();
+		};
+
+	private:
+		float _voltage;
 };
 
 class SensorButton : public Label {
@@ -67,8 +106,12 @@ class SensorButton : public Label {
 		String title() {
 			uint32_t id = sensorID();
 			if (id) {
-				char buffer[10];
-				snprintf(buffer, sizeof(buffer), "%06X", id);
+				uint8_t index = _title.c_str()[0] - '0';
+				String pressure = _tireHandler.pressureString(_tireHandler.pressureForSensor(index), true);
+				String temperature = _tireHandler.temperatureString(_tireHandler.temperatureForSensor(index), 2);
+
+				char buffer[30];
+				snprintf(buffer, sizeof(buffer), "%06X  (%s,%s)", id, pressure, temperature);
 				return String(buffer);
 			}
 			else {
@@ -90,6 +133,7 @@ class Menu {
 		void allowNextRepeat();
 
 		void goBack() { _goBack = true; };
+		void redrawInAltLayer() { _redrawAlt = true; };
 		void prefsDirty() { _prefsDirty = true; _prefsDirtyTime = 0; };
 
 	private:
@@ -98,6 +142,7 @@ class Menu {
 
 		bool _goBack = false;
 		bool _prefsDirty = false;
+		bool _redrawAlt = false;
 		elapsedMillis _prefsDirtyTime;
 };
 
