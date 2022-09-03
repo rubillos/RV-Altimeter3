@@ -43,4 +43,8 @@ extern void writePrefs();
 extern void sleepUntilTouch();
 extern float sequenceInterp(float* values, int16_t count, float percent);
 
+extern bool switchState();
+extern float voltageValue();
+extern bool systemUpdate();
+
 #endif
