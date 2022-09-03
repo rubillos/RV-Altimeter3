@@ -53,7 +53,7 @@ class Button {
 		virtual bool isHeader() { return false; };
 		virtual void draw(bool pressed=false, bool forceBackground=false);
 		virtual bool transparentText() { return true; };
-		virtual void refresh() {};
+		virtual bool refresh() { return false; };
 
 	protected:
 		void drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borderColor, bool forceBackground);
@@ -82,10 +82,8 @@ class SlashButton : public Button {
 		};
 		void draw(bool pressed=false, bool forceBackground=false);
 		void setState(bool state) { _state=state; _dirty=true; };
-		void refresh() {
-			if (_dirty) {
-				draw(false, false);
-			}
+		bool refresh() {
+			return _dirty;
 		};
 	private:
 		bool _state;
@@ -141,13 +139,11 @@ class FloatLabel : public Label {
 			snprintf(buffer, sizeof(buffer), _title.c_str(), _values[0], _values[1], _values[2], _values[3]);
 			return buffer;
 		};
-		void refresh() {
+		bool refresh() {
 			updateValues(true);
-			if (_dirty) {
-				draw(false, false);
-			}
+			return _dirty;
 		};
-	private:
+	protected:
 		float* _param[4] = { NULL, NULL, NULL, NULL };
 		float _values[4];
 };

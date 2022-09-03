@@ -1,12 +1,14 @@
 #include "button.h"
 #include "touchscreen.h"
 #include "dataDisplay.h"
+#include "textManager.h"
 #include "defs.h"
 
 void drawButtons(Button** buttons) {
     while (*buttons) {
         (*buttons)->draw(false);
         buttons++;
+		_touchScreen.touchRefresh();
     }
 }
 
@@ -50,6 +52,7 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
     // Serial.printf("draw '%s': text=0x%X, back=0x%X, border=0x%X\n", title().c_str(), textColor, backColor, borderColor);
 
     ButtonScheme sc = scheme();
+    bool transparent = transparentText();
 
     if (backColor == borderColor) {
         if (forceBackground || backColor) {
@@ -64,15 +67,6 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
             _display.fillRect(_rect.x+3, _rect.y+3, _rect.w-6, _rect.h-6, backColor);
         }
     }
-    _display.textMode();
-    _display.textEnlarge(sc.sizeX-1, sc.sizeY-1);
-    if (transparentText()) {
-        _display.textTransparent(textColor);
-    }
-    else {
-        _display.textColor(textColor, backColor);
-    }
-
     uint16_t x;
     uint16_t y = _rect.y + ((_rect.h - titleHeight())/2) - (sc.sizeY-1)*2;
 
@@ -85,11 +79,8 @@ void Button::drawInternal(uint16_t textColor, uint16_t backColor, uint16_t borde
     else {
         x = _rect.x + (_rect.w - titleWidth())/2;
     }
-    _display.textSetCursor(x, y);
 
-    _display.textWrite(title().c_str());
-    _display.textTransparent(RA8875_BLACK);
-    _display.graphicsMode();
+    _textManager.drawString(title(), x, y, sc.sizeX, sc.sizeY, textColor, (transparent)?-1:backColor);
 }
 
 ButtonScheme Button::scheme(bool pressed) {
@@ -125,7 +116,7 @@ void Button::draw(bool pressed, bool forceBackground) {
 }
 
 uint16_t Button::titleWidth() {
-    return title().length() * 8 * scheme().sizeX;
+    return _textManager.widthOfString(title(), scheme().sizeX);
 }
 
 uint16_t Button::titleHeight() {
