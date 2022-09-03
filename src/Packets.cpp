@@ -107,9 +107,55 @@ void shiftBlockRight(byte *inBytes, byte *outBytes, int size, short bitShift) {
     }
 }
 
+constexpr uint32_t minFakeTime = 2500;
+constexpr uint32_t maxFakeTime = 5000;
+
+void PacketMonitor::queueNextFake() {
+    if (_doFakePackets) {
+        _fakePacketTime = 0;
+        _fakePacketDelay = random(minFakeTime, maxFakeTime);
+    }
+}
+
+void PacketMonitor::setFakePackets(bool doFakes) {
+    _doFakePackets = doFakes;
+    queueNextFake();
+}
+
+constexpr uint32_t fakeIDs[] = { 0xAA2365, 0xAA6721, 0x437812, 0xAA9812, 0x327812, 0xAA7712, 0x213876, 0x887766 };
+constexpr uint16_t fakeIDCount = sizeof(fakeIDs) / sizeof(uint32_t);
+
+void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
+    static float pressure = 90.0;
+    static float pressIncrement = 1.0;
+    static float temperature = 80.0;
+    static int16_t idIndex = 0;
+
+    packet->timeStamp = millis();
+    packet->id = fakeIDs[idIndex];
+    packet->pressure = pressure;
+    packet->temperature = temperature;
+    packet->lowBattery = false;
+    packet->stale = false;
+    packet->fastLeak = false;
+
+    pressure += pressIncrement;
+    if (pressure > 120 || pressure < 80) {
+        pressIncrement = -pressIncrement;
+    }
+    idIndex = (idIndex+1) % fakeIDCount;
+}
+
 bool PacketMonitor::getPacket(TPMSPacket* packet) {
     static TPMSPacket lastPacket;
     bool result = false;
+
+    if (_doFakePackets && _fakePacketTime > _fakePacketDelay) {
+        makeFakePacket(packet);
+        _packetLog->addSample(*packet);
+        queueNextFake();
+        result = true;
+    }
 
     while ( !result && packetCount ) {
         // Serial.printf("getPacket: %d packets available\n", packetCount);
