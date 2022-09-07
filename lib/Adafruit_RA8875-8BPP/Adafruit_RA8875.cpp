@@ -586,6 +586,10 @@ void Adafruit_RA8875::graphicsMode(void) {
 */
 /**************************************************************************/
 boolean Adafruit_RA8875::waitPoll(uint8_t regname, uint8_t waitflag) {
+  if (_waitPin != 255) {
+    while (digitalRead(_waitPin)==LOW) {};
+    return true;
+  }
   /* Wait for the command to finish */
   while (1) {
     uint8_t temp = readReg(regname);
@@ -618,10 +622,8 @@ void Adafruit_RA8875::Chk_BTE_Busy(void) {
 */
 /**************************************************************************/
 void Adafruit_RA8875::setXY(uint16_t x, uint16_t y) {
-  writeReg(RA8875_CURH0, x);
-  writeReg(RA8875_CURH1, x >> 8);
-  writeReg(RA8875_CURV0, y);
-  writeReg(RA8875_CURV1, y >> 8);
+  writeReg16(RA8875_CURH0, x);
+  writeReg16(RA8875_CURV0, y);
 }
 
 /**************************************************************************/
@@ -637,20 +639,16 @@ void Adafruit_RA8875::setXY(uint16_t x, uint16_t y) {
 void Adafruit_RA8875::setWindow(uint16_t xStart, uint16_t xEnd, uint16_t yStart,
                                 uint16_t yEnd) {
   if (xStart != 0xFFFF) {
-    writeReg(RA8875_HSAW0, (uint8_t)(xStart & 0x0FF));
-    writeReg(RA8875_HSAW1, (uint8_t)(xStart >> 8));
+    writeReg16(RA8875_HSAW0, xStart);
   }
   if (yStart != 0xFFFF) {
-    writeReg(RA8875_VSAW0, (uint8_t)(yStart & 0x0FF));
-    writeReg(RA8875_VSAW1, (uint8_t)(yStart >> 8));
+    writeReg16(RA8875_VSAW0, yStart);
   }
   if (xEnd != 0xFFFF) {
-    writeReg(RA8875_HEAW0, (uint8_t)(xEnd & 0x0FF));
-    writeReg(RA8875_HEAW1, (uint8_t)(xEnd >> 8));
+    writeReg16(RA8875_HEAW0, xEnd);
   }
   if (yEnd != 0xFFFF) {
-    writeReg(RA8875_VEAW0, (uint8_t)(yEnd & 0x0FF));
-    writeReg(RA8875_VEAW1, (uint8_t)(yEnd >> 8));
+    writeReg16(RA8875_VEAW0, yEnd);
   }
 }
 
@@ -744,10 +742,8 @@ void Adafruit_RA8875::drawPixel(int16_t x, int16_t y, uint16_t color) {
   x = applyRotationX(x);
   y = applyRotationY(y);
 
-  writeReg(RA8875_CURH0, x);
-  writeReg(RA8875_CURH1, x >> 8);
-  writeReg(RA8875_CURV0, y);
-  writeReg(RA8875_CURV1, y >> 8);
+  writeReg16(RA8875_CURH0, x);
+  writeReg16(RA8875_CURV0, y);
   writeCommand(RA8875_MRWC);
 
   if (_layerModeOn) {
@@ -796,11 +792,9 @@ void Adafruit_RA8875::drawPixels8(uint8_t *p, uint32_t num, int16_t x,
   x = applyRotationX(x);
   y = applyRotationY(y);
 
-  writeReg(RA8875_CURH0, x);
-  writeReg(RA8875_CURH1, x >> 8);
-  writeReg(RA8875_CURV0, y);
-  writeReg(RA8875_CURV1, y >> 8);
-
+  writeReg16(RA8875_CURH0, x);
+  writeReg16(RA8875_CURV0, y);
+  
   uint8_t dir = RA8875_MWCR0_LRTD;
   if (_rotation == 2) {
     dir = RA8875_MWCR0_RLTD;
@@ -850,7 +844,7 @@ void Adafruit_RA8875::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
-  waitUntilDone();
+  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1138,7 +1132,7 @@ void Adafruit_RA8875::circleHelper(int16_t x, int16_t y, int16_t r,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_CIRCLE_STATUS);
-  waitUntilDone();
+  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1174,7 +1168,7 @@ void Adafruit_RA8875::rectHelper(int16_t x, int16_t y, int16_t w, int16_t h,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
-  waitUntilDone();
+  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1217,7 +1211,7 @@ void Adafruit_RA8875::triangleHelper(int16_t x0, int16_t y0, int16_t x1,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
-  waitUntilDone();
+  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1252,7 +1246,7 @@ void Adafruit_RA8875::ellipseHelper(int16_t xCenter, int16_t yCenter,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_ELLIPSE_STATUS);
-  waitUntilDone();
+  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1289,7 +1283,7 @@ void Adafruit_RA8875::curveHelper(int16_t xCenter, int16_t yCenter,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_ELLIPSE_STATUS);
-  waitUntilDone();
+  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1338,7 +1332,7 @@ void Adafruit_RA8875::roundRectHelper(int16_t x, int16_t y, int16_t w,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_DCR_LINESQUTRI_STATUS);
-  waitUntilDone();
+  // waitUntilDone();
 }
 /**************************************************************************/
 /*!
