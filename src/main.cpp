@@ -15,6 +15,7 @@
 #include "packets.h"
 #include "touchscreen.h"
 #include "menu.h"
+#include "mainMenu.h"
 #include "tires.h"
 #include "gps.h"
 #include "prefs.h"
@@ -175,9 +176,6 @@ void setup() {
 	_accel.begin();
 	_accel.setShakeLimits(0.4, 0.4, 0.4);
 	
-	OLEDprintln("Init Menu System...");
-	_menu.begin();
-
 	OLEDprintln("Init Tire Drawing...");
 	_tireHandler.begin(300);
 
@@ -187,12 +185,12 @@ void setup() {
 		doCalibrate();
 	}
 
-	_prefData.sensorIDs[0] = 0xAA2365;
-	_prefData.sensorIDs[1] = 0xAA6721;
-	_prefData.sensorIDs[2] = 0x437812;
-	_prefData.sensorIDs[3] = 0x327812;
-	_prefData.sensorIDs[4] = 0xAA7712;
-	_prefData.sensorIDs[5] = 0x213876;
+	// _prefData.sensorIDs[0] = 0xAA2365;
+	// _prefData.sensorIDs[1] = 0xAA6721;
+	// _prefData.sensorIDs[2] = 0x437812;
+	// _prefData.sensorIDs[3] = 0x327812;
+	// _prefData.sensorIDs[4] = 0xAA7712;
+	// _prefData.sensorIDs[5] = 0x213876;
 
 	OLEDprintln("Init Done!");
 }
@@ -271,7 +269,7 @@ void loop() {
 		}
 		else if (touchPt.y < 300) {
 			drawIndex = 0;
-			_menu.run();
+			runMainMenu();
 		}
 		else {
 			_tireHandler.showTemperature();
