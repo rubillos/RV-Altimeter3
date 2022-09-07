@@ -119,8 +119,12 @@ void DataDisplay::showCell(Adafruit_GFX& dest, int16_t x, int16_t y, char glyph,
 
 #define swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 
-void writePixel(Adafruit_GFX& dest, int16_t x, int16_t y, uint16_t color, uint16_t thickness) {
-	if (thickness >= 5) {
+void writePixel(Adafruit_GFX& dest, int16_t x, int16_t y, uint16_t color, uint16_t thickness, bool fast = false) {
+	if (fast) {
+		uint8_t halfThick = thickness/2;
+		dest.fillRect(x-halfThick, y-halfThick, thickness, thickness, color);
+	}
+	else if (thickness >= 5) {
 		dest.writeFastHLine(x - 1, y - 2, 3, color);
 		dest.writeFastHLine(x - 2, y - 1, 5, color);
 		dest.writeFastHLine(x - 2, y, 5, color);
@@ -137,7 +141,7 @@ void writePixel(Adafruit_GFX& dest, int16_t x, int16_t y, uint16_t color, uint16
 	}
 }
 
-void DataDisplay::drawThickLine(Adafruit_GFX& dest, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t thickness, uint16_t color) {
+void DataDisplay::drawThickLine(Adafruit_GFX& dest, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t thickness, uint16_t color, bool fast) {
 	int16_t steep = abs(y1 - y0) > abs(x1 - x0);
 	if (steep) {
 		swap_int16_t(x0, y0);
@@ -165,10 +169,10 @@ void DataDisplay::drawThickLine(Adafruit_GFX& dest, int16_t x0, int16_t y0, int1
 
 	for (; x0 <= x1; x0++) {
 		if (steep) {
-			writePixel(dest, y0, x0, color, thickness);
+			writePixel(dest, y0, x0, color, thickness, fast);
 		}
 		else {
-			writePixel(dest, x0, y0, color, thickness);
+			writePixel(dest, x0, y0, color, thickness, fast);
 		}
 		err -= dy;
 		if (err < 0) {
