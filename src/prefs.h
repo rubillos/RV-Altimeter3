@@ -6,7 +6,7 @@
 #include <Preferences.h>
 #include "touchscreen.h"
 
-#define PREFS_VERSION 4
+#define PREFS_VERSION 5
 
 typedef struct {
 	uint32_t sensorIDs[NUM_TIRES];
