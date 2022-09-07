@@ -18,156 +18,146 @@ constexpr uint16_t tireY[] = { tireTopY, tireTopY, tireTopY+80, tireTopY+80, tir
 constexpr uint16_t tireWidth = 110;
 constexpr uint16_t tireHeight = 67;
 
+const char* tireNames[] = {
+	"Left Front",
+	"Right Front",
+	"Left Rear Outer",
+	"Left Rear Inner",
+	"Right Rear Inner",
+	"Right Rear Outer"
+};
+
 void TireHandler::drawTires() {
 	_display.fillRect(380, tireTopY+30, 40, 6, WHITE16);
 	_display.fillRect(262, tireTopY+110, 280, 6, WHITE16);
 	_display.fillRect(396, tireTopY+32, 6, 80, WHITE16);
 
-    // static float tireP[] = { 0.0, 0.1, 0.2, 0.3, 0.4, 0.5 };
-
-	// uint16_t tirePressure[] = { 87, 87, 90, 102, 92, 90 };
-	// uint8_t tireColor[] = { GREEN8, GREEN8, GREEN8, GREEN8, GREEN8, GREEN8 };
-
-    uint32_t time = millis();
-    String str;
+	uint32_t time = millis();
+	String str;
 
 	for (uint16_t i=0; i<6; i++) {
-        TPMSPacket* sensor = &_sensorPackets[i];
-        int16_t xOffset = -1, yOffset = 0;
+		TPMSPacket* sensor = &_sensorPackets[i];
+		int16_t xOffset = -1, yOffset = 0;
 
-        // uint16_t temperature = _sensorPackets[i].temperature;
-        // uint16_t pressure = _sensorPackets[i].pressure;
-        // uint16_t temperature = temperatures[i];
-        // uint16_t pressure = pressures[i];
-        // float temperature = sequenceInterp(tempList, tempCount, tireP[i]);
-        // float pressure = sequenceInterp(pressureList, pressureCount, tireP[i]);
-        // tireP[i] += 0.001;
-        // if (tireP[i]>=1.0) {
-        //     tireP[i] -= 1.0;
-        // }
-        // sensor->pressure = pressure;
-        // sensor->temperature = temperature;
-        // sensor->timeStamp = millis();
+		float pressure = pressureForSensor(i);
+		float temperature = temperatureForSensor(i);
 
-        float pressure = pressureForSensor(i);
-        float temperature = temperatureForSensor(i);
+		bool tempAlarm = temperatureAlarm(temperature);
+		bool tempWarn = temperatureWarning(temperature);
+		bool pressAlarm = pressureAlarm(pressure);
+		bool pressWarn = pressureWarning(pressure);
 
-        bool tempAlarm = temperatureAlarm(temperature);
-        bool tempWarn = temperatureWarning(temperature);
-        bool pressAlarm = pressureAlarm(pressure);
-        bool pressWarn = pressureWarning(pressure);
-
-        bool forceTemperature = tempWarn && ((time/1000) % 2)==0;
+		bool forceTemperature = tempWarn && ((time/1000) % 2)==0;
 
 		_displayBuffer8.setOffset(tireX[i], tireY[i]);
 
-        uint8_t tireColor;
+		uint8_t tireColor;
 
-        if (pressAlarm || tempAlarm) {
-            tireColor = RED8;
-        }
-        else if (pressWarn || tempWarn) {
-            tireColor = DARKORANGE8;
-        }
-        else {
-            tireColor = WHITE8;
-        }
+		if (pressAlarm || tempAlarm) {
+			tireColor = RED8;
+		}
+		else if (pressWarn || tempWarn) {
+			tireColor = DARKORANGE8;
+		}
+		else {
+			tireColor = WHITE8;
+		}
 
 		drawPNG83(Tire2_png, sizeof(Tire2_png), &_displayBuffer8, tireX[i], tireY[i], tireColor);
 
-        if (pressure != sensorNotPaired) {
-            _displayBuffer8.setTextColor(pressureColor(pressure));
-            str = pressureString(pressure, false);
+		if (pressure != sensorNotPaired) {
+			_displayBuffer8.setTextColor(pressureColor(pressure));
+			str = pressureString(pressure, false);
 
-            if (pressure == sensorNotPaired) {
-                _displayBuffer8.setFont(&FreeSansBold30pt7b);
-            }
-            else if (pressure == timedOutValue) {
-                _displayBuffer8.setFont(&FreeSansBold30pt7b);
-            }
-            else if (pressure == noDataValue) {
-                _displayBuffer8.setFont(&FreeSansBold30pt7b);
-                yOffset = -6;
-            }
-            else if (forceTemperature || _tempTimer < temperatureTime) {
-                _displayBuffer8.setFont(&FreeSansBold24pt7bCustom);
-                _displayBuffer8.setTextColor(temperatureColor(temperature));
-                str = temperatureString(temperature, true);
-                yOffset -= 5;
-                if (str.c_str()[0]=='1') {
-                    xOffset -= 2;
-                }
-                else {
-                    xOffset += 2;
-                }
-            }
-            else {
-                _displayBuffer8.setFont(&FreeSansBold30pt7b);
-                yOffset -= 1;
-                if (str.c_str()[0]=='1') {
-                    xOffset -= 4;
-                }
-            }
+			if (pressure == sensorNotPaired) {
+				_displayBuffer8.setFont(&FreeSansBold30pt7b);
+			}
+			else if (pressure == timedOutValue) {
+				_displayBuffer8.setFont(&FreeSansBold30pt7b);
+			}
+			else if (pressure == noDataValue) {
+				_displayBuffer8.setFont(&FreeSansBold30pt7b);
+				yOffset = -6;
+			}
+			else if (forceTemperature || _tempTimer < temperatureTime) {
+				_displayBuffer8.setFont(&FreeSansBold24pt7bCustom);
+				_displayBuffer8.setTextColor(temperatureColor(temperature));
+				str = temperatureString(temperature, true);
+				yOffset -= 5;
+				if (str.c_str()[0]=='1') {
+					xOffset -= 2;
+				}
+				else {
+					xOffset += 2;
+				}
+			}
+			else {
+				_displayBuffer8.setFont(&FreeSansBold30pt7b);
+				yOffset -= 1;
+				if (str.c_str()[0]=='1') {
+					xOffset -= 4;
+				}
+			}
 
-            _displayBuffer8.drawCenteredText(str, tireX[i] + tireWidth/2 + xOffset, tireY[i]+tireHeight-13+yOffset);
-        }
-        else {
-            String line1 = "Not";
-            String line2 = "Paired";
+			_displayBuffer8.drawCenteredText(str, tireX[i] + tireWidth/2 + xOffset, tireY[i]+tireHeight-13+yOffset);
+		}
+		else {
+			String line1 = "Not";
+			String line2 = "Paired";
 
-            _displayBuffer8.setFont(&FreeSansBold14pt7b);
-            _displayBuffer8.setTextColor(RED8);
+			_displayBuffer8.setFont(&FreeSansBold14pt7b);
+			_displayBuffer8.setTextColor(RED8);
 
-            _displayBuffer8.drawCenteredText(line1, tireX[i] + tireWidth/2 + xOffset, tireY[i]+tireHeight-36+yOffset);
-            _displayBuffer8.drawCenteredText(line2, tireX[i] + tireWidth/2 + xOffset, tireY[i]+tireHeight-13+yOffset);
-        }
+			_displayBuffer8.drawCenteredText(line1, tireX[i] + tireWidth/2 + xOffset, tireY[i]+tireHeight-36+yOffset);
+			_displayBuffer8.drawCenteredText(line2, tireX[i] + tireWidth/2 + xOffset, tireY[i]+tireHeight-13+yOffset);
+		}
 
 		_displayBuffer8.draw(_display, tireWidth, tireHeight);
 	}
 }
 
 int16_t TireHandler::indexOfTireAtPoint(tsPoint_t pt) {
-    for (uint16_t i=0; i<numTires; i++) {
-        if (pt.x>=tireX[i] && pt.x<=tireX[i]+tireWidth && pt.y>=tireY[i] && pt.y<=tireY[i]+tireHeight) {
-            return i;
-        }
-    }
-    return -1;
+	for (uint16_t i=0; i<numTires; i++) {
+		if (pt.x>=tireX[i] && pt.x<=tireX[i]+tireWidth && pt.y>=tireY[i] && pt.y<=tireY[i]+tireHeight) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 void TireHandler::pressTire(uint16_t index) {
-    _display.fillRoundRect(tireX[index]+6, tireY[index]+11, tireWidth-13, tireHeight-23, 8, RA8875_WHITE);
+	_display.fillRoundRect(tireX[index]+6, tireY[index]+11, tireWidth-13, tireHeight-23, 8, RA8875_WHITE);
 }
 
 void TireHandler::checkSensorData(bool moving) {
-    if (_sensorCheckTime > 1000) {
-        _sensorCheckTime = 0;
+	if (_sensorCheckTime > 1000) {
+		_sensorCheckTime = 0;
 
-        uint32_t time = millis();
+		uint32_t time = millis();
 
-        for (uint16_t i=0; i<numTires; i++) {
-            TPMSPacket* sensor = &_sensorPackets[i];
+		for (uint16_t i=0; i<numTires; i++) {
+			TPMSPacket* sensor = &_sensorPackets[i];
 
-            if (sensor->timeStamp) {
-                if (sensor->pressure >= 0) {
-                    if ((time-sensor->timeStamp)>sensorTimeout) {
-                        if (moving) {
-                            sensor->pressure = -sensor->pressure;
-                            sensor->temperature = -sensor->temperature;
-                        }
-                        else {
-                            sensor->pressure = timedOutValue;
-                            sensor->temperature = timedOutValue;
-                        }
-                    }
-                }
-            }
-        }
-    }
+			if (sensor->timeStamp) {
+				if (sensor->pressure >= 0) {
+					if ((time-sensor->timeStamp)>sensorTimeout) {
+						if (moving) {
+							sensor->pressure = -sensor->pressure;
+							sensor->temperature = -sensor->temperature;
+						}
+						else {
+							sensor->pressure = timedOutValue;
+							sensor->temperature = timedOutValue;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 void TireHandler::showTemperature() {
-    _tempTimer = 0;
+	_tempTimer = 0;
 }
 
 uint16_t sIndex = 0;
@@ -182,203 +172,193 @@ int16_t TireHandler::indexOfSensor(uint32_t sensorID) {
 }
 
 void TireHandler::recordPacket(TPMSPacket& packet) {
-    int16_t index = indexOfSensor(packet.id);
+	int16_t index = indexOfSensor(packet.id);
 
-    if (index != -1) {
-        Serial.printf("Recording packet: #%d\n", index);
-        _sensorPackets[index] = packet;
-    }
+	if (index != -1) {
+		Serial.printf("Recording packet: #%d\n", index);
+		_sensorPackets[index] = packet;
+	}
 }
 
-void TireHandler::sensorIDChanged(uint16_t sensorIndex) {
-    _sensorPackets[sensorIndex].timeStamp = 0;
+void TireHandler::setSensorID(uint16_t sensorIndex, uint32_t id) {
+	_prefData.sensorIDs[sensorIndex] = id;
+	_sensorPackets[sensorIndex].id = id;
+	_sensorPackets[sensorIndex].timeStamp = 0;
+	_prefs.writePrefs();
 }
-
-const char* tireNames[] = {
-    "Left Front",
-    "Right Front",
-    "Left Rear Inner",
-    "Right Rear Inner",
-    "Left Rear Outer",
-    "Right Rear Outer"
-};
 
 bool TireHandler::temperatureWarning(float temperature) {
-    return temperature >= _prefData.alarmTempMax-5;
+	return temperature>0 && temperature >= _prefData.alarmTempMax-5;
 
 }
 
 bool TireHandler::temperatureAlarm(float temperature) {
-    return temperature>0 && temperature >= _prefData.alarmTempMax;
+	return temperature>0 && temperature >= _prefData.alarmTempMax;
 
 }
 
 bool TireHandler::pressureWarning(float pressure) {
-    return pressure>0 && ((pressure <= _prefData.alarmPressureMin+5) || (pressure >= _prefData.alarmPressureMax-5));
+	return pressure>0 && ((pressure <= _prefData.alarmPressureMin+5) || (pressure >= _prefData.alarmPressureMax-5));
 
 }
 
 bool TireHandler::pressureAlarm(float pressure) {
-    return pressure>0 && ((pressure <= _prefData.alarmPressureMin) || (pressure >= _prefData.alarmPressureMax));
+	return pressure>0 && ((pressure <= _prefData.alarmPressureMin) || (pressure >= _prefData.alarmPressureMax));
 }
 
 const char* TireHandler::tireName(uint16_t index) {
-    return tireNames[index];
+	return tireNames[index];
 }
 
 int32_t TireHandler::codedColor(float value) {
-    if (value == sensorNotPaired) {
-        return RED8;
-    }
-    else if (value == timedOutValue) {
-        return RED8;
-    }
-    else if (value == noDataValue) {
-        return ORANGE8;
-    }
-    else if (value < 0) {
-        return DARK_GRAY8;
-    }
-    else {
-        return -1;
-    }
+	if (value == sensorNotPaired) {
+		return RED8;
+	}
+	else if (value == timedOutValue) {
+		return RED8;
+	}
+	else if (value == noDataValue) {
+		return ORANGE8;
+	}
+	else if (value < 0) {
+		return DARK_GRAY8;
+	}
+	else {
+		return -1;
+	}
 }
 
 uint16_t TireHandler::pressureColor(float pressure) {
-    int32_t color = codedColor(pressure);
+	int32_t color = codedColor(pressure);
 
-    if (color == -1) {
-        if (pressureAlarm(pressure)) {
-            color = RED8;
-        }
-        else if (pressureWarning(pressure)) {
-            color = ORANGE8;
-        }
-        else {
-            color = GREEN8;
-        }
-    }
-    return color;
+	if (color == -1) {
+		if (pressureAlarm(pressure)) {
+			color = RED8;
+		}
+		else if (pressureWarning(pressure)) {
+			color = ORANGE8;
+		}
+		else {
+			color = GREEN8;
+		}
+	}
+	return color;
 }
 
 uint16_t TireHandler::pressureColorForSensor(uint16_t index) {
-    return pressureColor(pressureForSensor(index));
+	return pressureColor(pressureForSensor(index));
 }
 
 uint16_t TireHandler::temperatureColor(float temperature) {
-    int32_t color = codedColor(temperature);
+	int32_t color = codedColor(temperature);
 
-    if (color == -1) {
-        if (temperatureAlarm(temperature)) {
-            color = DARKORANGE8;
-        }
-        else if (temperatureWarning(temperature)) {
-            color = YELLOW8;
-        }
-        else if (temperature < 33) {
-            color = LIGHTBLUE8;
-        }
-        else {
-            color = CYAN8;
-        }
-    }
-    return color;
+	if (color == -1) {
+		if (temperatureAlarm(temperature)) {
+			color = DARKORANGE8;
+		}
+		else if (temperatureWarning(temperature)) {
+			color = YELLOW8;
+		}
+		else if (temperature < 33) {
+			color = LIGHTBLUE8;
+		}
+		else {
+			color = CYAN8;
+		}
+	}
+	return color;
 }
 
 uint16_t TireHandler::temperatureColorForSensor(uint16_t index) {
-    return temperatureColor(temperatureForSensor(index));
+	return temperatureColor(temperatureForSensor(index));
 }
 
 const char* TireHandler::noDataString() {
-    return "--";
+	return "--";
 }
 
 const char* TireHandler::timedOutString() {
-    return "??";
+	return "??";
 }
 
 String TireHandler::codedString(float value) {
-    if (value == sensorNotPaired) {
-        return "XX";
-    }
-    else if (value == noDataValue) {
-        return noDataString();
-    }
-    else if (value == timedOutValue) {
-        return timedOutString();
-    }
-    else {
-        return "";
-    }
+	if (value == sensorNotPaired) {
+		return "XX";
+	}
+	else if (value == noDataValue) {
+		return noDataString();
+	}
+	else if (value == timedOutValue) {
+		return timedOutString();
+	}
+	else {
+		return "";
+	}
 }
 
 String TireHandler::pressureString(float pressure, bool addPSI) {
-    String str = codedString(pressure);
+	String str = codedString(pressure);
 
-    if (str.length()==0) {
-        str = String(pressure, 0);
+	if (str.length()==0) {
+		str = String(abs(pressure), 0);
 
-        if (addPSI) {
-            str = str + "psi";
-        }
-    }
-    return str;
+		if (addPSI) {
+			str = str + "psi";
+		}
+	}
+	return str;
 }
 
 String TireHandler::pressureStringForSensor(uint16_t index, bool addPSI) {
-    return pressureString(pressureForSensor(index), addPSI);
+	return pressureString(pressureForSensor(index), addPSI);
 }
 
 String TireHandler::temperatureString(float temperature, uint8_t addDegrees) {
-    String str = codedString(temperature);
+	String str = codedString(temperature);
 
-    if (str.length()==0) {
-        str = String(temperature, 0);
+	if (str.length()==0) {
+		str = String(abs(temperature), 0);
 
-        if (addDegrees == 1) {
-            str = str + "~";
-        }
-        else if (addDegrees == 2) {
-            str = str + "\xBA";
-        }
-    }
-    return str;
+		if (addDegrees == 1) {
+			str = str + "~";
+		}
+		else if (addDegrees == 2) {
+			str = str + "\xBA";
+		}
+	}
+	return str;
 }
 
 String TireHandler::temperatureStringForSensor(uint16_t index, uint8_t addDegrees) {
-    return temperatureString(temperatureForSensor(index), addDegrees);
+	return temperatureString(temperatureForSensor(index), addDegrees);
 }
 
 uint32_t TireHandler::idForSensor(uint16_t index) {
-    return _prefData.sensorIDs[index];
+	return _prefData.sensorIDs[index];
+}
+
+float stateOfSensor(TPMSPacket* sensor, uint16_t index, float value) {
+	if (_prefData.sensorIDs[index]==0) {
+		return sensorNotPaired;
+	}
+	else if (sensor->timeStamp==0) {
+		return noDataValue;
+	}
+	else {
+		return value;
+	}
 }
 
 float TireHandler::pressureForSensor(uint16_t index) {
-    TPMSPacket* sensor = &_sensorPackets[index];
-
-    if (_prefData.sensorIDs[index]==0) {
-        return sensorNotPaired;
-    }
-    else if (sensor->id==0) {
-        return noDataValue;
-    }
-    else {
-        return sensor->pressure;
-    }
+	TPMSPacket* sensor = &_sensorPackets[index];
+	
+	return stateOfSensor(sensor, index, sensor->pressure);
 }
 
 float TireHandler::temperatureForSensor(uint16_t index) {
-    TPMSPacket* sensor = &_sensorPackets[index];
+	TPMSPacket* sensor = &_sensorPackets[index];
 
-    if (_prefData.sensorIDs[index]==0) {
-        return sensorNotPaired;
-    }
-    else if (sensor->id==0) {
-        return noDataValue;
-    }
-    else {
-        return sensor->temperature;
-    }
+	return stateOfSensor(sensor, index, sensor->temperature);
 }
 
 TireHandler _tireHandler;

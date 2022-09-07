@@ -24,7 +24,7 @@ class TireHandler {
 		void drawTires();
 		void showTemperature();
 		void recordPacket(TPMSPacket& packet);
-		void sensorIDChanged(uint16_t sensorIndex);
+		void setSensorID(uint16_t sensorIndex, uint32_t id);
 
 		int16_t indexOfTireAtPoint(tsPoint_t pt);
 		void pressTire(uint16_t index);
