@@ -46,5 +46,7 @@ extern float sequenceInterp(float* values, int16_t count, float percent);
 extern bool switchState();
 extern float voltageValue();
 extern bool systemUpdate();
+extern void packetCheck();
+extern void doCalibrate();
 
 #endif
