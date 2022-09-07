@@ -123,7 +123,7 @@ void PacketMonitor::setFakePackets(bool doFakes) {
     queueNextFake();
 }
 
-constexpr uint32_t fakeIDs[] = { 0xAA2365, 0xAA6721, 0x437812, 0xAA9812, 0x327812, 0xAA7712, 0x213876, 0x887766 };
+constexpr uint32_t fakeIDs[] = { 0xA2AF7F, 0xA29D51, 0xA2AFC7, 0x75EBD7, 0xA37072, 0x75E5FD, 0x223344, 0x887766 };
 constexpr uint16_t fakeIDCount = sizeof(fakeIDs) / sizeof(uint32_t);
 
 float pressureList[] = { 90, 95, 90, 100, 105, 76, 124 };
@@ -137,6 +137,7 @@ void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
     static float tireP[] = { 0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35 };
 
     packet->timeStamp = millis();
+    packet->rssi = random(-50, -3);
     packet->id = fakeIDs[idIndex];
     packet->pressure = sequenceInterp(pressureList, pressureCount, tireP[idIndex]);
     packet->temperature = sequenceInterp(tempList, tempCount, tireP[idIndex]);
@@ -182,6 +183,8 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
 
             if ( computeChecksum(newArr) ) {
                 showChecksum(newArr);
+
+                packet->rssi = radio.getRSSI();
 
                 packet->id = newArr[1]<<16 | newArr[2]<<8 | newArr[3];
 

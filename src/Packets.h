@@ -16,6 +16,7 @@ typedef struct {
 		float temperature;
 		bool lowBattery;
 		bool fastLeak;
+		int16_t rssi;
 } TPMSPacket;
 
 class PacketBuff {
