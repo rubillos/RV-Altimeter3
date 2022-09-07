@@ -32,6 +32,10 @@ Button* hitButton(Button** buttons, tsPoint_t pt, bool invert) {
 constexpr int16_t widen_amount = 20;
 
 bool Button::hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen) {
+    if (!visible()) {
+        return false;
+    }
+
     computeScreenRect();
 
    if (widen) {
@@ -45,6 +49,21 @@ bool Button::hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen) {
 bool Button::hitTest(tsPoint_t pt, bool widen) {
     return hitTestInternal(pt, _rect, widen);
 };
+
+void Button::setVisible(bool vis) {
+    if (vis != _visible) {
+        _visible = vis;
+        _dirty = true;
+    }
+}
+
+void Button::hide() {
+    setVisible(false);
+}
+
+void Button::show() {
+    setVisible(true);
+}
 
 ButtonScheme Button::scheme(bool pressed) {
     uint16_t text, back, border;
@@ -73,6 +92,10 @@ ButtonScheme Button::scheme(bool pressed) {
 }
 
 void Button::draw(bool pressed, bool forceBackground) {
+    if (!visible()) {
+        return;
+    }
+
     ButtonScheme sc = scheme(pressed);
     
     uint16_t textColor = sc.textColor;
@@ -111,10 +134,14 @@ void Button::draw(bool pressed, bool forceBackground) {
         x = _rect.x + (_rect.w - titleWidth())/2;
     }
 
-    performDraw(title(), x, y, sc.sizeX, sc.sizeY, textColor, (transparent)?-1:backColor);
+    drawTitle(title(), x, y, sc.sizeX, sc.sizeY, textColor, (transparent)?-1:backColor);
 }
 
-void Button::performDraw(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor) {
+void Button::drawTitle(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor) {
+    if (!visible()) {
+        return;
+    }
+    
     _textManager.drawString(title, x, y, sizeX, sizeY, textColor, backColor);
 }
 
@@ -164,6 +191,6 @@ void SlashButton::draw(bool pressed, bool forceBackground) {
     if (!_state) {
         ButtonScheme sc = scheme();
 
-        _dataDisplay.drawThickLine(_display, _rect.x+5, _rect.y+_rect.h-6, _rect.x+_rect.w-7, _rect.y+5, 5, RA8875_RED);
+        _dataDisplay.drawThickLine(_display, _rect.x+5, _rect.y+_rect.h-6, _rect.x+_rect.w-6, _rect.y+5, 5, RA8875_RED, true);
     }
 }

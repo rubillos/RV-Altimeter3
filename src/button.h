@@ -34,27 +34,33 @@ class Button {
 	public:
 		Button(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme) :
 			_x(x), _y(y), _w(w), _h(h), _title(title), _scheme(scheme) {
+				_visible = true;
 				_dirty = true;
 			};
 
-		void setTitle(String title) { _title = title; _dirty = true; };
 		void setTitleInset(uint16_t inset) { _titleInset = inset; };
 
 		uint16_t width() { computeScreenRect(); return _rect.w; };
 		uint16_t height() { computeScreenRect(); return _rect.h; };
 		ButtonRect rect() { computeScreenRect(); return _rect; };
 
-		bool (*touchFunc)(void*, void*);
+		void setVisible(bool visible);
+		void hide();
+		void show();
+
+		bool (*touchFunc)(void*, void*) = NULL;
 		Button** subButtons;
 
+		virtual void setTitle(String title) { _title = title; _dirty = true; };
 		virtual String title() { return _title; };
 		virtual ButtonScheme scheme(bool pressed = false);
 		virtual bool hitTest(tsPoint_t pt, bool widen=false);
 		virtual bool isHeader() { return false; };
-		virtual void performDraw(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor);
+		virtual void drawTitle(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor);
 		virtual void draw(bool pressed=false, bool forceBackground=false);
 		virtual bool transparentText() { return true; };
 		virtual bool refresh() { return false; };
+		virtual bool visible() { return _visible; };
 
 	protected:
 		bool hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen);
@@ -62,6 +68,7 @@ class Button {
 		uint16_t titleHeight();
 		void computeScreenRect();
 
+		bool _visible;
 		int16_t _x;
 		int16_t _y;
 		int16_t _w;
@@ -96,7 +103,7 @@ class Label : public Button {
 				_titleInset = titleInset;
 		};
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
-		bool transparentText() { return false; };
+		bool transparentText() { return true; };
 };
 
 class Header : public Button {
@@ -146,6 +153,27 @@ class FloatLabel : public Label {
 	protected:
 		float* _param[4] = { NULL, NULL, NULL, NULL };
 		float _values[4];
+};
+
+class StringLabel : public Label {
+	public:
+		StringLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0,
+				void* param1=NULL, void* param2=NULL, void* param3=NULL, void* param4=NULL ) : 
+			Label(x, y, w, h, title, scheme, titleInset) { };
+		void setParameter(uint8_t index, const char* param) {
+			_param[index] = param;
+			_dirty = true;
+		};
+		String title() {
+			char buffer[80];
+			snprintf(buffer, sizeof(buffer), _title.c_str(), _param[0], _param[1], _param[2], _param[3]);
+			return buffer;
+		};
+		bool refresh() {
+			return _dirty;
+		};
+	protected:
+		const char* _param[4] = { NULL, NULL, NULL, NULL };
 };
 
 void drawButtons(Button** buttons);
