@@ -77,6 +77,12 @@ TextManager::TextManager() {
 
 	constexpr int8_t vertShifts[] = {
 		'\x0E', 1,
+		'\x10', 2,
+		'\x11', 2,
+		'\x1A', 3,
+		'\x1B', 3,
+		'\x1E', 2,
+		'\x1F', 2,
 	};
 	constexpr uint16_t vertShiftCount = sizeof(vertShifts) / sizeof(int8_t) / 2;
 
