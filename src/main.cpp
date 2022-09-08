@@ -22,6 +22,7 @@
 #include "accel.h"
 #include "OLED_print.h"
 #include "pins.h"
+#include "pairMenu.h"
 
 #include <esp_sleep.h>
 
@@ -167,7 +168,7 @@ void setup() {
 
 	OLEDprintln("Init PacketRadio...");
 	_packetMonitor.begin();
-	_packetMonitor.setFakePackets(true);
+	// _packetMonitor.setFakePackets(true);
 
 	OLEDprintln("Init GPS...");
 	_gps.begin();
@@ -176,8 +177,9 @@ void setup() {
 	_accel.begin();
 	_accel.setShakeLimits(0.4, 0.4, 0.4);
 	
-	OLEDprintln("Init Tire Drawing...");
+	OLEDprintln("Init Modules...");
 	_tireHandler.begin(300);
+	menuInit();
 
 	OLEDprintln("Check touchscreen...");
 	if (!_prefData.touchCalibration.Divider) {
@@ -185,12 +187,12 @@ void setup() {
 		doCalibrate();
 	}
 
-	// _prefData.sensorIDs[0] = 0xAA2365;
-	// _prefData.sensorIDs[1] = 0xAA6721;
-	// _prefData.sensorIDs[2] = 0x437812;
-	// _prefData.sensorIDs[3] = 0x327812;
-	// _prefData.sensorIDs[4] = 0xAA7712;
-	// _prefData.sensorIDs[5] = 0x213876;
+	// _prefData.sensorIDs[0] = 0;
+	// _prefData.sensorIDs[1] = 0;
+	// _prefData.sensorIDs[2] = 0;
+	// _prefData.sensorIDs[3] = 0;
+	// _prefData.sensorIDs[4] = 0;
+	// _prefData.sensorIDs[5] = 0;
 
 	OLEDprintln("Init Done!");
 }
@@ -264,8 +266,10 @@ void loop() {
 		int16_t tireIndex = _tireHandler.indexOfTireAtPoint(touchPt);
 
 		if (tireIndex != -1 && _tireHandler.pressureForSensor(tireIndex)==sensorNotPaired) {
+			drawIndex = 0;
 			_tireHandler.pressTire(tireIndex);
 			delay(200);
+			runPairMenu(tireIndex);
 		}
 		else if (touchPt.y < 300) {
 			drawIndex = 0;
