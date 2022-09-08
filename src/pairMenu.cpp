@@ -281,7 +281,7 @@ void runPairMenu(uint16_t index) {
 			id = value;
 		}
 
-		if (id) {
+		if (id != -1 && id != 0) {
 			_tireHandler.setSensorID(index, id);
 		}
 		else {
