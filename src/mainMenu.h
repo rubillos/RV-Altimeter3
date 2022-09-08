@@ -164,6 +164,7 @@ class SensorButton : public Label {
 		uint16_t _colors[2];
 };
 
+extern void menuInit();
 extern void runMainMenu();
 
 extern ButtonScheme backScheme;

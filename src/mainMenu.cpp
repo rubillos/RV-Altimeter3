@@ -81,11 +81,6 @@ bool toggleMute(Menu* menu, SlashButton* button) {
 bool menuBack(Menu* menu, Button* button) {
 	menu->goBack();
 	delay(buttonFlashTime);
-	return true;
-}
-
-bool menuDone(Menu* menu, Button* button) {
-	menu->goBack();
 	if (!menu->isAtTopLevel()){
 		delay(buttonFlashTime);
 	}
@@ -267,6 +262,11 @@ bool LogView::refresh() {
 	return result;
 };
 
+void menuInit() {
+	buttonBack.touchFunc = (bool(*)(void*, void*))&menuBack;
+	buttonDone.touchFunc = (bool(*)(void*, void*))&menuBack;
+}
+
 void runMainMenu() {
 	Menu menu;
 	ButtonScheme mainButtonScheme = { RA8875_WHITE, RA8875_GRAY_DK, RA8875_GRAY_LT, 3, 2 };
@@ -367,10 +367,6 @@ void runMainMenu() {
 	Button buttonStatus(buttonHCenter, mb_y+4*mb_off, mb_w, mb_h, "System Status", mainButtonScheme);
 	SlashButton systemMute(0, 408, 70, 58, "\x0E", backScheme);
 	Button* mainMenu[] = { &headerMain, &buttonDone, &systemMute, &buttonSetAlarms, &buttonEditSensors, &buttonCalibrate, &buttonMonitor, &buttonStatus, NULL };
-
-	buttonBack.touchFunc = (bool(*)(void*, void*))&menuBack;
-
-	buttonDone.touchFunc = (bool(*)(void*, void*))&menuDone;
 
 	buttonSetAlarms.subButtons = setAlarmsMenu;
 	buttonEditSensors.subButtons = editSensorsMenu;
