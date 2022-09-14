@@ -365,7 +365,7 @@ void runMainMenu() {
 	Button buttonCalibrate(buttonHCenter, mb_y+2*mb_off, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 	Button buttonMonitor(buttonHCenter, mb_y+3*mb_off, mb_w, mb_h, "Sensor Log", mainButtonScheme);
 	Button buttonStatus(buttonHCenter, mb_y+4*mb_off, mb_w, mb_h, "System Status", mainButtonScheme);
-	SlashButton systemMute(0, 408, 70, 58, "\x0E", backScheme);
+	SlashButton systemMute(365, 408, 70, 58, "\x0E", backScheme);
 	Button* mainMenu[] = { &headerMain, &buttonDone, &systemMute, &buttonSetAlarms, &buttonEditSensors, &buttonCalibrate, &buttonMonitor, &buttonStatus, NULL };
 
 	buttonSetAlarms.subButtons = setAlarmsMenu;

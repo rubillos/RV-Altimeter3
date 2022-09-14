@@ -14,7 +14,6 @@
 SX1278 radio = new Module(18, 26, 14, 35);
 
 uint16_t receivedPacket = 0; // count packets
-uint16_t goodCRC = 0;  // good checksums
 
 volatile uint32_t packetCount = 0;
 
@@ -70,7 +69,6 @@ bool computeChecksum(uint8_t *array) {
     // Serial.printf("Checksum: byteSum=0x%X, checkSum=0x%X, byte0=0x%X\n",byteSum, checkSum, array[0]);
 
     if ( checkSum == array[0] ) {
-        goodCRC++;
         return true;
     }
     return false;
@@ -175,31 +173,29 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
             // Serial.printf("Received data\n");
             receivedPacket++;
 
-            byte newArr[16];
-            shiftBlockRight(byteArr, newArr, 16, 2);      
-            decodeManI(newArr, 16);
+            byte newPacket[16];
+            shiftBlockRight(byteArr, newPacket, 16, 2);      
+            decodeManI(newPacket, 16);
 
-            packet->timeStamp = millis();
+            if ( computeChecksum(newPacket) ) {
+                showChecksum(newPacket);
 
-            if ( computeChecksum(newArr) ) {
-                showChecksum(newArr);
+                packet->timeStamp = millis();
+                packet->rssi = radio.getRSSI(true);
 
-                packet->rssi = radio.getRSSI();
+                packet->id = newPacket[1]<<16 | newPacket[2]<<8 | newPacket[3];
 
-                packet->id = newArr[1]<<16 | newArr[2]<<8 | newArr[3];
-
-                float press = (newArr[7] & 0x0F) << 8 | newArr[4];
+                float press = (newPacket[7] & 0x0F) << 8 | newPacket[4];
                 packet->pressure = (press / 0.4) / 6.895;  // kPa then psi
 
-                packet->temperature = ((newArr[5] - 50) * 1.8) + 32;  // deg C to F
+                packet->temperature = ((newPacket[5] - 50) * 1.8) + 32;  // deg C to F
 
-                packet->lowBattery = (newArr[6] & 0x20) != 0;
-                packet->fastLeak = (newArr[6] & 0x10) != 0;
+                packet->lowBattery = (newPacket[6] & 0x20) != 0;
+                packet->fastLeak = (newPacket[6] & 0x10) != 0;
 
                 if (packet->id!=0 && packet->pressure<180 && packet->temperature>-20 && packet->temperature<180) {
                     _packetLog->addSample(*packet);
                     result = true;
-                    goodCRC++;
                 }
             }  
         }

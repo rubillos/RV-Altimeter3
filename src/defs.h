@@ -5,6 +5,9 @@
 
 #define defaultMaxWait 100
 
+constexpr uint16_t topRowY = 100;
+constexpr uint16_t tireTopY = 300;
+
 #define Color8(r, g, b) ((r & 0xE0) | ((g & 0xE0)>>3) | (b>>6))
 #define Color16(r, g, b) ((r & 0xE0) | ((g & 0xE0)>>3) | (b>>6))
 

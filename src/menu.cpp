@@ -65,7 +65,7 @@ void Menu::run(Button** currentMenu) {
 			needUpdate = false;
 
 			if (_redrawAlt) {
-				_dataDisplay.drawAltLayer();
+				_dataDisplay.drawInAltLayer();
 			}
 
 			if ((*currentMenu)->isHeader()) {

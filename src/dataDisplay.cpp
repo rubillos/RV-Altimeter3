@@ -5,6 +5,8 @@
 #include "touchscreen.h"
 #include "Buffer8.h"
 #include "tires.h"
+#include "gps.h"
+#include "menu.h"
 
 #include "fonts/FreeSans44pt7b.h"
 #include "fonts/ModFreeSans44pt.h"
@@ -12,6 +14,26 @@
 #include "fonts/FreeSans18pt7b.h"
 
 #include "fonts/IconFont.h"
+
+constexpr uint16_t upColor =   0b010001110001000;
+constexpr uint16_t downColor = 0b111000100001000;
+
+constexpr uint16_t speedColor = 0b0000001000001000;
+
+void DataDisplay::begin() {
+	uint16_t graphHeight = tireTopY-topRowY-40;
+
+	_speedGraph = new DataGraph(0, topRowY+10, 400, graphHeight, RA8875_WHITE, speedColor, RA8875_BLUE, false);
+	_altitudeGraph = new DataGraph(399, topRowY+10, 401, graphHeight, RA8875_WHITE, RA8875_GRAY_DK, RA8875_BLUE, true);
+
+	_speedGraph->setRingBuff(_gps.speedHistory);
+	_altitudeGraph->setRingBuff(_gps.altitudeHistory);
+
+	_speedGraph->setScale(0, 80, 20);
+	_altitudeGraph->setAutoScale(true);
+
+	_altitudeGraph->setRampColors(10, upColor, 10, downColor);
+}
 
 uint8_t DataDisplay::ascenderForFont(const GFXfont *f, char character)
 {
@@ -223,11 +245,11 @@ void DataDisplay::drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t 
 	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5);
 }
 
-void DataDisplay::drawAltLayer() {
+void DataDisplay::drawInAltLayer() {
 	_display.setDrawLayer(!_drawLayer);
 }
 
-void DataDisplay::drawCurrentLayer() {
+void DataDisplay::drawInCurrentLayer() {
 	_display.setDrawLayer(_drawLayer);
 }
 
@@ -235,6 +257,8 @@ void DataDisplay::switchToAltLayer() {
 	_display.showLayer(!_drawLayer);
 	_drawLayer = !_drawLayer;
 }
+
+// #define NO_LAYER_SWAP
 
 bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
 	constexpr int16_t xOffset = 60;
@@ -247,65 +271,93 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 	int16_t direction;
 	bool result = false;
 
-	drawAltLayer();
+	#ifndef NO_LAYER_SWAP
+	drawInAltLayer();
+	#endif
 
-	if (*drawIndex == 0) {
+	enum {
+		dataDrawSpeed = 0,
+		dataDrawAltitude,
+		dataDrawTime,
+		dataDrawHeading,
+		dataDrawSunrise,
+		dataDrawSunset,
+		dataDrawSpeedGraph,
+		dataDrawAltitudeGraph,
+		dataDrawAcquiring,
+		dataDrawTires
+	};
+
+	if (*drawIndex == dataDrawSpeed) {
 		_display.fillScreen(BLACK8);
 		_displayBuffer8.setTextColor(WHITE8);
-	}
-
-	if (haveFix) {
-		uint16_t col = *drawIndex & 1;
-		uint16_t row = (*drawIndex) / 2;
-
-		xStart = xOffset+col*(cellWidth+xGap);
-		yStart = yOffset+row*(cellHeight+yGap);
-		_displayBuffer8.setOffset(xStart, yStart);
-
-		// _displayBuffer8.fillRect(xStart, yStart+2, cellWidth, cellHeight, GREEN8);
-
-		switch (*drawIndex) {
-			case 0:
-				// speed
-				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, String(speed, 1), 0, String("mph"));
-				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
-				break;
-			case 1:
-				// altitude
-				showCell(_displayBuffer8, xStart, yStart, altitudeGlyph, String(altitude), -2, String("ft"));
-				break;
-			case 2:
-				// time
-				timeString = timeFromDayMinutes(time, false);
-				if (!colon) {
-					timeString.replace(String(":"), String(" "));
-				}
-				colon = (colon+1)%4;
-
-				showCell(_displayBuffer8, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
-				drawTime(_displayBuffer8, xStart+32, yStart+36, time / 60, time % 60);
-				break;
-			case 3:
-				// heading
-				direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
-				showCell(_displayBuffer8, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
-				drawPointer(_displayBuffer8, xStart+32, yStart+36, heading, 15, 8, 140);
-				break;
-			case 4:
-				// sunrise
-				showCell(_displayBuffer8, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
-				break;
-			case 5:
-				// sunset
-				showCell(_displayBuffer8, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
-				break;
+		if (!haveFix) {
+			*drawIndex = dataDrawAcquiring;
 		}
-		_displayBuffer8.draw(_display, -1);
-		(*drawIndex)++;
 	}
-	else {
-		if (*drawIndex == 0) {
-			_displayBuffer8.setOffset(_display.width()/2 - 100, 100);
+
+	bool useBuffer = *drawIndex>=dataDrawSpeed && *drawIndex<=dataDrawSunset;
+
+	uint16_t col = *drawIndex & 1;
+	uint16_t row = (*drawIndex) / 2;
+
+	xStart = xOffset+col*(cellWidth+xGap);
+	yStart = yOffset+row*(cellHeight+yGap);
+
+	if (useBuffer) {
+		_displayBuffer8.setOffset(xStart, yStart);
+	}
+
+	// _displayBuffer8.fillRect(xStart, yStart+2, cellWidth, cellHeight, GREEN8);
+
+	switch (*drawIndex) {
+		case dataDrawSpeed: {
+				String speedStr = String(speed, 1);
+				if (_drawGraphs) {
+					xStart += 40 - getStringWidth(_displayBuffer8, speedStr) / 2;
+					_displayBuffer8.setOffset(xStart, yStart, -1);
+				}
+				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, speedStr, 0, String("mph"));
+				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
+			}
+			break;
+		case dataDrawAltitude: {
+				String altStr = String(altitude);
+				if (_drawGraphs) {
+					xStart += 70 - getStringWidth(_displayBuffer8, altStr) / 2;
+					_displayBuffer8.setOffset(xStart, yStart, -1);
+				}
+				showCell(_displayBuffer8, xStart, yStart, altitudeGlyph, altStr, -2, String("ft"));
+			}
+			break;
+		case dataDrawTime:
+			timeString = timeFromDayMinutes(time, false);
+			if (!colon) {
+				timeString.replace(String(":"), String(" "));
+			}
+			colon = (colon+1)%4;
+
+			showCell(_displayBuffer8, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
+			drawTime(_displayBuffer8, xStart+32, yStart+36, time / 60, time % 60);
+			break;
+		case dataDrawHeading:
+			direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
+			showCell(_displayBuffer8, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
+			drawPointer(_displayBuffer8, xStart+32, yStart+36, heading, 15, 8, 140);
+			break;
+		case dataDrawSunrise:
+			showCell(_displayBuffer8, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
+			break;
+		case dataDrawSunset:
+			showCell(_displayBuffer8, xStart, yStart, sunsetGlyph, timeFromDayMinutes(sunsetTime, false), -9, suffixFromDayMinutes(sunsetTime));
+			break;
+		case dataDrawSpeedGraph:
+			_speedGraph->draw();
+			break;
+		case dataDrawAltitudeGraph:
+			_altitudeGraph->draw();
+			break;
+		case dataDrawAcquiring:
 			static uint8_t dotCount = 1;
 			static String acquiring = String("Acquiring");
 			static String dots = String(".....");
@@ -314,22 +366,38 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 			dotCount = (dotCount % 5)+1;
 
 			_displayBuffer8.setFont(&FreeSans18pt7b);
-
+			_displayBuffer8.setOffset(_display.width()/2 - 100, 100);
 			_displayBuffer8.setCursor(_display.width()/2 - 100, 130);
 			_displayBuffer8.print(status);
-			_displayBuffer8.draw(_display);
-		}
-		*drawIndex = 6;
+			_displayBuffer8.draw(_display, -1);
+			break;
 	}
 
-	if (*drawIndex>=6) {
+	if (useBuffer) {
+		_displayBuffer8.draw(_display, -1);
+	}
+
+	if (*drawIndex>=dataDrawTires) {
 		_tireHandler.drawTires();
+		#ifndef NO_LAYER_SWAP
 		switchToAltLayer();
-		*drawIndex = 0;
+		#endif
+		*drawIndex = dataDrawSpeed;
 		result = true;
 	}
 	else {
-		drawCurrentLayer();
+		#ifndef NO_LAYER_SWAP
+		drawInCurrentLayer();
+		#endif
+		if (*drawIndex==dataDrawAltitude && _drawGraphs) {
+			*drawIndex = dataDrawSpeedGraph;
+		}
+		else if (*drawIndex==5 || *drawIndex==7) {
+			*drawIndex = dataDrawTires;
+		}
+		else {
+			(*drawIndex)++;
+		}
 	}
 
 	return result;

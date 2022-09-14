@@ -13,8 +13,8 @@ void GPS::begin() {
 	_speedAccumulate = new RingBuff<int16_t>(accumulateCount);
 	_altitudeAccumulate = new RingBuff<int16_t>(accumulateCount);
 
-	speedRing = new RingBuff<int16_t>(ringCount);
-	altitudeRing = new RingBuff<int16_t>(ringCount);
+	speedHistory = new RingBuff<int16_t>(ringCount);
+	altitudeHistory = new RingBuff<int16_t>(ringCount);
 
 	_stoppedSeconds = 10000;
 
@@ -46,8 +46,11 @@ constexpr float DISTANCE_TO_FLOAT_FLOAT = 304.8;
 
 constexpr float movingThreshold = 5.0;
 
-float altitudeList[] = { 100, 500, 2500, 2000, 3500, 3000, 6000, 5500, 12000, 5000, 5500, 4500 };
+float altitudeList[] = { 100, 500, 2500, 2000, 3500, 3500, 6000, 6000, 12000, 5000, 5500, 4500 };
 constexpr uint16_t altitudeCount = sizeof(altitudeList) / sizeof(float);
+
+float speedList[] = { 0, 35, 37, 60, 60, 70, 70, 75, 0, 0, 40, 60 };
+constexpr uint16_t speedCount = sizeof(speedList) / sizeof(float);
 
 bool GPS::update() {
 	static bool haveHadFix = false;
@@ -86,6 +89,9 @@ bool GPS::update() {
 		if (!_gpsData.haveFix) {
 			static elapsedMillis upTime;
 			static float altitudeP;
+			static float speedP;
+			static float curAltitude = -1;
+			static float curSpeed = -1;
 
 			_gpsData.latitude = 37.7775;
 			_gpsData.longitude = -122.416389;
@@ -100,11 +106,30 @@ bool GPS::update() {
 			static int16_t headingNum = 0;
 			_gpsData.heading = headingNum;
 			headingNum = (headingNum + 10) % 360;
-			_gpsData.speed = second * 80.0 / 60.0;
-			_gpsData.altitude = sequenceInterp(altitudeList, altitudeCount, altitudeP);
+
+			float newSpeed = sequenceInterp(speedList, speedCount, speedP);
+			float newAltitude = sequenceInterp(altitudeList, altitudeCount, altitudeP);
+			if (curSpeed == -1) {
+				curSpeed = newSpeed;
+			}
+			else {
+				curSpeed += (newSpeed - curSpeed) * 0.05;
+			}
+			if (curAltitude == -1) {
+				curAltitude = newAltitude;
+			}
+			else {
+				curAltitude += (newAltitude - curAltitude) * 0.05;
+			}
+			_gpsData.speed = curSpeed;
+			_gpsData.altitude = curAltitude;
 			altitudeP += 0.001;
 			if (altitudeP>1.0) {
 				altitudeP -= 1.0;
+			}
+			speedP += 0.004;
+			if (speedP>1.0) {
+				speedP -= 1.0;
 			}
 			_gpsData.haveFix = (upTime > 2000);
 		}
@@ -151,9 +176,9 @@ bool GPS::update() {
 		if (_accumulateIndex == accumulateCount) {
 			int16_t speedMax = _speedAccumulate->maximum(-1);
 			int16_t altitudeMax = _altitudeAccumulate->maximum(-1);
-			if (speedMax!=-1 || (speedRing->sampleCount()>0 && speedRing->lookup(0)!=-1)) {
-				speedRing->addSample(speedMax);
-				altitudeRing->addSample(altitudeMax);
+			if (speedMax!=-1 || (speedHistory->sampleCount()>0 && speedHistory->lookup(0)!=-1)) {
+				speedHistory->addSample(speedMax);
+				altitudeHistory->addSample(altitudeMax);
 			}
 			_accumulateIndex = 0;
 		}

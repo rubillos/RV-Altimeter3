@@ -12,7 +12,6 @@
 #include "fonts/FreeSansBold14pt7b.h"
 #include "graphics/Tire2.png.h"
 
-constexpr uint16_t tireTopY = 300;
 constexpr uint16_t tireX[] = { 272, 416, 152, 272, 416, 536 };
 constexpr uint16_t tireY[] = { tireTopY, tireTopY, tireTopY+80, tireTopY+80, tireTopY+80, tireTopY+80 };
 constexpr uint16_t tireWidth = 110;

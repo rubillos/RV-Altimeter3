@@ -10,7 +10,7 @@
 #include "RingBuff.h"
 
 constexpr uint16_t ringCount = 400;
-constexpr uint16_t accumulateCount = 30;
+constexpr uint16_t accumulateCount = 3;
 
 typedef struct {
 	bool haveFix;
@@ -38,8 +38,9 @@ class GPS {
 		uint32_t stoppedSeconds() { return _stoppedSeconds; };
 		uint32_t movingSeconds() { return _movingSeconds; };
 
-		RingBuff<int16_t>* speedRing;
-		RingBuff<int16_t>* altitudeRing;
+		RingBuff<int16_t>* speedHistory;
+		RingBuff<int16_t>* altitudeHistory;
+		uint16_t historyRate() { return 60 / accumulateCount; };
 
     private:
         SFE_UBLOX_GNSS _gps;

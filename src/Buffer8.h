@@ -11,10 +11,12 @@ class Buffer8 : public GFXcanvas8 {
 			_y = y;
 		}
 
-		void setOffset(uint16_t x, uint16_t y, uint16_t c=0) {
+		void setOffset(uint16_t x, uint16_t y, int32_t c=0) {
 			_x = x;
 			_y = y;
-			fillScreen(c);
+			if (c != -1) {
+				fillScreen(c);
+			}
 		}
 
 		void drawPixel(int16_t x, int16_t y, uint16_t color) {
@@ -40,8 +42,8 @@ class Buffer8 : public GFXcanvas8 {
 
 		void draw(Adafruit_RA8875& dest, int16_t w=0, int16_t h=0) {
 			uint8_t* srcBuff = getBuffer();
+			if (w<0) { w=getCursorX()-_x; }
 			if (w==0) { w=width(); }
-			else if (w==-1) { w=getCursorX()-_x; }
 			
 			if (h==0) { h=height(); }
 
@@ -57,73 +59,72 @@ class Buffer8 : public GFXcanvas8 {
 		uint16_t _y;
 };
 
-class Buffer1 : public GFXcanvas8 {
+class Buffer1 : public GFXcanvas1 {
 	public:
-		Buffer1(uint16_t x, uint16_t y, uint16_t w, uint16_t h) : GFXcanvas8(w, h) {
+		Buffer1(uint16_t x, uint16_t y, uint16_t w, uint16_t h) : GFXcanvas1(w, h) {
 			_x = x;
 			_y = y;
 		}
 
-		void setOffset(uint16_t x, uint16_t y, uint16_t c=0) {
+		void setOffset(uint16_t x, uint16_t y, int32_t c=0) {
 			_x = x;
 			_y = y;
-			fillScreen(c);
+			if (c != -1) {
+				fillScreen(c);
+			}
 		}
 
 		void drawPixel(int16_t x, int16_t y, uint16_t color) {
-			GFXcanvas8::drawPixel(x-_x, y-_y, color);
+			if (_altDest && _invert) {
+				bool curC = getPixel(x-_x, y-_y);
+				color = (curC) ? 0 : color;
+			}
+			GFXcanvas1::drawPixel(x-_x, y-_y, color);
+			if (_altDest) {
+				// Serial.println("drawPixel on alt");
+				_altDest->drawPixel(x, y, color);
+			}
 		}
 
 		void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) {
-			GFXcanvas8::drawFastHLine(x-_x, y-_y, w, color);
+			if (_altDest && _invert) {
+				startWrite();
+				writeLine(x, y, x+w-1, y, color);
+				endWrite();
+			}
+			else {
+				GFXcanvas1::drawFastHLine(x-_x, y-_y, w, color);
+				if (_altDest) {
+					// Serial.println("drawFastHLine on alt");
+					_altDest->drawFastHLine(x, y, w, color);
+				}
+			}
 		}
 
 		void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) {
-			GFXcanvas8::drawFastVLine(x-_x, y-_y, h, color);
-		}
-
-		void draw(Adafruit_RA8875& dest, int16_t w=0, int16_t h=0, bool layer2=false) {
-			uint8_t* srcBuff = getBuffer();
-			if (w==0) { w=width(); }
-			else if (w==-1) { w=getCursorX()-_x; }
-			
-			if (h==0) { h=height(); }
-
-			uint16_t bufferWidth = width();
-			uint16_t rowBytes = (bufferWidth+7)/8;
-			uint16_t byteWidth = (w+7)/8;
-
-			dest.writeReg16(0x58, _x);
-			dest.writeReg16(0x5A, _y | (layer2?0x8000:0));
-			dest.writeReg16(0x5C, w);
-			dest.writeReg16(0x5E, h);
-			dest.writeColor(0x60, RA8875_BLACK);
-			dest.writeColor(0x63, RA8875_WHITE);
-
-			dest.writeReg(0x51, 0x08);
-			dest.writeReg(0x50, 0x80);
-
-			// Serial.println("Set up BTE");
-			// delay(1);
-			// dest.waitUntilDone();
-			dest.Chk_BTE_Busy();
-			// Serial.println("Ready to go.");
-
-			for (uint16_t y=0; y<h; y++) {
-				// Serial.printf("Writing line %d\n", y);
-				for (uint16_t x=0; x<byteWidth; x++) {
-					// Serial.printf("Writing byte %d\n", x);
-					dest.writeData(srcBuff[y*rowBytes+x]);
-					// delay(1);
-					// dest.waitUntilDone();
+			if (_altDest && _invert) {
+				startWrite();
+				writeLine(x, y, x, y+h-1, color);
+				endWrite();
+			}
+			else {
+				GFXcanvas1::drawFastVLine(x-_x, y-_y, h, color);
+				if (_altDest) {
+					// Serial.println("drawFastVLine on alt");
+					_altDest->drawFastVLine(x, y, h, color);
 				}
 			}
-			dest.Chk_BTE_Busy();
 		}
+
+		void setAltDest(Adafruit_GFX* altDest) { _altDest = altDest; };
+		void setInvert(bool invert) { _invert = invert; };
 
 	private:
 		uint16_t _x;
 		uint16_t _y;
+
+		Adafruit_GFX* _altDest = NULL;
+		bool _invert;
 };
 
 #endif

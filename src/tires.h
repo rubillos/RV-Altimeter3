@@ -13,8 +13,7 @@ constexpr uint16_t numTires = 6;
 
 class TireHandler {
 	public:
-		void begin(uint16_t yOffset) {
-			_yOffset = yOffset;
+		TireHandler() {
 			for (uint16_t i=0; i<numTires; i++) {
 				_sensorPackets[i].pressure = noDataValue;
 				_sensorPackets[i].temperature = noDataValue;
@@ -61,7 +60,6 @@ class TireHandler {
 		int32_t codedColor(float value);
 		String codedString(float value);
 
-		uint16_t _yOffset;
 		elapsedMillis _tempTimer = temperatureTime;
 
 		bool _alarms[numTires];

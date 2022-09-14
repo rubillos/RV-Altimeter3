@@ -31,6 +31,6 @@ class TouchScreen {
 extern TouchScreen _touchScreen;
 extern Adafruit_RA8875 _display;
 extern Buffer8 _displayBuffer8;
-extern Buffer1 _displayBuffer1;
+// extern Buffer1 _displayBuffer1;
 
 #endif

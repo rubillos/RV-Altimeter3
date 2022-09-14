@@ -25,6 +25,8 @@
 #include "pairMenu.h"
 
 #include <esp_sleep.h>
+#include <esp32-hal-bt.c>
+#include <WiFi.h>
 
 #include "graphics/PX3_Flat.png.h"
 
@@ -150,7 +152,12 @@ void setup() {
 	displayOLED.setLogBuffer(6, 40);
 	OLEDinited = true;
 
-	OLEDprintln("GPS Altometer");
+	esp_chip_info_t info;
+	esp_chip_info(&info);
+	OLEDprint("Chip is ");
+	OLEDprint(info.model);
+	OLEDprint("/");
+	OLEDprintln(info.revision);
 
 	// test_zones();
 	OLEDprintln("Init Prefs...");
@@ -178,7 +185,7 @@ void setup() {
 	_accel.setShakeLimits(0.4, 0.4, 0.4);
 	
 	OLEDprintln("Init Modules...");
-	_tireHandler.begin(300);
+	_dataDisplay.begin();
 	menuInit();
 
 	OLEDprintln("Check touchscreen...");
@@ -193,6 +200,9 @@ void setup() {
 	// _prefData.sensorIDs[3] = 0;
 	// _prefData.sensorIDs[4] = 0;
 	// _prefData.sensorIDs[5] = 0;
+
+	btStop();
+	WiFi.mode( WIFI_OFF );
 
 	OLEDprintln("Init Done!");
 }
@@ -271,7 +281,11 @@ void loop() {
 			delay(200);
 			runPairMenu(tireIndex);
 		}
-		else if (touchPt.y < 300) {
+		else if (touchPt.y < topRowY) {
+			_dataDisplay.toggleDrawGraphs();
+			drawIndex = 0;
+		}
+		else if (touchPt.y < tireTopY) {
 			drawIndex = 0;
 			runMainMenu();
 		}

@@ -587,7 +587,16 @@ void Adafruit_RA8875::graphicsMode(void) {
 /**************************************************************************/
 boolean Adafruit_RA8875::waitPoll(uint8_t regname, uint8_t waitflag) {
   if (_waitPin != 255) {
-    while (digitalRead(_waitPin)==LOW) {};
+    bool stalled = false;
+    uint32_t start = millis();
+    while (digitalRead(_waitPin)==LOW) {
+      uint32_t now = millis();
+      uint32_t duration = now - start;
+      if (!stalled && duration > 50) {
+        Serial.println("Long Wait!");
+        stalled = true;
+      }
+    };
     return true;
   }
   /* Wait for the command to finish */

@@ -17,7 +17,7 @@ inpath=freefont-ttf/sfd/
 outpath=Fonts/
 fonts=(FreeMono FreeSans FreeSerif)
 styles=("" Bold Italic BoldItalic Oblique BoldOblique)
-sizes=(12 14 16 18 24 28 30 32 36 42 44 46 48 64)
+sizes=(9 12 14 16 18 24 28 30 32 36 42 44 46 48 64)
 
 for f in ${fonts[*]}
 do
