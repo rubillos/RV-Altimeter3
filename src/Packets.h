@@ -17,6 +17,7 @@ typedef struct {
 		bool lowBattery;
 		bool fastLeak;
 		int16_t rssi;
+		uint16_t duplicateCount;
 } TPMSPacket;
 
 class PacketBuff {
@@ -38,6 +39,15 @@ class PacketBuff {
 				destIndex += _count;
 			}
 			return _buffer[destIndex];
+		};
+		void replaceSample(uint16_t itemIndex, TPMSPacket& data) {
+			if (_count > 0 && itemIndex < _count) {
+				int16_t destIndex = _index-1-itemIndex;
+				if (destIndex < 0) {
+					destIndex += _length;
+				}
+				_buffer[destIndex] = data;
+			}
 		};
 		uint16_t length() { return _length; };
 		void clear() { _length = 0; };

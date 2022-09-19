@@ -149,6 +149,10 @@ void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
     idIndex = (idIndex+1) % fakeIDCount;
 }
 
+bool packetsEqual(TPMSPacket* p1, TPMSPacket* p2) {
+    return p1->id==p2->id && p1->pressure==p2->pressure && p1->temperature==p2->temperature && p1->lowBattery==p2->lowBattery && p1->fastLeak==p2->fastLeak;
+}
+
 bool PacketMonitor::getPacket(TPMSPacket* packet) {
     static TPMSPacket lastPacket;
     bool result = false;
@@ -160,7 +164,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
         result = true;
     }
 
-    while ( !result && packetCount ) {
+    while (!result && packetCount) {
         // Serial.printf("getPacket: %d packets available\n", packetCount);
         ATOMIC() {
             packetCount--;
@@ -169,7 +173,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
         byte byteArr[16];
         int state = radio.readData(byteArr, 16);
 
-        if ( state == RADIOLIB_ERR_NONE ) {
+        if (state == RADIOLIB_ERR_NONE) {
             // Serial.printf("Received data\n");
             receivedPacket++;
 
@@ -177,11 +181,12 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
             shiftBlockRight(byteArr, newPacket, 16, 2);      
             decodeManI(newPacket, 16);
 
-            if ( computeChecksum(newPacket) ) {
+            if (computeChecksum(newPacket)) {
                 showChecksum(newPacket);
 
                 packet->timeStamp = millis();
                 packet->rssi = radio.getRSSI(true);
+                packet->duplicateCount = 1;
 
                 packet->id = newPacket[1]<<16 | newPacket[2]<<8 | newPacket[3];
 
@@ -194,8 +199,17 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                 packet->fastLeak = (newPacket[6] & 0x10) != 0;
 
                 if (packet->id!=0 && packet->pressure<180 && packet->temperature>-20 && packet->temperature<180) {
-                    _packetLog->addSample(*packet);
-                    result = true;
+                    TPMSPacket lastPacket = _packetLog->lookup(0);
+                    uint32_t timeDiff = packet->timeStamp - lastPacket.timeStamp;
+
+                    if (timeDiff<1000 && packetsEqual(packet, &lastPacket)) {
+                        lastPacket.duplicateCount++;
+                        _packetLog->replaceSample(0, lastPacket);
+                    }
+                    else {
+                        _packetLog->addSample(*packet);
+                        result = true;
+                    }
                 }
             }  
         }
