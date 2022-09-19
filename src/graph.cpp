@@ -1,8 +1,20 @@
 #include "graph.h"
 
+#include "defs.h"
 #include "touchscreen.h"
+#include "dataDisplay.h"
 
 #include "fonts/FreeSansBold9pt7b.h"
+
+DataGraph::DataGraph(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t textColor, uint16_t dataColor, uint16_t edgeColor, bool rightSide) {
+	_x=x; _y=y; _w=w; _h=h; _textColor=textColor; _dataColor=dataColor; _edgeColor=edgeColor, _rightSide=rightSide;
+
+	const GFXfont* f = &FreeSansBold9pt7b;
+	uint16_t buffW = _dataDisplay.getStringGlyphWidth(f, "99999") + 3;
+	uint16_t buffH = _dataDisplay.ascenderForFont(f) + 5;
+
+	_outlineBuff = new OutlineBuff(buffW, buffH, 2);
+};
 
 void DataGraph::draw() {
 	uint16_t left, right, top, bottom;
@@ -33,8 +45,8 @@ void DataGraph::draw() {
 
 	if (_autoScale) {
 		if (drawCount) {
-			uint16_t vMin = _data->minimum(32767) * 9 / 10;
-			uint16_t vMax = _data->maximum(-32767) * 11 / 10;
+			int16_t vMin = _data->minimum(32767) * 9 / 10;
+			int16_t vMax = _data->maximum(-32767) * 11 / 10;
 			uint16_t m1, m2;
 
 			if (vMax - vMin > 1000) {
@@ -47,8 +59,8 @@ void DataGraph::draw() {
 			}
 
 			_scaleMin = (uint16_t)(vMin / m1) * m1;
-			uint16_t max = (uint16_t)((vMax+(m1-1))/ m1) * m1;
-			uint16_t diff = max - _scaleMin;
+			int16_t max = (uint16_t)((vMax+(m1-1))/ m1) * m1;
+			int16_t diff = max - _scaleMin;
 			_scaleMax = _scaleMin + (uint16_t)((diff+(m2-1))/m2) * m2;
 			_scaleStep = (_scaleMax-_scaleMin)/4;
 		}
@@ -59,13 +71,13 @@ void DataGraph::draw() {
 		}
 	}
 
-	uint16_t range = max(1, _scaleMax - _scaleMin);
-
+	int16_t startOffset = _x+_w + (_rightSide ? -1 : -2);
+	int16_t range = max(1, _scaleMax - _scaleMin);
 	int16_t value = _data->lookup(0);
 
 	for (uint16_t i=0; i<drawCount; i++) {
 		int16_t nextValue = _data->lookup(i+1);
-		uint16_t scaled = (value - _scaleMin) * drawHeight / range;
+		int16_t scaled = (value - _scaleMin) * drawHeight / range;
 
 		if (scaled) {
 			uint16_t color = _dataColor;
@@ -79,13 +91,14 @@ void DataGraph::draw() {
 				}
 			}
 			
-			_display.drawFastVLine(_x+_w-2-i, _y+_h-2-scaled, scaled, color);
+			_display.drawFastVLine(startOffset-i, _y+_h-2-scaled, scaled, color);
 		}
 
 		value = nextValue;
 	}
 
-	_display.setFont(&FreeSansBold9pt7b);
+	_outlineBuff->setFont(&FreeSansBold9pt7b);
+	uint16_t textV = _outlineBuff->height() - 3;
 
 	for (uint16_t v=_scaleMin; v<_scaleMax; v+=_scaleStep) {
 		uint16_t scaled = (v - _scaleMin) * drawHeight / range;
@@ -95,7 +108,9 @@ void DataGraph::draw() {
 			_display.drawFastHLine(left, vOffset, right-left, _edgeColor);
 		}
 
-		_display.setCursor(left+6, vOffset-6);
-		_display.print(v);
+		_outlineBuff->clear();
+		_outlineBuff->setCursor(2, textV);
+		_outlineBuff->print(v);
+		_outlineBuff->outline8(0, 0, &_display, left+3, vOffset-textV-5, WHITE8, 0);
 	}
 }

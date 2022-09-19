@@ -7,9 +7,7 @@
 
 class DataGraph {
     public:
-        DataGraph(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t textColor, uint16_t dataColor, uint16_t edgeColor, bool rightSide) {
-            _x=x; _y=y; _w=w; _h=h; _textColor=textColor; _dataColor=dataColor; _edgeColor=edgeColor, _rightSide=rightSide;
-        };
+        DataGraph(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t textColor, uint16_t dataColor, uint16_t edgeColor, bool rightSide);
         void setRingBuff(RingBuff<int16_t>* data) { _data = data; };
         void setAutoScale(bool scale) { _autoScale=scale; };
         void setScale(uint16_t min, uint16_t max, uint16_t step) { _scaleMin=min; _scaleMax=max; _scaleStep=step; _autoScale=false; };
@@ -27,9 +25,9 @@ class DataGraph {
         uint16_t _textColor;
 
         bool _autoScale = false;
-        uint16_t _scaleMin;
-        uint16_t _scaleMax;
-        uint16_t _scaleStep;
+        int16_t _scaleMin;
+        int16_t _scaleMax;
+        int16_t _scaleStep;
 
         RingBuff<int16_t>* _data;
 
@@ -37,6 +35,8 @@ class DataGraph {
         uint16_t _upColor;
         uint16_t _downThreshold = 0;
         uint16_t _downColor;
+
+        OutlineBuff* _outlineBuff;
 };
 
 #endif
