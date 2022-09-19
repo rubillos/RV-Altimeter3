@@ -14,6 +14,10 @@ void Accelerometer::begin() {
    	_yShakeBuff = new RingBuff<float>(shakeRingSize);
    	_zShakeBuff = new RingBuff<float>(shakeRingSize);
 
+   	_xRecents = new RingBuff<float>(accelRecentsSize);
+   	_yRecents = new RingBuff<float>(accelRecentsSize);
+   	_zRecents = new RingBuff<float>(accelRecentsSize);
+
     _sensorTime = accelTime + 1;
 
     _shakeWait = 0;
@@ -32,6 +36,10 @@ bool Accelerometer::update() {
             _xShakeBuff->addSample(_lastEvent.acceleration.x);
             _yShakeBuff->addSample(_lastEvent.acceleration.y);
             _zShakeBuff->addSample(_lastEvent.acceleration.z);
+
+            _xRecents->addSample(_lastEvent.acceleration.x);
+            _yRecents->addSample(_lastEvent.acceleration.y);
+            _zRecents->addSample(_lastEvent.acceleration.z);
 
             _newShakeData = true;
             result = true;
@@ -66,7 +74,7 @@ bool Accelerometer::didShake(float& x, float& y, float& z) {
         float zShake = abs(_zShakeBuff->average() - _lastEvent.acceleration.z);
 
         if (xShake>_xShakeLimit || yShake>_yShakeLimit || zShake>_zShakeLimit) {
-            // Serial.printf("Shake: x=%f, y=%f, z=%f\n", xShake, yShake, zShake);
+            Serial.printf("Shake: x=%f, y=%f, z=%f\n", xShake, yShake, zShake);
             // printRing("x", _xShakeBuff);
             // printRing("y", _yShakeBuff);
             // printRing("z", _zShakeBuff);

@@ -7,6 +7,7 @@
 #include "RingBuff.h"
 
 constexpr uint16_t shakeRingSize = 100;
+constexpr uint16_t accelRecentsSize = 40;
 
 class Accelerometer {
 	public:
@@ -23,14 +24,18 @@ class Accelerometer {
 
         bool getEvent(sensors_event_t& event);
 
+  		RingBuff<float>* _xShakeBuff;
+  		RingBuff<float>* _yShakeBuff;
+  		RingBuff<float>* _zShakeBuff;
+
+  		RingBuff<float>* _xRecents;
+  		RingBuff<float>* _yRecents;
+  		RingBuff<float>* _zRecents;
+
     private:
         Adafruit_LIS3DH _lis;
         elapsedMillis _sensorTime;
         sensors_event_t _lastEvent;
-
-  		RingBuff<float>* _xShakeBuff;
-  		RingBuff<float>* _yShakeBuff;
-  		RingBuff<float>* _zShakeBuff;
 
         float _xShakeLimit;
         float _yShakeLimit;
