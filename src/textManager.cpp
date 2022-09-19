@@ -139,58 +139,61 @@ uint16_t TextManager::widthOfString(String str, uint8_t scale) {
 }
 
 void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, uint8_t yScale, uint16_t textColor, int32_t backColor, uint16_t* otherColors) {
-	_display.textMode();
-	_display.textEnlarge(xScale-1, yScale-1);
-
 	const char* chars = str.c_str();
 	uint16_t len = strlen(chars);
-	uint16_t charSpacing = 8 * xScale;
-	uint16_t charHeight = 16 * yScale;
 
-	uint16_t currentColor = textColor;
+	if (len) {
+		_display.textMode();
+		_display.textEnlarge(xScale-1, yScale-1);
 
-	for (uint16_t i=0; i<len; i++) {
-		uint8_t c = chars[i];
+		uint16_t charSpacing = 8 * xScale;
+		uint16_t charHeight = 16 * yScale;
 
-		if (c=='\b' && i<len-1) {
-			if (otherColors != NULL) {
-				int8_t colorIndex = chars[i+1] - '0' - 1;
+		uint16_t currentColor = textColor;
 
-				if (colorIndex==-1) {
-					currentColor = textColor;
+		for (uint16_t i=0; i<len; i++) {
+			uint8_t c = chars[i];
+
+			if (c=='\b' && i<len-1) {
+				if (otherColors != NULL) {
+					int8_t colorIndex = chars[i+1] - '0' - 1;
+
+					if (colorIndex==-1) {
+						currentColor = textColor;
+					}
+					else {
+						currentColor = otherColors[colorIndex];
+					}
 				}
-				else {
-					currentColor = otherColors[colorIndex];
-				}
+				i += 1;
 			}
-			i += 1;
+			else {
+				int16_t leftShift = _textManager.charLeftShift[c] * xScale;
+				int16_t rightShift = _textManager.charRightShift[c] * xScale;
+
+				if (backColor != -1) {
+					_display.fillRect(x, y, charSpacing + leftShift + rightShift, charHeight, backColor);
+				}
+
+				x += leftShift;
+
+				if (i>0) {
+					if (_textManager.isKernPair(chars[i-1], c)) {
+						x -= xScale;
+					}
+				}
+
+				_display.textTransparent(currentColor);
+				_display.textSetCursor(x, y + ((charVertShift[c] * yScale)>>1));
+				_display.textWrite(chars+i, 1);
+				
+				x += charSpacing + rightShift;
+			}
 		}
-		else {
-			int16_t leftShift = _textManager.charLeftShift[c] * xScale;
-			int16_t rightShift = _textManager.charRightShift[c] * xScale;
 
-			if (backColor != -1) {
-				_display.fillRect(x, y, charSpacing + leftShift + rightShift, charHeight, backColor);
-			}
-
-			x += leftShift;
-
-			if (i>0) {
-				if (_textManager.isKernPair(chars[i-1], c)) {
-					x -= xScale;
-				}
-			}
-
-			_display.textTransparent(currentColor);
-			_display.textSetCursor(x, y + ((charVertShift[c] * yScale)>>1));
-			_display.textWrite(chars+i, 1);
-			
-			x += charSpacing + rightShift;
-		}
+		_display.textTransparent(RA8875_BLACK);
+		_display.graphicsMode();
 	}
-
-	_display.textTransparent(RA8875_BLACK);
-	_display.graphicsMode();
 }
 
 TextManager _textManager;
