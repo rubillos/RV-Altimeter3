@@ -41,3 +41,4 @@ void Prefs::writePrefs() {
 	_preferences.putBool("mute", _beeper.muted());
 }
 
+Preferences _preferences;

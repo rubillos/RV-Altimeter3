@@ -22,11 +22,9 @@ class Prefs {
 	public:
         void readPrefs();
         void writePrefs();
-
-    private:
-        Preferences _preferences;
 };
 
+extern Preferences _preferences;
 extern PrefDataRec _prefData;
 extern Prefs _prefs;
 
