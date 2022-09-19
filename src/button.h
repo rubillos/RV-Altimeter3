@@ -11,8 +11,18 @@ typedef enum {
 	buttonAlignVCenter = 0x10,
 
 	buttonHCenter = -1,
-	buttonRightSide = -2
+	buttonRightSide = -2,
+
+	buttonVPriorBelow = 0x4000,
+	buttonVPriorSame = 0x2000,
+	buttonVPriorMask = 0x1FFF,
 } ButtonFlags;
+
+enum {
+	buttonRefreshNone = 0,
+	buttonRefreshRedraw,
+	buttonRefreshFast
+};
 
 typedef struct {
 	uint16_t textColor;
@@ -59,8 +69,14 @@ class Button {
 		virtual void drawTitle(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor);
 		virtual void draw(bool pressed=false, bool forceBackground=false);
 		virtual bool transparentText() { return true; };
-		virtual bool refresh() { return false; };
+		virtual uint8_t refresh() { return false; };
 		virtual bool visible() { return _visible; };
+
+		Button* _priorButton = NULL;
+		int16_t _x;
+		int16_t _y;
+		int16_t _w;
+		int16_t _h;
 
 	protected:
 		bool hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen);
@@ -69,10 +85,6 @@ class Button {
 		void computeScreenRect();
 
 		bool _visible;
-		int16_t _x;
-		int16_t _y;
-		int16_t _w;
-		int16_t _h;
 		int16_t _titleInset;
 		String _title;
 		ButtonScheme _scheme;
@@ -89,8 +101,8 @@ class SlashButton : public Button {
 		};
 		void draw(bool pressed=false, bool forceBackground=false);
 		void setState(bool state) { _state=state; _dirty=true; };
-		bool refresh() {
-			return _dirty;
+		uint8_t refresh() {
+			return _dirty ? buttonRefreshRedraw : buttonRefreshNone;
 		};
 	private:
 		bool _state;
@@ -118,10 +130,8 @@ class Header : public Button {
 
 class FloatLabel : public Label {
 	public:
-		FloatLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0,
-				void* param1=NULL, void* param2=NULL, void* param3=NULL, void* param4=NULL ) : 
-			Label(x, y, w, h, title, scheme, titleInset) {
-				
+		FloatLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0) : 
+			Label(x, y, w, h, title, scheme, titleInset) {	
 		};
 		void setParameter(uint8_t index, float* param) {
 			_param[index] = param;
@@ -146,9 +156,9 @@ class FloatLabel : public Label {
 			snprintf(buffer, sizeof(buffer), _title.c_str(), _values[0], _values[1], _values[2], _values[3]);
 			return buffer;
 		};
-		bool refresh() {
+		uint8_t refresh() {
 			updateValues(true);
-			return _dirty;
+			return _dirty ? buttonRefreshRedraw : buttonRefreshNone;
 		};
 	protected:
 		float* _param[4] = { NULL, NULL, NULL, NULL };
@@ -157,8 +167,7 @@ class FloatLabel : public Label {
 
 class StringLabel : public Label {
 	public:
-		StringLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0,
-				void* param1=NULL, void* param2=NULL, void* param3=NULL, void* param4=NULL ) : 
+		StringLabel(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, uint16_t titleInset=0) : 
 			Label(x, y, w, h, title, scheme, titleInset) { };
 		void setParameter(uint8_t index, const char* param) {
 			_param[index] = param;
@@ -169,8 +178,8 @@ class StringLabel : public Label {
 			snprintf(buffer, sizeof(buffer), _title.c_str(), _param[0], _param[1], _param[2], _param[3]);
 			return buffer;
 		};
-		bool refresh() {
-			return _dirty;
+		uint8_t refresh() {
+			return _dirty ? buttonRefreshRedraw : buttonRefreshNone;
 		};
 	protected:
 		const char* _param[4] = { NULL, NULL, NULL, NULL };
@@ -178,5 +187,6 @@ class StringLabel : public Label {
 
 void drawButtons(Button** buttons);
 Button* hitButton(Button** buttons, tsPoint_t pt, bool invert=true);
+void setupButtons(Button** buttons);
 
 #endif

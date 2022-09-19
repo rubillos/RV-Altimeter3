@@ -29,6 +29,19 @@ Button* hitButton(Button** buttons, tsPoint_t pt, bool invert) {
     return NULL;
 }
 
+void setupButtons(Button** buttons) {
+    Button* prior = NULL;
+
+    while (*buttons) {
+        Button* next = *buttons;
+        if (next->_y & (buttonVPriorBelow | buttonVPriorSame)) {
+            next->_priorButton = prior;
+        }
+        prior = next;
+        buttons++;
+    }
+}
+
 constexpr int16_t widen_amount = 20;
 
 bool Button::hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen) {
@@ -176,7 +189,21 @@ void Button::computeScreenRect() {
         else {
             _rect.x = _x;
         }
-        if (_y < 0) {   // vert center
+        if (_y & (buttonVPriorBelow | buttonVPriorSame)) {
+            if (_priorButton) {
+                ButtonRect priorRect = _priorButton->rect();
+                if (_y & buttonVPriorSame) {
+                    _rect.y = priorRect.y;
+                }
+                else {
+                    _rect.y = priorRect.y + priorRect.h + (_y & buttonVPriorMask);
+                }
+            }
+            else {
+                _rect.y = 0;
+            }
+        }
+        else if (_y < 0) {   // vert center
             _rect.y = (_display.height() - _rect.h) / 2;
         }
         else {
