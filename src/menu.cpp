@@ -21,7 +21,10 @@ void Menu::allowNextRepeat() {
 void Menu::run(Button** currentMenu) {
 	bool done = false;
 	bool needUpdate = true;
+	bool refreshFast = false;
 	static elapsedMillis refreshTime;
+
+	setupButtons(currentMenu);
 
 	while (!done) {
 		tsPoint_t touchPt;
@@ -54,6 +57,7 @@ void Menu::run(Button** currentMenu) {
 				else if (button->subButtons) {
 					_menuStack[_menuStackIndex++] = currentMenu;
 					currentMenu = button->subButtons;
+					setupButtons(currentMenu);
 					needUpdate = true;
 					delay(buttonFlashTime);
 				}
@@ -87,12 +91,19 @@ void Menu::run(Button** currentMenu) {
 
 		systemUpdate();
 
-		if (refreshTime > refreshRate) {
+		if (refreshFast || refreshTime > refreshRate) {
 			refreshTime = 0;
+			refreshFast = false;
 
 			Button** list = currentMenu;
 			while (*list) {
-				_redrawAlt |= (*list)->refresh();
+				uint8_t result = (*list)->refresh();
+				if (result == buttonRefreshRedraw) {
+					_redrawAlt = true;
+				}
+				else if (result == buttonRefreshFast) {
+					refreshFast = true;
+				}
 				list++;
 			}
 			if (_redrawAlt) {

@@ -41,9 +41,9 @@ class IDEntryLabel : public Label {
 			}
 			return sc;
 		};
-		bool refresh() { 
+		uint8_t refresh() { 
 			checkForNewPackets();
-			return true;
+			return buttonRefreshRedraw;
 		};
 		void setTitle(String title) {
 			Label::setTitle(title);

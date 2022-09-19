@@ -12,6 +12,7 @@
 #include "prefs.h"
 #include "accel.h"
 #include "menu.h"
+#include "accel.h"
 
 constexpr uint16_t logLines = 8;
 constexpr uint16_t logLineHeight = 17;
@@ -24,7 +25,7 @@ class LogView : public Button {
 		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
 		void draw(bool pressed=false, bool forceBackground=false);
 		void drawPacket(TPMSPacket& packet, uint16_t lineNumber);
-        bool refresh();
+        uint8_t refresh();
 		void firstPage();
 		void nextPage();
 		void previousPage();
@@ -76,7 +77,7 @@ class VoltageLabel : public FloatLabel {
 										setParameter(0, &_voltage);
 										_voltage = voltageValue();
 									};
-		bool refresh() {
+		uint8_t refresh() {
 			_voltage = voltageValue();
 			return FloatLabel::refresh();
 		};
@@ -154,14 +155,26 @@ class SensorButton : public Label {
 
 		bool hitTest(tsPoint_t pt, bool widen=false) { return Button::hitTest(pt, widen) || Button::hitTestInternal(pt, _label->rect(), widen); };
 
-		bool refresh() {
-			return true;
+		uint8_t refresh() {
+			return buttonRefreshRedraw;
 		};
 
 
 	private:
 		Label* _label;
 		uint16_t _colors[2];
+};
+
+class AccelView : public Button {
+	public:
+		AccelView(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme) : Button(x, y, w, h, title, scheme) {};
+		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
+		void draw(bool pressed=false, bool forceBackground=false);
+		void drawBackground(bool drawCursor);
+        uint8_t refresh();
+
+	private:
+		uint16_t _cursorX;
 };
 
 extern void menuInit();

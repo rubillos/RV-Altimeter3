@@ -9,11 +9,13 @@
 #define MIN_TEMPERATURE 100.0
 #define MAX_TEMPERATURE 150.0
 
+constexpr uint16_t lowerRowV = 408;
+
 ButtonScheme backScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_GRAY_DK, 3, 3 };
 ButtonScheme headerScheme = { RA8875_WHITE, RA8875_BLUE, RA8875_BLUE, 4, 3 };
 
-Button buttonBack(0, 408, -30, 58, "Back", backScheme);
-Button buttonDone(buttonRightSide, 408, -20, 58, "Done", backScheme);
+Button buttonBack(0, lowerRowV, -30, 58, "Back", backScheme);
+Button buttonDone(buttonRightSide, lowerRowV, -20, 58, "Done", backScheme);
 
 void buttonRepeat(Menu* menu, Button* button) {
 	button->draw(false, true);
@@ -137,7 +139,7 @@ LogView::LogView(int16_t x, int16_t y, int16_t w, int16_t h, String title, Butto
 
 void LogView::updatePageLabel() {
 	uint16_t pageNum = pageNumber() + 1;
-	uint16_t pageTotal = pageCount();
+	uint16_t pageTotal = max((uint16_t)1, pageCount());
 	char buffer[20];
 
 	snprintf(buffer, sizeof(buffer), "Page %d of %d", pageNum, pageTotal);
@@ -168,8 +170,8 @@ void LogView::previousPage() {
 	} 
 };
 
-constexpr int16_t logColumns[] = { 64, -304, -432, -592, -736 };
-constexpr uint16_t logColumnCount = 5;
+constexpr int16_t logColumns[] = { -110, 110, -340, -460, -624, -770 };
+constexpr uint16_t logColumnCount = 6;
 
 uint16_t tabOffset(int16_t tabStop, uint16_t scale, const char* str) {
 	if (tabStop >= 0) {
@@ -189,7 +191,7 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 	uint16_t count = _packetMonitor.packetLog()->length();
 
-	constexpr const char* headings[] = { "  ID", "Press", "Temp", "Signal", "Age" };
+	constexpr const char* headings[] = { "Tire  ", "  ID", "Press", "Temp", "Signal", "Age" };
 
 	for (uint16_t i=0; i<logColumnCount; i++) {
 		_textManager.drawString(headings[i], _rect.x + tabOffset(logColumns[i], _scheme.sizeX, headings[i]), _rect.y, _scheme.sizeX, _scheme.sizeY, RA8875_GREEN);
@@ -230,28 +232,41 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 	uint16_t seconds = time % 60;
 
 	for (uint16_t i=0; i<logColumnCount; i++) {
+		uint16_t sizeX = _scheme.sizeX;
+		uint16_t otherColors[4];
+
 		switch (i) {
-			case 0:
-				snprintf(lineBuff, sizeof(lineBuff), "%06X    ", packet.id);
+			case 0: {
+					int16_t index = _tireHandler.indexOfSensor(packet.id);
+					if (index != -1) {
+						snprintf(lineBuff, sizeof(lineBuff), "%s  ", _tireHandler.tireName(index, true));
+					}
+					else {
+						lineBuff[0] = 0;
+					}
+				}
 				break;
 			case 1:
-				snprintf(lineBuff, sizeof(lineBuff), "   %3.0fpsi", packet.pressure);
+				snprintf(lineBuff, sizeof(lineBuff), "%06X    ", packet.id);
 				break;
 			case 2:
-				snprintf(lineBuff, sizeof(lineBuff), "  %3.0f\xBA", packet.temperature);
+				snprintf(lineBuff, sizeof(lineBuff), "   %3.0fpsi", packet.pressure);
 				break;
 			case 3:
-				snprintf(lineBuff, sizeof(lineBuff), "  %3ddB", packet.rssi);
+				snprintf(lineBuff, sizeof(lineBuff), "  %3.0f\xBA", packet.temperature);
 				break;
 			case 4:
+				snprintf(lineBuff, sizeof(lineBuff), "  %3ddB", packet.rssi);
+				break;
+			case 5:
 				snprintf(lineBuff, sizeof(lineBuff), "  %3dm%02ds", minutes, seconds);
 				break;
 		}
-		_textManager.drawString(lineBuff, _rect.x +  + tabOffset(logColumns[i], _scheme.sizeX, lineBuff), y, _scheme.sizeX, _scheme.sizeY, _scheme.textColor);
+		_textManager.drawString(lineBuff, _rect.x +  + tabOffset(logColumns[i], sizeX, lineBuff), y, sizeX, _scheme.sizeY, _scheme.textColor, -1, otherColors);
 	}
 }
 
-bool LogView::refresh() {
+uint8_t LogView::refresh() {
 	bool result = false;
 	uint32_t newHash = _packetMonitor.packetLog()->hash();
 	if (_drawTime>1000 || _bufferHash != newHash) {
@@ -259,7 +274,76 @@ bool LogView::refresh() {
 		_bufferHash = newHash;
 		result = true;
 	}
-	return result;
+	return result ? buttonRefreshRedraw : buttonRefreshNone;
+};
+
+void AccelView::drawBackground(bool drawCursor) {
+	uint16_t rowHeight = _rect.h / 3;
+	ButtonScheme sc = scheme();
+
+	if (drawCursor) {
+		_display.drawFastHLine(_rect.x, _rect.y + rowHeight, _rect.w, _scheme.borderColor);
+		_display.drawFastHLine(_rect.x, _rect.y + rowHeight*2, _rect.w, _scheme.borderColor);
+		_display.drawFastVLine(_rect.x+_cursorX, _rect.y, _rect.h, RA8875_WHITE);
+	}
+	else {
+		_display.drawFastVLine(_rect.x+_cursorX, _rect.y, _rect.h, RA8875_BLACK);
+		_display.drawPixel(_rect.x+_cursorX, _rect.y+rowHeight, _scheme.borderColor);
+		_display.drawPixel(_rect.x+_cursorX, _rect.y+rowHeight*2, _scheme.borderColor);
+	}
+
+	_textManager.drawString("X", _rect.x+4, _rect.y+4, sc.sizeX, sc.sizeY, sc.textColor);
+	_textManager.drawString("Y", _rect.x+4, _rect.y+4+rowHeight, sc.sizeX, sc.sizeY, sc.textColor);
+	_textManager.drawString("Z", _rect.x+4, _rect.y+4+2*rowHeight, sc.sizeX, sc.sizeY, sc.textColor);
+
+}
+
+void AccelView::draw(bool pressed, bool forceBackground) {
+    computeScreenRect();
+	_cursorX = 0;
+	drawBackground(true);
+}
+
+constexpr float accelYScale = 9.8 * 1.0;
+
+uint8_t AccelView::refresh() {
+	uint16_t newSamples = _accel._xRecents->sampleCount();
+
+	if (newSamples) {
+		newSamples = 1;
+		uint16_t rowHeight = _rect.h / 3;
+		uint16_t halfHeight = rowHeight / 2;
+		ButtonScheme sc = scheme();
+		RingBuff<float>* recents[3] = { _accel._xRecents, _accel._yRecents, _accel._zRecents };
+		float offsets[3] = { 0.0, 0.0, -9.8 };
+		float averages[3] = { _accel._xShakeBuff->average(), _accel._yShakeBuff->average(), _accel._zShakeBuff->average() };
+
+		drawBackground(false);
+
+		if (_accel.didShake()) {
+			_display.drawFastVLine(_rect.x+_cursorX, _rect.y, 4, RA8875_RED);
+		}
+
+		for (uint16_t j=0; j<3; j++) {
+			int16_t height = (averages[j] + offsets[j]) / accelYScale * halfHeight;
+			_display.drawFastHLine(_rect.x+_cursorX, _rect.y+j*rowHeight+halfHeight+height, newSamples, RA8875_GRAY_DK);
+		}
+
+		for (uint16_t i=0; i<newSamples; i++) {
+			for (uint16_t j=0; j<3; j++) {
+				float sample = recents[j]->nextSample() + offsets[j];
+				int16_t height = sample / accelYScale * halfHeight;
+				uint16_t x = (_rect.x+_cursorX+i) % _rect.w;
+
+				_display.drawPixel(x, _rect.y+j*rowHeight+halfHeight+height, RA8875_CYAN);
+			}
+		}
+
+		_cursorX = (_cursorX + newSamples) % _rect.w;
+		_display.drawFastVLine(_rect.x+_cursorX, _rect.y, _rect.h, RA8875_WHITE);
+	}
+
+	return buttonRefreshFast;
 };
 
 void menuInit() {
@@ -279,25 +363,30 @@ void runMainMenu() {
 	ButtonScheme logButtonScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_GRAY_DK, 3, 3 };
 	ButtonScheme sensorLabelScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 2, 2, buttonAlignRight };
 	ButtonScheme sensorIDScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 3, 2, buttonAlignLeft };
-	ButtonScheme systemTextScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 2, 2 };
+	ButtonScheme infoTextScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 2, 2 };
+	ButtonScheme systemTextScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 3, 2 };
+
+	constexpr uint16_t gapS = buttonVPriorSame;
+	constexpr uint16_t gap0 = buttonVPriorBelow;
+	constexpr uint16_t gap8 = buttonVPriorBelow | 8;
 
 	//-------------------------------------
 	Header headerSetAlarms(0,  0, 800, 60, "Set Tire Alarms", headerScheme);
 
 	Label labelMinPressure(0,  120, 400, 50, "Minimum Pressure:", limitsLabelScheme);
-	Button buttonMinPressureMinus(440,  120, 50, 50, "-", minusButtonScheme);
-	FloatLabel valueMinPressure(500,  120, 170, 50, "%0.0fpsi", limitsValueScheme);
-	Button buttonMinPressurePlus(680,  120, 50, 50, "+", plusButtonScheme);
+	Button buttonMinPressureMinus(440,  gapS, 50, 50, "-", minusButtonScheme);
+	FloatLabel valueMinPressure(500,  gapS, 170, 50, "%0.0fpsi", limitsValueScheme);
+	Button buttonMinPressurePlus(680,  gapS, 50, 50, "+", plusButtonScheme);
 
 	Label labelMaxPressure(0,  200, 400, 50, "Maximum Pressure:", limitsLabelScheme);
-	Button buttonMaxPressureMinus(440,  200, 50, 50, "-", minusButtonScheme);
-	FloatLabel valueMaxPressure(500,  200, 170, 50, "%0.0fpsi", limitsValueScheme);
-	Button buttonMaxPressurePlus(680,  200, 50, 50, "+", plusButtonScheme);
+	Button buttonMaxPressureMinus(440,  gapS, 50, 50, "-", minusButtonScheme);
+	FloatLabel valueMaxPressure(500,  gapS, 170, 50, "%0.0fpsi", limitsValueScheme);
+	Button buttonMaxPressurePlus(680,  gapS, 50, 50, "+", plusButtonScheme);
 
 	Label labelMaxTemperature(0,  280, 400, 50, "Maximum Temperature:", limitsLabelScheme);
-	Button buttonMaxTemperatureMinus(440,  280, 50, 50, "-", minusButtonScheme);
-	FloatLabel valueMaxTemperature(500,  280, 170, 50, "%0.0f\xBA", limitsValueScheme);
-	Button buttonMaxTemperaturePlus(680,  280, 50, 50, "+", plusButtonScheme);
+	Button buttonMaxTemperatureMinus(440,  gapS, 50, 50, "-", minusButtonScheme);
+	FloatLabel valueMaxTemperature(500,  gapS, 170, 50, "%0.0f\xBA", limitsValueScheme);
+	Button buttonMaxTemperaturePlus(680,  gapS, 50, 50, "+", plusButtonScheme);
 
 	Button* setAlarmsMenu[] = { &headerSetAlarms, &buttonBack,
 										&labelMinPressure, &buttonMinPressureMinus, &valueMinPressure, &buttonMinPressurePlus,
@@ -313,66 +402,88 @@ void runMainMenu() {
 	constexpr uint16_t sensButtonWidth = 500;
 
 	Header headerEditSensors(0,  0, 800, 60, "Tap Sensor to Pair", headerScheme);
-	TireLabel sensorLabel0(0, sensTop+0*sensOffset, sensLabelWidth, sensOffset, "0:", sensorLabelScheme, sensInset);
-	TireLabel sensorLabel1(0, sensTop+1*sensOffset, sensLabelWidth, sensOffset, "1:", sensorLabelScheme, sensInset);
-	TireLabel sensorLabel2(0, sensTop+2*sensOffset, sensLabelWidth, sensOffset, "2:", sensorLabelScheme, sensInset);
-	TireLabel sensorLabel3(0, sensTop+3*sensOffset, sensLabelWidth, sensOffset, "3:", sensorLabelScheme, sensInset);
-	TireLabel sensorLabel4(0, sensTop+4*sensOffset, sensLabelWidth, sensOffset, "4:", sensorLabelScheme, sensInset);
-	TireLabel sensorLabel5(0, sensTop+5*sensOffset, sensLabelWidth, sensOffset, "5:", sensorLabelScheme, sensInset);
-	SensorButton sensor0(sensLabelWidth, sensTop+0*sensOffset, sensButtonWidth, sensOffset, "0", sensorIDScheme, sensInset, &sensorLabel0);
-	SensorButton sensor1(sensLabelWidth, sensTop+1*sensOffset, sensButtonWidth, sensOffset, "1", sensorIDScheme, sensInset, &sensorLabel1);
-	SensorButton sensor2(sensLabelWidth, sensTop+2*sensOffset, sensButtonWidth, sensOffset, "2", sensorIDScheme, sensInset, &sensorLabel2);
-	SensorButton sensor3(sensLabelWidth, sensTop+3*sensOffset, sensButtonWidth, sensOffset, "3", sensorIDScheme, sensInset, &sensorLabel3);
-	SensorButton sensor4(sensLabelWidth, sensTop+4*sensOffset, sensButtonWidth, sensOffset, "4", sensorIDScheme, sensInset, &sensorLabel4);
-	SensorButton sensor5(sensLabelWidth, sensTop+5*sensOffset, sensButtonWidth, sensOffset, "5", sensorIDScheme, sensInset, &sensorLabel5);
+	TireLabel sensorLabel0(0, sensTop, sensLabelWidth, sensOffset, "0:", sensorLabelScheme, sensInset);
+	SensorButton sensor0(sensLabelWidth, gapS, sensButtonWidth, sensOffset, "0", sensorIDScheme, sensInset, &sensorLabel0);
+	TireLabel sensorLabel1(0, gap0, sensLabelWidth, sensOffset, "1:", sensorLabelScheme, sensInset);
+	SensorButton sensor1(sensLabelWidth, gapS, sensButtonWidth, sensOffset, "1", sensorIDScheme, sensInset, &sensorLabel1);
+	TireLabel sensorLabel2(0, gap0, sensLabelWidth, sensOffset, "2:", sensorLabelScheme, sensInset);
+	SensorButton sensor2(sensLabelWidth, gapS, sensButtonWidth, sensOffset, "2", sensorIDScheme, sensInset, &sensorLabel2);
+	TireLabel sensorLabel3(0, gap0, sensLabelWidth, sensOffset, "3:", sensorLabelScheme, sensInset);
+	SensorButton sensor3(sensLabelWidth, gapS, sensButtonWidth, sensOffset, "3", sensorIDScheme, sensInset, &sensorLabel3);
+	TireLabel sensorLabel4(0, gap0, sensLabelWidth, sensOffset, "4:", sensorLabelScheme, sensInset);
+	SensorButton sensor4(sensLabelWidth, gapS, sensButtonWidth, sensOffset, "4", sensorIDScheme, sensInset, &sensorLabel4);
+	TireLabel sensorLabel5(0, gap0, sensLabelWidth, sensOffset, "5:", sensorLabelScheme, sensInset);
+	SensorButton sensor5(sensLabelWidth, gapS, sensButtonWidth, sensOffset, "5", sensorIDScheme, sensInset, &sensorLabel5);
 
 	Button* editSensorsMenu[] = { &headerEditSensors, &buttonBack, 
-										&sensorLabel0, &sensorLabel1, &sensorLabel2, &sensorLabel3, &sensorLabel4, &sensorLabel5,
-										&sensor0, &sensor1, &sensor2, &sensor3, &sensor4, &sensor5, NULL };
+										&sensorLabel0, &sensor0, &sensorLabel1, &sensor1, &sensorLabel2, &sensor2, &sensorLabel3, &sensor3,
+										&sensorLabel4, &sensor4, &sensorLabel5, &sensor5,
+										NULL };
 
 	//-------------------------------------
 	Header headerPacketMonitor(0,  0, 800, 60, "Sensor Log", headerScheme);
-	LogButton logPrevious(430, 408, 60, 58, "\x1E", logButtonScheme);
-	LogButton logPageLabel(500, 408, 180, 58, "Page %d of %d", logLabelScheme);
-	LogButton logNext(690, 408, 60, 58, "\x1F", logButtonScheme);
+	LogButton logPrevious(430, lowerRowV, 60, 58, "\x1E", logButtonScheme);
+	LogButton logPageLabel(500, lowerRowV, 180, 58, "Page %d of %d", logLabelScheme);
+	LogButton logNext(690, lowerRowV, 60, 58, "\x1F", logButtonScheme);
 	LogView logView(0, 72, 800, 333, "LogView", logScheme, &logPageLabel, &logPrevious, &logNext);
 	Button* packetMonitorMenu[] = { &headerPacketMonitor, &buttonBack, &logView, &logPrevious, &logPageLabel, &logNext, NULL };
 
 	//-------------------------------------
-	Header headerSystemStatus(0,  0, 800, 60, "System Status", headerScheme);
-	FloatLabel systemCoordinate(0, 80, 800, 32, "    Lat=%0.5f, Lon=%0.5f, Sats=%0.0f    ", systemTextScheme);
-	FloatLabel systemSpeed(0, 120, 800, 32, "    Speed=%0.1f, Heading=%0.1f    ", systemTextScheme);
-	FloatLabel systemMotion(0, 160, 800, 32, "     Moving=%0.0fs, Stopped=%0.0fs     ", systemTextScheme);
-	VoltageLabel systemVoltage(0, 200, 800, 32, "    Voltage=%0.2f    ", systemTextScheme);
-	Label labelTest1(0,  240, 800, 32, "zabcdefghijklmnopqrstuvwxyza", systemTextScheme);
-	Label labelTest2(0,  280, 800, 32, "ZABCDEFGHIJKLMNOPQRSTUVWXYZA", systemTextScheme);
-	Label labelTest3(0,  320, 800, 32, "Z0.1,2:3;4'5(6)7[8]90Arirlltfifl0717FA", systemTextScheme);
-	Label labelTest4(0,  360, 800, 32, "Z01234567890A!B@C#D$E%F&G*H-I/J<K>L", systemTextScheme);
-	Button systemSleep(buttonRightSide, 408, -20, 58, "Sleep", backScheme);
-	Button* systemStatusMenu[] = { &headerSystemStatus, &buttonBack, &systemSleep, &systemCoordinate,
-									&systemSpeed, &systemMotion, &systemVoltage,
-									&labelTest1, &labelTest2, &labelTest3, &labelTest4, NULL };
-
-	//-------------------------------------
 	constexpr uint16_t mb_y = 82;
-	constexpr uint16_t mb_off = 65;
 	constexpr uint16_t mb_w = 500;
 	constexpr uint16_t mb_h = 48;
+	constexpr uint16_t mb_gap = buttonVPriorBelow | 17;
 
+	Header headerSystemInfo(0,  0, 800, 60, "System Info", headerScheme);
+	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS", mainButtonScheme);
+	Button buttonAccelInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Accelerometer", mainButtonScheme);
+	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Fonts", mainButtonScheme);
+	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
+	Button systemSleep(buttonRightSide, lowerRowV, -20, 58, "Sleep", backScheme);
+	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonAccelInfo, &buttonFontInfo, &systemVoltage, &systemSleep, NULL };
+
+	//-------------------------------------
+	Header headerFontStatus(0,  0, 800, 60, "Font Test", headerScheme);
+	Label labelTest1(0,  80, 800, 32, "zabcdefghijklmnopqrstuvwxyza", infoTextScheme);
+	Label labelTest2(0,  gap8, 800, 32, "ZABCDEFGHIJKLMNOPQRSTUVWXYZA", infoTextScheme);
+	Label labelTest3(0,  gap8, 800, 32, "Z01234567890A", infoTextScheme);
+	Label labelTest4(0,  gap8, 800, 32, "Z!@#$%^&*-=_+:;'\",./<>?(){}[]\\|A", infoTextScheme);
+	Label labelTest5(0,  gap8, 800, 32, "Z!B@C#D$E%F&G*H-I/J<K>L(M)N{O}P[Q]/R_S-W?X", infoTextScheme);
+	Label labelTest6(0,  gap8, 800, 32, "Z0.1,2:3;4'5(6)7[8]90Arirlltfifl0717FA", infoTextScheme);
+	Button* fontInfoMenu[] = { &headerFontStatus, &buttonBack, &labelTest1, &labelTest2, &labelTest3, &labelTest4, &labelTest5, &labelTest6, NULL };
+
+	//-------------------------------------
+	Header headerGPSStatus(0,  0, 800, 60, "GPS Status", headerScheme);
+	FloatLabel gpsCoordinate(0, 80, 800, 32, "    Lat=%0.5f, Lon=%0.5f    ", infoTextScheme);
+	FloatLabel gpsSatellites(0, gap8, 800, 32, "    Satellites=%0.0f    ", infoTextScheme);
+	FloatLabel gpsSpeed(0, gap8, 800, 32, "    Speed=%0.1f, Heading=%0.1f    ", infoTextScheme);
+	FloatLabel gpsMotion(0, gap8, 800, 32, "     Moving=%0.0fs, Stopped=%0.0fs     ", infoTextScheme);
+	Button* gpsInfoMenu[] = { &headerGPSStatus, &buttonBack, &gpsCoordinate, &gpsSatellites, &gpsSpeed, &gpsMotion, NULL };
+
+	//-------------------------------------
+	Header headerAccelMonitor(0,  0, 800, 60, "Accelerometer Data", headerScheme);
+	AccelView accelView(0, 72, 800, 333, "AccelView", logScheme);
+	Button* accelInfoMenu[] = { &headerAccelMonitor, &buttonBack, &accelView, NULL };
+
+	//-------------------------------------
 	Header headerMain(0,  0, 800, 60, "Main Menu", headerScheme);
 	Button buttonSetAlarms(buttonHCenter,  mb_y, mb_w, mb_h, "Set Tire Alarms", mainButtonScheme);
-	Button buttonEditSensors(buttonHCenter, mb_y+1*mb_off, mb_w, mb_h, "Pair Sensors", mainButtonScheme);
-	Button buttonCalibrate(buttonHCenter, mb_y+2*mb_off, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
-	Button buttonMonitor(buttonHCenter, mb_y+3*mb_off, mb_w, mb_h, "Sensor Log", mainButtonScheme);
-	Button buttonStatus(buttonHCenter, mb_y+4*mb_off, mb_w, mb_h, "System Status", mainButtonScheme);
-	SlashButton systemMute(365, 408, 70, 58, "\x0E", backScheme);
+	Button buttonEditSensors(buttonHCenter, mb_gap, mb_w, mb_h, "Pair Sensors", mainButtonScheme);
+	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
+	Button buttonMonitor(buttonHCenter, mb_gap, mb_w, mb_h, "Sensor Log", mainButtonScheme);
+	Button buttonStatus(buttonHCenter, mb_gap, mb_w, mb_h, "System Info", mainButtonScheme);
+	SlashButton systemMute(365, lowerRowV, 70, 58, "\x0E", backScheme);
 	Button* mainMenu[] = { &headerMain, &buttonDone, &systemMute, &buttonSetAlarms, &buttonEditSensors, &buttonCalibrate, &buttonMonitor, &buttonStatus, NULL };
 
 	buttonSetAlarms.subButtons = setAlarmsMenu;
 	buttonEditSensors.subButtons = editSensorsMenu;
 	buttonCalibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
 	buttonMonitor.subButtons = packetMonitorMenu;
-	buttonStatus.subButtons = systemStatusMenu;
+	buttonStatus.subButtons = systemInfoMenu;
+
+	buttonGPSInfo.subButtons = gpsInfoMenu;
+	buttonAccelInfo.subButtons = accelInfoMenu;
+	buttonFontInfo.subButtons = fontInfoMenu;
 
 	buttonMinPressureMinus.touchFunc = (bool(*)(void*, void*))&minPressureMinus;
 	buttonMinPressurePlus.touchFunc = (bool(*)(void*, void*))&minPressurePlus;
@@ -393,13 +504,14 @@ void runMainMenu() {
 	sensor4.touchFunc = (bool(*)(void*, void*))&doPairSensor;
 	sensor5.touchFunc = (bool(*)(void*, void*))&doPairSensor;
 
-	systemCoordinate.setParameter(0, &_gpsData.latitude);
-	systemCoordinate.setParameter(1, &_gpsData.longitude);
-	systemCoordinate.setParameter(3, &_gpsData.satellites);
-	systemSpeed.setParameter(0, &_gpsData.speed);
-	systemSpeed.setParameter(1, &_gpsData.heading);
-	systemMotion.setParameter(0, &_gpsData.movingSeconds);
-	systemMotion.setParameter(1, &_gpsData.stoppedSeconds);
+	gpsCoordinate.setParameter(0, &_gpsData.latitude);
+	gpsCoordinate.setParameter(1, &_gpsData.longitude);
+	gpsSatellites.setParameter(0, &_gpsData.satellites);
+	gpsSpeed.setParameter(0, &_gpsData.speed);
+	gpsSpeed.setParameter(1, &_gpsData.heading);
+	gpsMotion.setParameter(0, &_gpsData.movingSeconds);
+	gpsMotion.setParameter(1, &_gpsData.stoppedSeconds);
+
 	systemMute.setState(!_beeper.muted());
 	systemMute.touchFunc = (bool(*)(void*, void*))toggleMute;
 	systemSleep.touchFunc = (bool(*)(void*, void*))&doSleep;
