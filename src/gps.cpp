@@ -2,6 +2,11 @@
 
 GPSData _gpsData;
 
+constexpr float speedMax = 80.0;
+constexpr float speedMin = 0.0;
+constexpr float altitudeMax = 18000.0;
+constexpr float altitudeMin = -400.0;
+
 int16_t speeds[] = { 5, 30, 35, 30, 45, 65, 70, 65, 75, 75, 60, 65, 35, 20, 35, 5 };
 int16_t altitudes[] = { 200, 300, 700, 600, 1200, 1100, 1500, 2000, 3000, 2500, 3500, 4000, 5000, 2000, 500, 100 };
 uint16_t fakeIndex = 0;
@@ -77,9 +82,14 @@ bool GPS::update() {
 
 		_gpsData.latitude = (float)_gps.getLatitude() / DEGREES_TO_FLOAT;
 		_gpsData.longitude = (float)_gps.getLongitude() / DEGREES_TO_FLOAT;
+
 		_gpsData.altitude = _gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
-		_gpsData.heading = (float)_gps.getHeading() / HEADING_TO_FLOAT;
+		_gpsData.altitude = max(altitudeMin, min(altitudeMax, _gpsData.altitude));
+
 		_gpsData.speed = (float)_gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
+		_gpsData.speed = max(speedMin, min(speedMax, _gpsData.speed));
+
+		_gpsData.heading = (float)_gps.getHeading() / HEADING_TO_FLOAT;
 		_gpsData.satellites = _gps.getSIV();
 		_gpsData.fixType = _gps.getFixType();
 
@@ -95,12 +105,13 @@ bool GPS::update() {
 
 			_gpsData.latitude = 37.7775;
 			_gpsData.longitude = -122.416389;
-			year = 2021;
-			month = 4;
-			day = 25;
+			year = 2022;
+			month = 9;
+			day = 17;
 			uint32_t milliTime = upTime;
 			uint32_t minutes = milliTime / 1000 / 60;
 			hour = 12 + (minutes / 60);
+			// hour = 1;
 			minute = minutes % 60;
 			second = (milliTime / 1000) % 60;
 			static int16_t headingNum = 0;
@@ -141,10 +152,12 @@ bool GPS::update() {
 		int8_t zoneHour = zoneOffset;
 		int8_t zoneMinute = (zoneOffset * 60) - (zoneHour * 60);
 
-		lastZoneOffset = zoneOffset + (isDST ? 1 : 0);
+		// lastZoneOffset = zoneOffset + (isDST ? 1 : 0);
+		lastZoneOffset = zoneOffset;
 
 		_gpsData.zoneOffset = lastZoneOffset;
-		_gpsData.gpsTimeDate = DateTime(year, month, day, hour, minute, second) + TimeSpan(0, zoneHour, zoneMinute, 0);
+		_gpsData.utcTimeDate = DateTime(year, month, day, hour, minute, second);
+		_gpsData.localTimeDate = _gpsData.utcTimeDate + TimeSpan(0, zoneHour, zoneMinute, 0);
 
 		if (_gpsData.haveFix) {
 			haveHadFix = true;
@@ -161,30 +174,27 @@ bool GPS::update() {
 
 		}
 
-		if (!moving && _stoppedSeconds>30) {
-			if (_speedAccumulate->lookup(0)!=-1) {
-				_speedAccumulate->addSample(-1);
-				_altitudeAccumulate->addSample(-1);
-			}
-		}
-		else {
+		if (moving || _stoppedSeconds<(accumulateCount * 3)) {
 			_speedAccumulate->addSample(_gpsData.speed);
 			_altitudeAccumulate->addSample(_gpsData.altitude);
 		}
 
-		_accumulateIndex++;
-		if (_accumulateIndex == accumulateCount) {
-			int16_t speedMax = _speedAccumulate->maximum(-1);
-			int16_t altitudeMax = _altitudeAccumulate->maximum(-1);
-			if (speedMax!=-1 || (speedHistory->sampleCount()>0 && speedHistory->lookup(0)!=-1)) {
-				speedHistory->addSample(speedMax);
-				altitudeHistory->addSample(altitudeMax);
-			}
-			_accumulateIndex = 0;
+		if (_speedAccumulate->full()) {
+			int16_t speedMax = _speedAccumulate->maximum(0);
+			int16_t altitudeMax = _altitudeAccumulate->maximum(0);
+
+			speedHistory->addSample(speedMax);
+			altitudeHistory->addSample(altitudeMax);
+
+			_speedAccumulate->reset();
+			_altitudeAccumulate->reset();
 		}
 
 		_gpsData.movingSeconds = _movingSeconds;
 		_gpsData.stoppedSeconds = _stoppedSeconds;
+
+		// DateTime t = _gpsData.localTimeDate;
+		// Serial.printf("Time: %04d/%02d/%02d %02d:%02d:%02d (off=%d/%f, dst=%d)\n", t.year(), t.month(), t.day(), t.hour(), t.minute(), t.second(), lastZoneOffset, zoneOffset, isDST);
 
 		uint32_t dataTime = gpsTime;
 		Serial.printf("GPS Data (%d/%dmS): Alt=%0.1f, Heading=%0.2f, GMTOffset=%d, fix=%d/%d, sat#=%0.0f, lat=%0.5f, lon=%0.5f, speed=%0.1f\n",

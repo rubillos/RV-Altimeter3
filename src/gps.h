@@ -10,7 +10,7 @@
 #include "RingBuff.h"
 
 constexpr uint16_t ringCount = 400;
-constexpr uint16_t accumulateCount = 3;
+constexpr uint16_t accumulateCount = 1;
 
 typedef struct {
 	bool haveFix;
@@ -24,7 +24,8 @@ typedef struct {
 	float speed;
 	float movingSeconds;
 	float stoppedSeconds;
-	DateTime gpsTimeDate;
+	DateTime utcTimeDate;
+	DateTime localTimeDate;
 } GPSData;
 
 class GPS {
@@ -37,6 +38,8 @@ class GPS {
 		void didShake() { _stoppedSeconds = 0; };
 		uint32_t stoppedSeconds() { return _stoppedSeconds; };
 		uint32_t movingSeconds() { return _movingSeconds; };
+
+		bool currentlyMoving() { return _movingSeconds > 0; };
 
 		RingBuff<int16_t>* speedHistory;
 		RingBuff<int16_t>* altitudeHistory;
