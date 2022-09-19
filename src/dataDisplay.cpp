@@ -35,8 +35,7 @@ void DataDisplay::begin() {
 	_altitudeGraph->setRampColors(10, upColor, 10, downColor);
 }
 
-uint8_t DataDisplay::ascenderForFont(const GFXfont *f, char character)
-{
+uint8_t DataDisplay::ascenderForFont(const GFXfont *f, char character) {
 	uint16_t index = character - f->first;
 	int8_t offset = f->glyph[index].yOffset;
 
@@ -49,12 +48,24 @@ void DataDisplay::getStringDimensions(Adafruit_GFX& dest, String str, uint16_t* 
 	dest.getTextBounds(str, 0, 0, &x, &y, width, height);
 }
 
-uint16_t DataDisplay::getStringWidth(Adafruit_GFX& dest, String str)
-{
+uint16_t DataDisplay::getStringWidth(Adafruit_GFX& dest, String str) {
 	int16_t x, y;
 	uint16_t width, height;
 
 	dest.getTextBounds(str, 0, 0, &x, &y, &width, &height);
+	return width;
+}
+
+uint16_t DataDisplay::getStringGlyphWidth(const GFXfont *f, String str) {
+	uint16_t width = 0;
+	uint16_t count = str.length();
+	const char* chars = str.c_str();
+
+	for (uint16_t i=0; i<count; i++) {
+		uint16_t index = chars[i] - f->first;
+		width += f->glyph[index].xAdvance;
+	}
+
 	return width;
 }
 
@@ -314,7 +325,7 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 		case dataDrawSpeed: {
 				String speedStr = String(speed, 1);
 				if (_drawGraphs) {
-					xStart += 40 - getStringWidth(_displayBuffer8, speedStr) / 2;
+					xStart += 80 - getStringGlyphWidth(textFont, speedStr) / 2;
 					_displayBuffer8.setOffset(xStart, yStart, -1);
 				}
 				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, speedStr, 0, String("mph"));
@@ -324,7 +335,7 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 		case dataDrawAltitude: {
 				String altStr = String(altitude);
 				if (_drawGraphs) {
-					xStart += 70 - getStringWidth(_displayBuffer8, altStr) / 2;
+					xStart += 130 - getStringGlyphWidth(textFont, altStr) / 2;
 					_displayBuffer8.setOffset(xStart, yStart, -1);
 				}
 				showCell(_displayBuffer8, xStart, yStart, altitudeGlyph, altStr, -2, String("ft"));
@@ -392,7 +403,7 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 		if (*drawIndex==dataDrawAltitude && _drawGraphs) {
 			*drawIndex = dataDrawSpeedGraph;
 		}
-		else if (*drawIndex==5 || *drawIndex==7) {
+		else if (*drawIndex==dataDrawSunset || *drawIndex==dataDrawAltitudeGraph) {
 			*drawIndex = dataDrawTires;
 		}
 		else {

@@ -18,6 +18,7 @@ class DataDisplay {
 		uint8_t ascenderForFont(const GFXfont *f, char character = 'A');
 		void getStringDimensions(Adafruit_GFX& dest, String str, uint16_t* width, uint16_t* height);
 		uint16_t getStringWidth(Adafruit_GFX& dest, String str);
+		uint16_t getStringGlyphWidth(const GFXfont *f, String str);
 		void drawThickLine(Adafruit_GFX& dest, int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t thickness, uint16_t color, bool fast=false);
 		void drawPolarLine(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t length, int16_t thickness);
 		void drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16_t minutes);
