@@ -29,8 +29,9 @@ class TireHandler {
 		void pressTire(uint16_t index);
 
 		void checkSensorData(bool moving);
+		void restoreSavedTireData();
 
-		const char* tireName(uint16_t index);
+		const char* tireName(uint16_t index, bool shortName=false);
 		const char* noDataString();
 		const char* timedOutString();
 
@@ -40,6 +41,7 @@ class TireHandler {
 		uint16_t temperatureColorForSensor(uint16_t index);
 
 		uint32_t idForSensor(uint16_t index);
+		int16_t indexOfSensor(uint32_t sensorID);
 		float pressureForSensor(uint16_t index);
 		float temperatureForSensor(uint16_t index);
 
@@ -54,7 +56,6 @@ class TireHandler {
 		bool pressureAlarm(float pressure);
 
 	private:
-		int16_t indexOfSensor(uint32_t sensorID);
 		bool sensorTimedOut(uint16_t index);
 
 		int32_t codedColor(float value);

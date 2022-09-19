@@ -1,4 +1,5 @@
 #include "tires.h"
+
 #include "defs.h"
 #include "touchscreen.h"
 #include "prefs.h"
@@ -12,10 +13,15 @@
 #include "fonts/FreeSansBold14pt7b.h"
 #include "graphics/Tire2.png.h"
 
+constexpr uint32_t tireDataSaveInterval = 60 * 5;
+
 constexpr uint16_t tireX[] = { 272, 416, 152, 272, 416, 536 };
 constexpr uint16_t tireY[] = { tireTopY, tireTopY, tireTopY+80, tireTopY+80, tireTopY+80, tireTopY+80 };
 constexpr uint16_t tireWidth = 110;
 constexpr uint16_t tireHeight = 67;
+
+const char* tirePressKeys[] = { "tirePress0", "tirePress1", "tirePress2", "tirePress3", "tirePress4", "tirePress5" };
+const char* tireTempKeys[] = { "tireTemp0", "tireTemp1", "tireTemp2", "tireTemp3", "tireTemp4", "tireTemp5" };
 
 const char* tireNames[] = {
 	"Left Front",
@@ -24,6 +30,15 @@ const char* tireNames[] = {
 	"Left Rear Inner",
 	"Right Rear Inner",
 	"Right Rear Outer"
+};
+
+const char* shortTireNames[] = {
+	"LF",
+	"RF",
+	"LRO",
+	"LRI",
+	"RRI",
+	"RRO"
 };
 
 void TireHandler::drawTires() {
@@ -135,22 +150,60 @@ void TireHandler::checkSensorData(bool moving) {
 		uint32_t time = millis();
 
 		for (uint16_t i=0; i<numTires; i++) {
-			TPMSPacket* sensor = &_sensorPackets[i];
+			if (_prefData.sensorIDs[i]) {
+				TPMSPacket* sensor = &_sensorPackets[i];
 
-			if (sensor->timeStamp) {
-				if (sensor->pressure >= 0) {
-					if ((time-sensor->timeStamp)>sensorTimeout) {
-						if (moving) {
-							sensor->pressure = -sensor->pressure;
-							sensor->temperature = -sensor->temperature;
-						}
-						else {
-							sensor->pressure = timedOutValue;
-							sensor->temperature = timedOutValue;
+				if (sensor->timeStamp) {
+					if (sensor->pressure >= 0) {
+						if ((time-sensor->timeStamp)>sensorTimeout) {
+							if (moving) {
+								sensor->pressure = -sensor->pressure;
+								sensor->temperature = -sensor->temperature;
+							}
+							else {
+								sensor->pressure = timedOutValue;
+								sensor->temperature = timedOutValue;
+							}
 						}
 					}
 				}
 			}
+		}
+	}
+
+	static elapsedSeconds tireSaveSeconds;
+	if (moving && tireSaveSeconds > tireDataSaveInterval) {
+		tireSaveSeconds = 0;
+
+		Serial.print("Saving tire data.");
+
+		for (uint16_t i=0; i<numTires; i++) {
+			if (_prefData.sensorIDs[i]) {
+				TPMSPacket* sensor = &_sensorPackets[i];
+
+				float tirePressure = sensor->pressure;
+				float tireTemperature = sensor->temperature;
+
+				if (tirePressure == timedOutValue) {
+					tirePressure = noDataValue;
+				}
+				if (tireTemperature == timedOutValue) {
+					tireTemperature = noDataValue;
+				}
+				_preferences.putFloat(tirePressKeys[i], tirePressure);
+				_preferences.putFloat(tireTempKeys[i], tireTemperature);
+			}
+		}
+	}
+}
+
+void TireHandler::restoreSavedTireData() {
+	for (uint16_t i=0; i<numTires; i++) {
+		if (_prefData.sensorIDs[i]) {
+			TPMSPacket* sensor = &_sensorPackets[i];
+
+			sensor->pressure = _preferences.getFloat(tirePressKeys[i], noDataValue);
+			sensor->temperature = _preferences.getFloat(tireTempKeys[i], noDataValue);
 		}
 	}
 }
@@ -205,8 +258,13 @@ bool TireHandler::pressureAlarm(float pressure) {
 	return pressure>0 && ((pressure <= _prefData.alarmPressureMin) || (pressure >= _prefData.alarmPressureMax));
 }
 
-const char* TireHandler::tireName(uint16_t index) {
-	return tireNames[index];
+const char* TireHandler::tireName(uint16_t index, bool shortName) {
+	if (shortName) {
+		return shortTireNames[index];
+	}
+	else {
+		return tireNames[index];
+	}
 }
 
 int32_t TireHandler::codedColor(float value) {
