@@ -182,7 +182,7 @@ void setup() {
 	
 	OLEDprintln("Init Accelerometer...");
 	_accel.begin();
-	_accel.setShakeLimits(0.4, 0.4, 0.4);
+	_accel.setShakeLimits(0.6, 0.6, 0.6);
 	
 	OLEDprintln("Init Modules...");
 	_dataDisplay.begin();
@@ -253,15 +253,33 @@ void loop() {
 		float light = readLight();
 
 		sun.setPosition(_gpsData.latitude, _gpsData.longitude, _gpsData.zoneOffset);
-		sun.setCurrentDate(_gpsData.gpsTimeDate.year(), _gpsData.gpsTimeDate.month(), _gpsData.gpsTimeDate.day());
 
+		DateTime sunriseDate = _gpsData.localTimeDate;
+		DateTime sunsetDate = _gpsData.localTimeDate;
+		uint32_t curMinutes = sunriseDate.hour()*60+sunriseDate.minute();
+
+		sun.setCurrentDate(sunriseDate.year(), sunriseDate.month(), sunriseDate.day());
 		uint32_t sunriseTime = sun.calcSunrise();
+
+		if (curMinutes > sunriseTime) {
+			sunriseDate = sunriseDate + TimeSpan(1, 0, 0, 0);
+			sun.setCurrentDate(sunriseDate.year(), sunriseDate.month(), sunriseDate.day());
+			sunriseTime = sun.calcSunrise();
+		}
+
+		sun.setCurrentDate(sunsetDate.year(), sunsetDate.month(), sunsetDate.day());
 		uint32_t sunsetTime = sun.calcSunset();
+
+		if (curMinutes > sunsetTime) {
+			sunsetDate = sunsetDate + TimeSpan(1, 0, 0, 0);
+			sun.setCurrentDate(sunsetDate.year(), sunsetDate.month(), sunsetDate.day());
+			sunsetTime = sun.calcSunset();
+		}
 
 		String sunUp = _dataDisplay.timeFromDayMinutes(sunriseTime, false);
 		String sunDown = _dataDisplay.timeFromDayMinutes(sunsetTime, false);
 
-		uint32_t curTime = _gpsData.gpsTimeDate.hour() * 60 + _gpsData.gpsTimeDate.minute();
+		uint32_t curTime = _gpsData.localTimeDate.hour() * 60 + _gpsData.localTimeDate.minute();
 
 		elapsedMillis drawStart;
 		while (!_touchScreen.touchReady() && !_dataDisplay.showData(&drawIndex, curTime, _gpsData.altitude, _gpsData.heading, _gpsData.speed, sunriseTime, sunsetTime, _gpsData.satellites, haveHadFix, fixNames[_gpsData.fixType])) {
