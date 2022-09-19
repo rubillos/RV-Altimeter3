@@ -853,7 +853,6 @@ void Adafruit_RA8875::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
-  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1141,7 +1140,6 @@ void Adafruit_RA8875::circleHelper(int16_t x, int16_t y, int16_t r,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_CIRCLE_STATUS);
-  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1177,7 +1175,6 @@ void Adafruit_RA8875::rectHelper(int16_t x, int16_t y, int16_t w, int16_t h,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
-  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1220,7 +1217,6 @@ void Adafruit_RA8875::triangleHelper(int16_t x0, int16_t y0, int16_t x1,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_DCR, RA8875_DCR_LINESQUTRI_STATUS);
-  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1255,7 +1251,6 @@ void Adafruit_RA8875::ellipseHelper(int16_t xCenter, int16_t yCenter,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_ELLIPSE_STATUS);
-  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1292,7 +1287,6 @@ void Adafruit_RA8875::curveHelper(int16_t xCenter, int16_t yCenter,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_ELLIPSE_STATUS);
-  // waitUntilDone();
 }
 
 /**************************************************************************/
@@ -1341,7 +1335,6 @@ void Adafruit_RA8875::roundRectHelper(int16_t x, int16_t y, int16_t w,
 
   /* Wait for the command to finish */
   waitPoll(RA8875_ELLIPSE, RA8875_DCR_LINESQUTRI_STATUS);
-  // waitUntilDone();
 }
 /**************************************************************************/
 /*!
@@ -1593,6 +1586,11 @@ void Adafruit_RA8875::writeReg(uint8_t reg, uint8_t val) {
   writeData(val);
 }
 
+void Adafruit_RA8875::writeReg16(uint8_t reg, uint16_t val) {
+  writeReg(reg, val);
+  writeReg(reg+1, val >> 8);
+}
+
 /**************************************************************************/
 /*!
     Set the register to read from
@@ -1641,13 +1639,6 @@ uint8_t Adafruit_RA8875::readData(void) {
 /**************************************************************************/
 void Adafruit_RA8875::writeCommand(uint8_t d) {
   spi_dev->write(&d, sizeof(d), &RA8875_CMDWRITE, sizeof(RA8875_CMDWRITE));
-}
-
-void Adafruit_RA8875::writeReg16(uint8_t reg, uint16_t val) {
-  writeCommand(reg);
-  writeData(val);
-  writeCommand(reg+1);
-  writeData(val >> 8);
 }
 
 /**************************************************************************/
