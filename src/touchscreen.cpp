@@ -22,9 +22,8 @@ volatile bool allowRepeat = false;
 SPIClass LCDSPI(HSPI);
 Adafruit_RA8875 _display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
 Buffer8 _displayBuffer8(0, 0, cellWidth, cellHeight);
-// Buffer1 _displayBuffer1(0, 0, cellWidth, cellHeight);
 
-void touchInterrupt() {
+void IRAM_ATTR touchInterrupt() {
     static uint32_t lastTouchTime = 0;
     uint32_t time = millis();
     uint32_t interruptDelay = time - interruptEnableTime;
@@ -77,9 +76,6 @@ void TouchScreen::startDisplay(bool have12v) {
 
     _displayBuffer8.setTextSize(1);
     _displayBuffer8.setTextWrap(false);
-    // _displayBuffer1.setTextSize(1);
-    // _displayBuffer1.setTextWrap(false);
-
 }
 
 void TouchScreen::beginTouch() {
