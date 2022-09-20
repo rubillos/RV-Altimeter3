@@ -19,7 +19,7 @@ Button buttonDone(buttonRightSide, lowerRowV, -20, 58, "Done", backScheme);
 
 void buttonRepeat(Menu* menu, Button* button) {
 	button->draw(false, true);
-	menu->allowNextRepeat();
+	_touchScreen.allowNextRepeat();;
 	menu->prefsDirty();
 	delay(buttonFlashTime);
 }
@@ -202,8 +202,6 @@ void LogView::draw(bool pressed, bool forceBackground) {
 	int16_t lastLine = min((uint32_t)(firstLine+logLines), (uint32_t)count);
 	uint16_t lineHeight = logLineHeight * _scheme.sizeY;
 
-	// Serial.printf("Draw logView: draw from %d to %d\n", firstLine, lastLine);;
-
 	uint16_t line = 1;
 	for (uint16_t i=firstLine; i<lastLine; i++) {
 		TPMSPacket packet = buffer->lookup(i);
@@ -222,8 +220,6 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 	char lineBuff[51];
-
-	// Serial.printf("drawPacket: line=%d, id=0x%X06\n", lineNumber, packet.id);
 
 	_display.fillRect(0, y, _display.width(), 15, _scheme.backColor);
 

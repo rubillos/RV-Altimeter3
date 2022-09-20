@@ -23,7 +23,6 @@ class Menu {
 	public:
 		void run(Button** currentMenu=NULL);
 		bool isAtTopLevel() { return _menuStackIndex == 0; };
-		void allowNextRepeat();
 		void goBack() { _goBack = true; };
 		void redrawInAltLayer() { _redrawAlt = true; };
 		void prefsDirty() { _prefsDirty = true; _prefsDirtyTime = 0; };

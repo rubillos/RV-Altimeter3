@@ -4,6 +4,7 @@
 #include "tires.h"
 #include "beep.h"
 #include "packets.h"
+#include "touchscreen.h"
 
 extern void checkForNewPackets();
 extern String hexTitle(uint32_t id);
@@ -132,7 +133,7 @@ bool doBackspace(Menu* menu, Button* button) {
 		entryField->setTitle(currentStr.substring(0, currentStr.length()-1));
 		pairButton->hide();
 		pairButton->draw(false, true);
-		menu->allowNextRepeat();
+		_touchScreen.allowNextRepeat();;
 	}
 	else {
 		_beeper.beep(200);

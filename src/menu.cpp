@@ -14,10 +14,6 @@ constexpr uint32_t prefWriteTime = 2000;
 constexpr uint32_t refreshRate = 200;
 
 //-------------------------------------------------------
-void Menu::allowNextRepeat() {
-	_touchScreen.allowNextRepeat();
-}
-
 void Menu::run(Button** currentMenu) {
 	bool done = false;
 	bool needUpdate = true;
