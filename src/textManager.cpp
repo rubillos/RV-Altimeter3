@@ -148,8 +148,8 @@ void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, u
 
 		uint16_t charSpacing = 8 * xScale;
 		uint16_t charHeight = 16 * yScale;
-
 		uint16_t currentColor = textColor;
+		int32_t lastColor = -1;
 
 		for (uint16_t i=0; i<len; i++) {
 			uint8_t c = chars[i];
@@ -173,6 +173,7 @@ void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, u
 
 				if (backColor != -1) {
 					_display.fillRect(x, y, charSpacing + leftShift + rightShift, charHeight, backColor);
+					lastColor = -1;
 				}
 
 				x += leftShift;
@@ -183,7 +184,11 @@ void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, u
 					}
 				}
 
-				_display.textTransparent(currentColor);
+				if (currentColor != lastColor) {
+					_display.textTransparent(currentColor);
+					lastColor = currentColor;
+				}
+
 				_display.textSetCursor(x, y + ((charVertShift[c] * yScale)>>1));
 				_display.textWrite(chars+i, 1);
 				
