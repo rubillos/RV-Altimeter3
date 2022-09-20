@@ -201,8 +201,8 @@ void setup() {
 	// _prefData.sensorIDs[4] = 0;
 	// _prefData.sensorIDs[5] = 0;
 
-	btStop();
-	WiFi.mode( WIFI_OFF );
+	// btStop();
+	// WiFi.mode( WIFI_OFF );
 
 	OLEDprintln("Init Done!");
 }
