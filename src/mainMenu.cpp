@@ -239,7 +239,7 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 			case 0: {
 					int16_t index = _tireHandler.indexOfSensor(packet.id);
 					if (index != -1) {
-						snprintf(lineBuff, sizeof(lineBuff), "%s  ", _tireHandler.tireName(index, true));
+						snprintf(lineBuff, sizeof(lineBuff), "%s", _tireHandler.tireName(index, true));
 					}
 					else {
 						lineBuff[0] = 0;
@@ -247,19 +247,19 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 				}
 				break;
 			case 1:
-				snprintf(lineBuff, sizeof(lineBuff), "%06X    ", packet.id);
+				snprintf(lineBuff, sizeof(lineBuff), "%06X", packet.id);
 				break;
 			case 2:
-				snprintf(lineBuff, sizeof(lineBuff), "   %3.0fpsi", packet.pressure);
+				snprintf(lineBuff, sizeof(lineBuff), "%3.0fpsi", packet.pressure);
 				break;
 			case 3:
-				snprintf(lineBuff, sizeof(lineBuff), "  %3.0f\xBA", packet.temperature);
+				snprintf(lineBuff, sizeof(lineBuff), "%3.0f\xBA", packet.temperature);
 				break;
 			case 4:
-				snprintf(lineBuff, sizeof(lineBuff), "  %3ddB", packet.rssi);
+				snprintf(lineBuff, sizeof(lineBuff), "%3ddB", packet.rssi);
 				break;
 			case 5:
-				snprintf(lineBuff, sizeof(lineBuff), "  %3dm%02ds", minutes, seconds);
+				snprintf(lineBuff, sizeof(lineBuff), "%3dm%02ds", minutes, seconds);
 				break;
 		}
 		_textManager.drawString(lineBuff, _rect.x +  + tabOffset(logColumns[i], sizeX, lineBuff), y, sizeX, _scheme.sizeY, _scheme.textColor, -1, otherColors);
@@ -450,14 +450,16 @@ void runMainMenu() {
 	Label labelTest4(0,  gap8, 800, 32, "Z!@#$%^&*-=_+:;'\",./<>?(){}[]\\|A", infoTextScheme);
 	Label labelTest5(0,  gap8, 800, 32, "Z!B@C#D$E%F&G*H-I/J<K>L(M)N{O}P[Q]/R_S-W?X", infoTextScheme);
 	Label labelTest6(0,  gap8, 800, 32, "Z0.1,2:3;4'5(6)7[8]90Arirlltfifl0717FA", infoTextScheme);
-	Button* fontInfoMenu[] = { &headerFontStatus, &buttonBack, &labelTest1, &labelTest2, &labelTest3, &labelTest4, &labelTest5, &labelTest6, NULL };
+	Label labelTest7(0,  gap8, 800, 32, "Z___A", infoTextScheme);
+	Button* fontInfoMenu[] = { &headerFontStatus, &buttonBack, 
+								&labelTest1, &labelTest2, &labelTest3, &labelTest4, &labelTest5, &labelTest6, &labelTest7, NULL };
 
 	//-------------------------------------
 	Header headerGPSStatus(0,  0, 800, 60, "GPS Status", headerScheme);
-	FloatLabel gpsCoordinate(0, 80, 800, 32, "    Lat=%0.5f, Lon=%0.5f    ", infoTextScheme);
-	FloatLabel gpsSatellites(0, gap8, 800, 32, "    Satellites=%0.0f    ", infoTextScheme);
-	FloatLabel gpsSpeed(0, gap8, 800, 32, "    Speed=%0.1f, Heading=%0.1f    ", infoTextScheme);
-	FloatLabel gpsMotion(0, gap8, 800, 32, "     Moving=%0.0fs, Stopped=%0.0fs     ", infoTextScheme);
+	FloatLabel gpsCoordinate(0, 80, 800, 32, "Lat=%0.5f, Lon=%0.5f", infoTextScheme);
+	FloatLabel gpsSatellites(0, gap8, 800, 32, "Satellites=%0.0f", infoTextScheme);
+	FloatLabel gpsSpeed(0, gap8, 800, 32, "Speed=%0.1f, Heading=%0.1f", infoTextScheme);
+	FloatLabel gpsMotion(0, gap8, 800, 32, "Moving=%0.0fs, Stopped=%0.0fs", infoTextScheme);
 	Button* gpsInfoMenu[] = { &headerGPSStatus, &buttonBack, &gpsCoordinate, &gpsSatellites, &gpsSpeed, &gpsMotion, NULL };
 
 	//-------------------------------------

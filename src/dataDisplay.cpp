@@ -269,8 +269,6 @@ void DataDisplay::switchToAltLayer() {
 	_drawLayer = !_drawLayer;
 }
 
-// #define NO_LAYER_SWAP
-
 bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
 	constexpr int16_t xOffset = 60;
 	constexpr int16_t xGap = 40;
@@ -282,9 +280,7 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 	int16_t direction;
 	bool result = false;
 
-	#ifndef NO_LAYER_SWAP
 	drawInAltLayer();
-	#endif
 
 	enum {
 		dataDrawSpeed = 0,
@@ -390,16 +386,12 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 
 	if (*drawIndex>=dataDrawTires) {
 		_tireHandler.drawTires();
-		#ifndef NO_LAYER_SWAP
 		switchToAltLayer();
-		#endif
 		*drawIndex = dataDrawSpeed;
 		result = true;
 	}
 	else {
-		#ifndef NO_LAYER_SWAP
 		drawInCurrentLayer();
-		#endif
 		if (*drawIndex==dataDrawAltitude && _drawGraphs) {
 			*drawIndex = dataDrawSpeedGraph;
 		}
