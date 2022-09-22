@@ -360,10 +360,13 @@ void runMainMenu() {
 	ButtonScheme sensorLabelScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 2, 2, buttonAlignRight };
 	ButtonScheme sensorIDScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 3, 2, buttonAlignLeft };
 	ButtonScheme infoTextScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 2, 2 };
+	ButtonScheme infoTextNarrowScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 1, 2 };
 	ButtonScheme systemTextScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 3, 2 };
 
 	constexpr uint16_t gapS = buttonVPriorSame;
 	constexpr uint16_t gap0 = buttonVPriorBelow;
+	constexpr uint16_t gap4 = buttonVPriorBelow | 4;
+	constexpr uint16_t gap6 = buttonVPriorBelow | 6;
 	constexpr uint16_t gap8 = buttonVPriorBelow | 8;
 
 	//-------------------------------------
@@ -440,15 +443,17 @@ void runMainMenu() {
 
 	//-------------------------------------
 	Header headerFontStatus(0,  0, 800, 60, "Font Test", headerScheme);
-	Label labelTest1(0,  80, 800, 32, "zabcdefghijklmnopqrstuvwxyza", infoTextScheme);
-	Label labelTest2(0,  gap8, 800, 32, "ZABCDEFGHIJKLMNOPQRSTUVWXYZA", infoTextScheme);
-	Label labelTest3(0,  gap8, 800, 32, "Z01234567890A", infoTextScheme);
-	Label labelTest4(0,  gap8, 800, 32, "Z!@#$%^&*-=_+:;'\",./<>?(){}[]\\|A", infoTextScheme);
-	Label labelTest5(0,  gap8, 800, 32, "Z!B@C#D$E%F&G*H-I/J<K>L(M)N{O}P[Q]/R_S-W?X", infoTextScheme);
-	Label labelTest6(0,  gap8, 800, 32, "Z0.1,2:3;4'5(6)7[8]90Arirlltfifl0717FA", infoTextScheme);
-	Label labelTest7(0,  gap8, 800, 32, "Z___A", infoTextScheme);
+	Label labelTest1(0,  70, 800, 32, "zabcdefghijklmnopqrstuvwxyza", infoTextScheme);
+	Label labelTest2(0,  gap4, 800, 32, "ZABCDEFGHIJKLMNOPQRSTUVWXYZA", infoTextScheme);
+	Label labelTest3(0,  gap4, 800, 32, "Z01234567890___A", infoTextScheme);
+	Label labelTest4(0,  gap4, 800, 32, "Z!@#$%^&*-=_+:;'\",./<>?(){}[]\\|A", infoTextScheme);
+	Label labelTest5(0,  gap4, 800, 32, "Z!B@C#D$E%F&G*H-I/J<K>L(M)N{O}P[Q]/R_S-W?X", infoTextScheme);
+	Label labelTest6(0,  gap4, 800, 32, "Z0.1,2:3;4'5(6)7[8]9\"0A", infoTextScheme);
+	Label labelTest7(0,  gap4, 800, 32, "Arirlltfifl0717FAFrFlvltFaFeFuFiForlTw", infoTextScheme);
+	Label labelTest8(0,  gap4, 800, 32, "ZABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890A", infoTextNarrowScheme);
+	Label labelTest9(0,  gap4, 800, 32, "zabcdefghijklmnopqrstuvwxyza!@#$%^&*-=_+:;'\",./<>?(){}[]\\|", infoTextNarrowScheme);
 	Button* fontInfoMenu[] = { &headerFontStatus, &buttonBack, 
-								&labelTest1, &labelTest2, &labelTest3, &labelTest4, &labelTest5, &labelTest6, &labelTest7, NULL };
+								&labelTest1, &labelTest2, &labelTest3, &labelTest4, &labelTest5, &labelTest6, &labelTest7, &labelTest8, &labelTest9, NULL };
 
 	//-------------------------------------
 	Header headerGPSStatus(0,  0, 800, 60, "GPS Status", headerScheme);
