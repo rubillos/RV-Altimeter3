@@ -3,7 +3,12 @@
 #include "touchscreen.h"
 
 TextManager::TextManager() {
-	constexpr int16_t shifts[] = {
+	typedef struct {
+		uint8_t c;
+		int8_t left;
+		int8_t right;
+	} hShiftRec;
+	constexpr hShiftRec hShifts[] = {
 		' ', 0, -5,
 		'.', -2, -2,
 		',', -2, -2,
@@ -16,7 +21,6 @@ TextManager::TextManager() {
 		'&', 0, 1,
 		'*', 0, 1,
 		'1', -1, 0,
-		'\xBA', -1, 0,
 		'a', -1, 0,
 		'b', -1, 0,
 		'c', -1, 0,
@@ -48,14 +52,38 @@ TextManager::TextManager() {
 		'T', 0, 1,
 		'V', 0, 1,
 		'Y', 0, 1,
+		'_', -1, 0,
+		'\xBA', -1, 0,  // degrees
 	};
-	constexpr uint16_t shiftCount = sizeof(shifts) / sizeof(int16_t) / 3;
+	constexpr uint16_t hShiftCount = sizeof(hShifts) / sizeof(hShiftRec);
 
-	constexpr char kerns[] = {
+	typedef struct {
+		uint8_t c;
+		int8_t vOff;
+	} vShiftRec;
+	constexpr vShiftRec vShifts[] = {
+		'\x0E', 1,
+		'\x10', 2,
+		'\x11', 2,
+		'\x1A', 3,
+		'\x1B', 3,
+		'\x1E', 2,
+		'\x1F', 2,
+	};
+	constexpr uint16_t vShiftCount = sizeof(vShifts) / sizeof(vShiftRec);
+
+	typedef struct {
+		char left;
+		char right;
+	} kernRec;
+	constexpr kernRec kerns[] = {
 		'v', 'i',
 		'i', 't',
 		'i', 'f',
 		'l', 't',
+		'l', 'f',
+		'l', 'v',
+		'l', 'T',
 		'r', 'i',
 		'r', 'l',
 		'L', 'T',
@@ -73,48 +101,34 @@ TextManager::TextManager() {
 		'6', '7',
 		'1', '7',
 	};
-	constexpr uint16_t kernCount = sizeof(kerns) / sizeof(char) / 2;
+	constexpr uint16_t kernCount = sizeof(kerns) / sizeof(kernRec);
 
-	constexpr int8_t vertShifts[] = {
-		'\x0E', 1,
-		'\x10', 2,
-		'\x11', 2,
-		'\x1A', 3,
-		'\x1B', 3,
-		'\x1E', 2,
-		'\x1F', 2,
-	};
-	constexpr uint16_t vertShiftCount = sizeof(vertShifts) / sizeof(int8_t) / 2;
+	for (uint16_t i=0; i<hShiftCount; i++) {
+		uint8_t c = hShifts[i].c;
+		_charLeftShift[c] = hShifts[i].left;
+		_charRightShift[c] = hShifts[i].right;
+	}
+	_spaceRightShift = _charRightShift[' '];
 
-	for (uint16_t i=0; i<shiftCount; i++) {
-		uint8_t c = shifts[i*3];
-		charLeftShift[c] = shifts[i*3+1];
-		charRightShift[c] = shifts[i*3+2];
-
-		if (c==' ') {
-			_spaceRightShift = shifts[i*3+2];
-		}
+	for (uint16_t i=0; i<vShiftCount; i++) {
+		_charVertShift[vShifts[i].c] = vShifts[i].vOff;
 	}
 
     for (uint16_t i=0; i<kernCount; i++) {
-        uint16_t index = kerns[i*2]<<7 | kerns[i*2+1];
+        uint16_t index = kerns[i].left<<8 | kerns[i].right;
 
-        charKerns[index >> 3] |= (1 << (index & 7));
+        _charKerns[index >> 3] |= (1 << (index & 7));
     }
-
-	for (uint16_t i=0; i<vertShiftCount; i++) {
-		charVertShift[vertShifts[i*2]] = vertShifts[i*2+1];
-	}
 };
 
 void TextManager::setSpaceNarrowing(bool narrow) {
-	charRightShift[' '] =  (narrow) ? _spaceRightShift : 0;
+	_charRightShift[' '] =  (narrow) ? _spaceRightShift : 0;
 }
 
 bool TextManager::isKernPair(char c1, char c2) {
-	uint16_t index = c1<<7 | c2;
+	uint16_t index = c1<<8 | c2;
 
-	return (charKerns[index >> 3] & (1 << (index & 7))) != 0;
+	return (_charKerns[index >> 3] & (1 << (index & 7))) != 0;
 }
 
 uint16_t TextManager::widthOfString(String str, uint8_t scale) {
@@ -131,7 +145,7 @@ uint16_t TextManager::widthOfString(String str, uint8_t scale) {
 			i += 1;
 		}
 		else {
-			offset += charLeftShift[c] + charRightShift[c];
+			offset += _charLeftShift[c] + _charRightShift[c];
 		}
 	}
 
@@ -168,8 +182,8 @@ void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, u
 				i += 1;
 			}
 			else {
-				int16_t leftShift = _textManager.charLeftShift[c] * xScale;
-				int16_t rightShift = _textManager.charRightShift[c] * xScale;
+				int16_t leftShift = _textManager._charLeftShift[c] * xScale;
+				int16_t rightShift = _textManager._charRightShift[c] * xScale;
 
 				if (backColor != -1) {
 					_display.fillRect(x, y, charSpacing + leftShift + rightShift, charHeight, backColor);
@@ -189,7 +203,7 @@ void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, u
 					lastColor = currentColor;
 				}
 
-				_display.textSetCursor(x, y + ((charVertShift[c] * yScale)>>1));
+				_display.textSetCursor(x, y + ((_charVertShift[c] * yScale)>>1));
 				_display.textWrite(chars+i, 1);
 				
 				x += charSpacing + rightShift;
