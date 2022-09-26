@@ -1,6 +1,7 @@
 #include "textManager.h"
 
 #include "touchscreen.h"
+#include "defs.h"
 
 TextManager::TextManager() {
 	typedef struct {
@@ -55,7 +56,6 @@ TextManager::TextManager() {
 		'_', -1, 0,
 		'\xBA', -1, 0,  // degrees
 	};
-	constexpr uint16_t hShiftCount = sizeof(hShifts) / sizeof(hShiftRec);
 
 	typedef struct {
 		uint8_t c;
@@ -70,7 +70,6 @@ TextManager::TextManager() {
 		'\x1E', 2,
 		'\x1F', 2,
 	};
-	constexpr uint16_t vShiftCount = sizeof(vShifts) / sizeof(vShiftRec);
 
 	typedef struct {
 		char left;
@@ -101,20 +100,19 @@ TextManager::TextManager() {
 		'6', '7',
 		'1', '7',
 	};
-	constexpr uint16_t kernCount = sizeof(kerns) / sizeof(kernRec);
 
-	for (uint16_t i=0; i<hShiftCount; i++) {
+	for (uint16_t i=0; i<countof(hShifts); i++) {
 		uint8_t c = hShifts[i].c;
 		_charLeftShift[c] = hShifts[i].left;
 		_charRightShift[c] = hShifts[i].right;
 	}
 	_spaceRightShift = _charRightShift[' '];
 
-	for (uint16_t i=0; i<vShiftCount; i++) {
+	for (uint16_t i=0; i<countof(vShifts); i++) {
 		_charVertShift[vShifts[i].c] = vShifts[i].vOff;
 	}
 
-    for (uint16_t i=0; i<kernCount; i++) {
+    for (uint16_t i=0; i<countof(kerns); i++) {
         uint16_t index = kerns[i].left<<8 | kerns[i].right;
 
         _charKerns[index >> 3] |= (1 << (index & 7));

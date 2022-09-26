@@ -41,6 +41,9 @@ class GPS {
 
 		bool currentlyMoving() { return _movingSeconds > 0; };
 
+		void setFakeGPS(bool fakeGPS) { _fakeGPS = fakeGPS; };
+		bool fakeGPS() { return _fakeGPS; };
+
 		RingBuff<int16_t>* speedHistory;
 		RingBuff<int16_t>* altitudeHistory;
 		uint16_t historyRate() { return 60 / accumulateCount; };
@@ -56,6 +59,8 @@ class GPS {
 		RingBuff<int16_t>* _speedAccumulate;
 		RingBuff<int16_t>* _altitudeAccumulate;
 		uint16_t _accumulateIndex;
+
+		bool _fakeGPS;
 };
 
 extern GPSData _gpsData;

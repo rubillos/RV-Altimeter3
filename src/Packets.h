@@ -68,6 +68,7 @@ class PacketMonitor {
 				bool getPacket(TPMSPacket* packet);
 
 				void setFakePackets(bool doFakes);
+				bool fakePackets() { return _doFakePackets; };
 
 				PacketBuff* packetLog() { return _packetLog; }
 

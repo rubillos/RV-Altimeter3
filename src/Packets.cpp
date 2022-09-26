@@ -111,14 +111,9 @@ void PacketMonitor::setFakePackets(bool doFakes) {
     queueNextFake();
 }
 
-constexpr uint32_t fakeIDs[] = { 0xA2AF7F, 0xA29D51, 0xA2AFC7, 0x75EBD7, 0xA37072, 0x75E5FD, 0x223344, 0x887766 };
-constexpr uint16_t fakeIDCount = sizeof(fakeIDs) / sizeof(uint32_t);
-
+constexpr uint32_t fakeIDs[] = { 0xA2AF7F, 0xA29D51, 0xA2AFC7, 0x75EBD7, 0xA37072, 0x75E6FD, 0x223344, 0x887766 };
 float pressureList[] = { 90, 95, 90, 100, 105, 76, 124 };
-constexpr uint16_t pressureCount = sizeof(pressureList) / sizeof(float);
-
 float tempList[] = { 65, 70, 80, 85, 80, 150, 80, 30 };
-constexpr uint16_t tempCount = sizeof(tempList) / sizeof(float);
 
 void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
     static int16_t idIndex = 0;
@@ -127,8 +122,8 @@ void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
     packet->timeStamp = millis();
     packet->rssi = random(-50, -3);
     packet->id = fakeIDs[idIndex];
-    packet->pressure = sequenceInterp(pressureList, pressureCount, tireP[idIndex]);
-    packet->temperature = sequenceInterp(tempList, tempCount, tireP[idIndex]);
+    packet->pressure = sequenceInterp(pressureList, countof(pressureList), tireP[idIndex]);
+    packet->temperature = sequenceInterp(tempList, countof(tempList), tireP[idIndex]);
     packet->lowBattery = false;
     packet->fastLeak = false;
     packet->duplicateCount = random(0, 5) < 4 ? 1:2;
@@ -137,7 +132,7 @@ void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
     if (tireP[idIndex]>=1.0) {
         tireP[idIndex] -= 1.0;
     }
-    idIndex = (idIndex+1) % fakeIDCount;
+    idIndex = (idIndex+1) % countof(fakeIDs);
 }
 
 bool packetsEqual(TPMSPacket* p1, TPMSPacket* p2) {

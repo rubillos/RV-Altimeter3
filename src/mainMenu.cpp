@@ -18,7 +18,6 @@ Button buttonBack(0, lowerRowV, -30, 58, "Back", backScheme);
 Button buttonDone(buttonRightSide, lowerRowV, -20, 58, "Done", backScheme);
 
 void buttonRepeat(Menu* menu, Button* button) {
-	button->draw(false, true);
 	_touchScreen.allowNextRepeat();;
 	menu->prefsDirty();
 	delay(buttonFlashTime);
@@ -76,6 +75,22 @@ bool toggleMute(Menu* menu, SlashButton* button) {
 	delay(buttonFlashTime);
 	_beeper.setMute(!_beeper.muted());
 	button->setState(!_beeper.muted());
+	menu->prefsDirty();
+	return false;
+}
+
+bool toggleFakeGPS(Menu* menu, SlashButton* button) {
+	delay(buttonFlashTime);
+	_gps.setFakeGPS(!_gps.fakeGPS());
+	button->setState(_gps.fakeGPS());
+	menu->prefsDirty();
+	return false;
+}
+
+bool toggleFakeSatellites(Menu* menu, SlashButton* button) {
+	delay(buttonFlashTime);
+	_packetMonitor.setFakePackets(!_packetMonitor.fakePackets());
+	button->setState(_packetMonitor.fakePackets());
 	menu->prefsDirty();
 	return false;
 }
@@ -170,8 +185,8 @@ void LogView::previousPage() {
 	} 
 };
 
-constexpr int16_t logColumns[] = { -110, 110, -340, -460, -624, -770 };
-constexpr uint16_t logColumnCount = 6;
+constexpr int16_t logColumns[] = { 30, -260, 263, -390, -500, -640, -770 };
+constexpr uint16_t logColumnCount = sizeof(logColumns) / sizeof(int16_t);
 
 uint16_t tabOffset(int16_t tabStop, uint16_t scale, const char* str) {
 	if (tabStop >= 0) {
@@ -191,7 +206,7 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 	uint16_t count = _packetMonitor.packetLog()->length();
 
-	constexpr const char* headings[] = { "Tire  ", "  ID", "Press", "Temp", "Signal", "Age" };
+	constexpr const char* headings[] = { "Tire", "ID  ", "", "Press", "Temp", "Signal", "Age" };
 
 	for (uint16_t i=0; i<logColumnCount; i++) {
 		_textManager.drawString(headings[i], _rect.x + tabOffset(logColumns[i], _scheme.sizeX, headings[i]), _rect.y, _scheme.sizeX, _scheme.sizeY, RA8875_GREEN);
@@ -229,13 +244,19 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 
 	for (uint16_t i=0; i<logColumnCount; i++) {
 		uint16_t sizeX = _scheme.sizeX;
+		uint16_t sizeY = _scheme.sizeY;
+		uint32_t color = _scheme.textColor;
 		uint16_t otherColors[4];
+
+		_textManager.setSpaceNarrowing(false);
 
 		switch (i) {
 			case 0: {
 					int16_t index = _tireHandler.indexOfSensor(packet.id);
 					if (index != -1) {
 						snprintf(lineBuff, sizeof(lineBuff), "%s", _tireHandler.tireName(index, true));
+						sizeX -= 1;
+						_textManager.setSpaceNarrowing(true);
 					}
 					else {
 						lineBuff[0] = 0;
@@ -246,19 +267,29 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 				snprintf(lineBuff, sizeof(lineBuff), "%06X", packet.id);
 				break;
 			case 2:
-				snprintf(lineBuff, sizeof(lineBuff), "%3.0fpsi", packet.pressure);
+				if (packet.duplicateCount > 1) {
+					snprintf(lineBuff, sizeof(lineBuff), "(%d)", packet.duplicateCount);
+					sizeX -= 1;
+					color = RA8875_YELLOW;
+				}
+				else {
+					lineBuff[0] = 0;
+				}
 				break;
 			case 3:
-				snprintf(lineBuff, sizeof(lineBuff), "%3.0f\xBA", packet.temperature);
+				snprintf(lineBuff, sizeof(lineBuff), "%3.0fpsi", packet.pressure);
 				break;
 			case 4:
-				snprintf(lineBuff, sizeof(lineBuff), "%3ddB", packet.rssi);
+				snprintf(lineBuff, sizeof(lineBuff), "%3.0f\xBA", packet.temperature);
 				break;
 			case 5:
+				snprintf(lineBuff, sizeof(lineBuff), "%3ddB", packet.rssi);
+				break;
+			case 6:
 				snprintf(lineBuff, sizeof(lineBuff), "%3dm%02ds", minutes, seconds);
 				break;
 		}
-		_textManager.drawString(lineBuff, _rect.x +  + tabOffset(logColumns[i], sizeX, lineBuff), y, sizeX, _scheme.sizeY, _scheme.textColor, -1, otherColors);
+		_textManager.drawString(lineBuff, _rect.x +  + tabOffset(logColumns[i], sizeX, lineBuff), y, sizeX, sizeY, color, -1, otherColors);
 	}
 }
 
@@ -361,6 +392,7 @@ void runMainMenu() {
 	ButtonScheme sensorIDScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 3, 2, buttonAlignLeft };
 	ButtonScheme infoTextScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 2, 2 };
 	ButtonScheme infoTextNarrowScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 1, 2 };
+	ButtonScheme fakeButtonScheme = { RA8875_WHITE, RA8875_GRAY_DK, RA8875_GRAY_LT, 2, 2 };
 	ButtonScheme systemTextScheme = { RA8875_WHITE, RA8875_BLACK, RA8875_BLACK, 3, 2 };
 
 	constexpr uint16_t gapS = buttonVPriorSame;
@@ -432,15 +464,19 @@ void runMainMenu() {
 	constexpr uint16_t mb_w = 500;
 	constexpr uint16_t mb_h = 48;
 	constexpr uint16_t mb_gap = buttonVPriorBelow | 17;
+	constexpr uint16_t mb_gap2 = buttonVPriorBelow | 37;
 
 	Header headerSystemInfo(0,  0, 800, 60, "System Info", headerScheme);
 	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS Status", mainButtonScheme);
 	Button buttonAccelInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Accelerometer", mainButtonScheme);
 	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Font Test", mainButtonScheme);
+	SlashButton buttonFakeGPS(150, mb_gap2, 240, mb_h, "Fake GPS", fakeButtonScheme);
+	SlashButton buttonFakePackets(410, buttonVPriorSame, 240, mb_h, "Fake Sensorx", fakeButtonScheme);
 	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
 	Button systemSleep(buttonRightSide, lowerRowV, -20, 58, "Sleep", backScheme);
-	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonAccelInfo, &buttonFontInfo, &systemVoltage, &systemSleep, NULL };
+	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonAccelInfo, &buttonFontInfo, 
+						&buttonFakeGPS, &buttonFakePackets, &systemVoltage, &systemSleep, NULL };
 
 	//-------------------------------------
 	Header headerFontStatus(0,  0, 800, 60, "Font Test", headerScheme);
@@ -487,6 +523,10 @@ void runMainMenu() {
 	buttonGPSInfo.subButtons = gpsInfoMenu;
 	buttonAccelInfo.subButtons = accelInfoMenu;
 	buttonFontInfo.subButtons = fontInfoMenu;
+	buttonFakeGPS.setState(_gps.fakeGPS());
+	buttonFakeGPS.touchFunc = (bool(*)(void*, void*))toggleFakeGPS;
+	buttonFakePackets.setState(_packetMonitor.fakePackets());
+	buttonFakePackets.touchFunc = (bool(*)(void*, void*))toggleFakeSatellites;
 
 	buttonMinPressureMinus.touchFunc = (bool(*)(void*, void*))&minPressureMinus;
 	buttonMinPressurePlus.touchFunc = (bool(*)(void*, void*))&minPressurePlus;

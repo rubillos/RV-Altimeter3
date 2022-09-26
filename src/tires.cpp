@@ -33,12 +33,12 @@ const char* tireNames[] = {
 };
 
 const char* shortTireNames[] = {
-	"LF",
-	"RF",
-	"LRO",
-	"LRI",
-	"RRI",
-	"RRO"
+	"Left Front",
+	"Right Front",
+	"Left Rear Outer",
+	"Left Rear Inner",
+	"Right Rear Inner",
+	"Right Rear Outer"
 };
 
 void TireHandler::drawTires() {

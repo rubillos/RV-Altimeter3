@@ -52,10 +52,7 @@ constexpr float DISTANCE_TO_FLOAT_FLOAT = 304.8;
 constexpr float movingThreshold = 5.0;
 
 float altitudeList[] = { 100, 500, 2500, 2000, 3500, 3500, 6000, 6000, 12000, 5000, 5500, 4500 };
-constexpr uint16_t altitudeCount = sizeof(altitudeList) / sizeof(float);
-
 float speedList[] = { 0, 35, 37, 60, 60, 70, 70, 75, 0, 0, 40, 60 };
-constexpr uint16_t speedCount = sizeof(speedList) / sizeof(float);
 
 bool GPS::update() {
 	static bool haveHadFix = false;
@@ -95,8 +92,7 @@ bool GPS::update() {
 
 		uint32_t readTime = gpsTime;
 
-	#if 1
-		if (!_gpsData.haveFix) {
+		if (!_gpsData.haveFix && _fakeGPS) {
 			static elapsedMillis upTime;
 			static float altitudeP;
 			static float speedP;
@@ -118,8 +114,8 @@ bool GPS::update() {
 			_gpsData.heading = headingNum;
 			headingNum = (headingNum + 10) % 360;
 
-			float newSpeed = sequenceInterp(speedList, speedCount, speedP);
-			float newAltitude = sequenceInterp(altitudeList, altitudeCount, altitudeP);
+			float newSpeed = sequenceInterp(speedList, countof(speedList), speedP);
+			float newAltitude = sequenceInterp(altitudeList, countof(altitudeList), altitudeP);
 			if (curSpeed == -1) {
 				curSpeed = newSpeed;
 			}
@@ -144,7 +140,6 @@ bool GPS::update() {
 			}
 			_gpsData.haveFix = (upTime > 2000);
 		}
-	#endif
 
 		static int16_t lastZoneOffset = -7;
 		bool isDST = _zoneCalc.dateIsDST(year, month, day, hour, minute, lastZoneOffset);

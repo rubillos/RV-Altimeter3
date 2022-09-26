@@ -1,6 +1,8 @@
 #include "prefs.h"
 #include "touchscreen.h"
 #include "beep.h"
+#include "gps.h"
+#include "packets.h"
 
 PrefDataRec _prefData;
 Prefs _prefs;
@@ -25,6 +27,8 @@ void Prefs::readPrefs() {
 		_touchScreen.setTouchMatrix(&_prefData.touchCalibration);
 	}
 	_beeper.setMute(_preferences.getBool("mute", false));
+	_gps.setFakeGPS(_preferences.getBool("fakeGPS", false));
+	_packetMonitor.setFakePackets(_preferences.getBool("fakePackets", false));
 }
 
 void Prefs::writePrefs() {
@@ -39,6 +43,8 @@ void Prefs::writePrefs() {
 	_preferences.putFloat("tempMax", _prefData.alarmTempMax);
 	_preferences.putBytes("touchMatrix", &_prefData.touchCalibration, sizeof(_prefData.touchCalibration));
 	_preferences.putBool("mute", _beeper.muted());
+	_preferences.putBool("fakeGPS", _gps.fakeGPS());
+	_preferences.putBool("fakePackets", _packetMonitor.fakePackets());
 }
 
 Preferences _preferences;
