@@ -52,4 +52,10 @@ extern bool systemUpdate();
 extern void packetCheck();
 extern void doCalibrate();
 
+template <typename T, size_t N>
+constexpr size_t countof(T(&)[N])
+{
+    return N;
+}
+
 #endif
