@@ -18,14 +18,11 @@ uint16_t receivedPacket = 0; // count packets
 volatile uint32_t packetCount = 0;
 
 // this function is called when a complete packet is received by the module
-void ICACHE_RAM_ATTR setFlag(void) {
+void IRAM_ATTR setFlag(void) {
     packetCount++;
 }
 
 void PacketMonitor::begin() {
-  // initialize SX1278
-//   Serial.println("\nInitializing SX1278... ");
-
     _packetLog = new PacketBuff(100);
 
     radio.beginFSK();
@@ -51,27 +48,20 @@ void PacketMonitor::begin() {
     radio.setDio0Action(setFlag);
 
     // start listening for packets
-    Serial.print(F("Starting to listen ...\n"));
+    Serial.print(F("PacketMonitor: Starting to listen ...\n"));
     radio.startReceive();
 }
 
-void showChecksum(uint8_t *array) {
+bool computeChecksum(uint8_t *array, bool show=false) {
     uint16_t byteSum = array[1] + array[2] + array[3] + array[4] + array[5] + array[6] + array[7];
     uint16_t checkSum = ((byteSum & 0xFF00) ? 0x80 : 0x00) | (byteSum & 0x7F);
+    bool match = checkSum == array[0];
 
-    Serial.printf("Checksum: byteSum=0x%X, checkSum=0x%X, byte0=0x%X\n",byteSum, checkSum, array[0]);
-}
-
-bool computeChecksum(uint8_t *array) {
-    uint16_t byteSum = array[1] + array[2] + array[3] + array[4] + array[5] + array[6] + array[7];
-    uint16_t checkSum = ((byteSum & 0xFF00) ? 0x80 : 0x00) | (byteSum & 0x7F);
-
-    // Serial.printf("Checksum: byteSum=0x%X, checkSum=0x%X, byte0=0x%X\n",byteSum, checkSum, array[0]);
-
-    if ( checkSum == array[0] ) {
-        return true;
+    if (show) {
+        Serial.printf("Checksum - %s: byteSum=0x%X, checkSum=0x%X, byte0=0x%X\n", (match) ? "Match":"FAIL", byteSum, checkSum, array[0]);
     }
-    return false;
+
+    return match;
 }
 
 void decodeManI(byte *array, int size) { 
@@ -141,6 +131,7 @@ void PacketMonitor::makeFakePacket(TPMSPacket* packet) {
     packet->temperature = sequenceInterp(tempList, tempCount, tireP[idIndex]);
     packet->lowBattery = false;
     packet->fastLeak = false;
+    packet->duplicateCount = random(0, 5) < 4 ? 1:2;
 
     tireP[idIndex] += 0.01;
     if (tireP[idIndex]>=1.0) {
@@ -181,9 +172,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
             shiftBlockRight(byteArr, newPacket, 16, 2);      
             decodeManI(newPacket, 16);
 
-            if (computeChecksum(newPacket)) {
-                showChecksum(newPacket);
-
+            if (computeChecksum(newPacket, true)) {
                 packet->timeStamp = millis();
                 packet->rssi = radio.getRSSI(true);
                 packet->duplicateCount = 1;
@@ -211,7 +200,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                         result = true;
                     }
                 }
-            }  
+            }
         }
         else {
             Serial.printf("Failed, code ", state);

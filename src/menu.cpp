@@ -8,8 +8,6 @@
 #include "beep.h"
 #include "defs.h"
 
-extern void doCalibrate();
-
 constexpr uint32_t prefWriteTime = 2000;
 constexpr uint32_t refreshRate = 200;
 
@@ -29,8 +27,6 @@ void Menu::run(Button** currentMenu) {
 			Button* button = hitButton(currentMenu, touchPt, true);
 			
 			if (button) {
-				// Serial.printf("Button: %s\n", button->title().c_str());
-				
 				if (button->touchFunc) {
 					_goBack = false;
 					bool update = button->touchFunc(this, button);
@@ -111,11 +107,5 @@ void Menu::run(Button** currentMenu) {
 			_prefs.writePrefs();
 			_prefsDirty = false;
 		}
-
-	// 	static elapsedMillis showTime;
-	// 	if (showTime > 1000) {
-	// 		Serial.printf("%06d: Menu: free memory=%d\n", millis(), ESP.getFreeHeap());
-	// 		showTime = 0;
-	// 	}
 	}
 }

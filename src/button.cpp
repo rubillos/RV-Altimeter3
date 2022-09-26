@@ -1,6 +1,4 @@
 #include "button.h"
-#include "touchscreen.h"
-#include "dataDisplay.h"
 #include "textManager.h"
 #include "defs.h"
 
@@ -12,12 +10,14 @@ void drawButtons(Button** buttons) {
     }
 }
 
+constexpr int16_t button_widen_amount = 10;
+
 Button* hitButton(Button** buttons, tsPoint_t pt, bool invert) {
-    for (uint8_t widen=0; widen<2; widen++) {
+    for (uint8_t widen=0; widen<3; widen++) {
         Button** list = buttons;
 
         while (*list) {
-            if ((*list)->hitTest(pt, widen)) {
+            if ((*list)->hitTest(pt, widen*button_widen_amount)) {
                 if (invert) {
                     (*list)->draw(true, true);
                 }
@@ -33,33 +33,26 @@ void setupButtons(Button** buttons) {
     Button* prior = NULL;
 
     while (*buttons) {
-        Button* next = *buttons;
-        if (next->_y & (buttonVPriorBelow | buttonVPriorSame)) {
-            next->_priorButton = prior;
+        Button* button = *buttons;
+        if (button->_y & (buttonVPriorBelow | buttonVPriorSame)) {
+            button->_priorButton = prior;
         }
-        prior = next;
+        prior = button;
         buttons++;
     }
 }
 
-constexpr int16_t widen_amount = 20;
-
-bool Button::hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen) {
+bool Button::hitTestInternal(tsPoint_t pt, ButtonRect rect, uint16_t widen) {
     if (!visible()) {
         return false;
     }
 
     computeScreenRect();
 
-   if (widen) {
-        return ((pt.x>=rect.x-widen_amount) && (pt.x<rect.x+rect.w+2*widen_amount) && (pt.y>=rect.y-widen_amount) && (pt.y<rect.y+rect.h+2*widen_amount));
-    }
-    else {
-        return ((pt.x>=rect.x) && (pt.x<rect.x+rect.w) && (pt.y>=rect.y) && (pt.y<rect.y+_rect.h));
-    }
+    return ((pt.x>=rect.x-widen) && (pt.x<rect.x+rect.w+2*widen) && (pt.y>=rect.y-widen) && (pt.y<rect.y+rect.h+2*widen));
 };
 
-bool Button::hitTest(tsPoint_t pt, bool widen) {
+bool Button::hitTest(tsPoint_t pt, uint16_t widen) {
     return hitTestInternal(pt, _rect, widen);
 };
 
@@ -210,14 +203,5 @@ void Button::computeScreenRect() {
             _rect.y = _y;
         }
         _dirty = false;
-    }
-}
-
-void SlashButton::draw(bool pressed, bool forceBackground) {
-    Button::draw(pressed, forceBackground);
-    if (!_state) {
-        ButtonScheme sc = scheme();
-
-        _dataDisplay.drawThickLine(_display, _rect.x+5, _rect.y+_rect.h-6, _rect.x+_rect.w-6, _rect.y+5, 5, RA8875_RED, true);
     }
 }

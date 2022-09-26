@@ -62,8 +62,7 @@ class SSD1306Wire : public OLEDDisplay {
 
 			// Let's use ~700khz if ESP8266 is in 160Mhz mode
 			// this will be limited to ~400khz if the ESP8266 in 80Mhz mode.
-			Wire.begin(int(this->_sda), this->_scl, 400000U);
-			// Wire.begin(int(this->_sda), this->_scl, 700000U);
+			Wire.begin(int(this->_sda), this->_scl, 700000U);
 		
 			return true;
     }

@@ -15,6 +15,8 @@
 
 #include "fonts/IconFont.h"
 
+// #define PREVENT_LAYER_SWITCH
+
 constexpr uint16_t upColor =   0b010001110001000;
 constexpr uint16_t downColor = 0b111000100001000;
 
@@ -257,16 +259,22 @@ void DataDisplay::drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t 
 }
 
 void DataDisplay::drawInAltLayer() {
+	#ifndef PREVENT_LAYER_SWITCH
 	_display.setDrawLayer(!_drawLayer);
+	#endif
 }
 
 void DataDisplay::drawInCurrentLayer() {
+	#ifndef PREVENT_LAYER_SWITCH
 	_display.setDrawLayer(_drawLayer);
+	#endif
 }
 
 void DataDisplay::switchToAltLayer() {
+	#ifndef PREVENT_LAYER_SWITCH
 	_display.showLayer(!_drawLayer);
 	_drawLayer = !_drawLayer;
+	#endif
 }
 
 bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {

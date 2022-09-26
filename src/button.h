@@ -3,6 +3,9 @@
 
 #include "Adafruit_RA8875.h"
 
+#include "dataDisplay.h"
+#include "touchscreen.h"
+
 typedef enum {
 	buttonAlignCenter = 0x00,
 	buttonAlignLeft = 0x01,
@@ -64,7 +67,7 @@ class Button {
 		virtual void setTitle(String title) { _title = title; _dirty = true; };
 		virtual String title() { return _title; };
 		virtual ButtonScheme scheme(bool pressed = false);
-		virtual bool hitTest(tsPoint_t pt, bool widen=false);
+		virtual bool hitTest(tsPoint_t pt, uint16_t widen=0);
 		virtual bool isHeader() { return false; };
 		virtual void drawTitle(String title, uint16_t x, uint16_t y, uint8_t sizeX, uint8_t sizeY, uint16_t textColor, int32_t backColor);
 		virtual void draw(bool pressed=false, bool forceBackground=false);
@@ -79,7 +82,7 @@ class Button {
 		int16_t _h;
 
 	protected:
-		bool hitTestInternal(tsPoint_t pt, ButtonRect rect, bool widen);
+		bool hitTestInternal(tsPoint_t pt, ButtonRect rect, uint16_t widen);
 		uint16_t titleWidth();
 		uint16_t titleHeight();
 		void computeScreenRect();
@@ -99,10 +102,15 @@ class SlashButton : public Button {
 			Button(x, y, w, h, title, scheme) {
 				_state = state;
 		};
-		void draw(bool pressed=false, bool forceBackground=false);
 		void setState(bool state) { _state=state; _dirty=true; };
 		uint8_t refresh() {
 			return _dirty ? buttonRefreshRedraw : buttonRefreshNone;
+		};
+		void draw(bool pressed=false, bool forceBackground=false) {
+			Button::draw(pressed, forceBackground);
+			if (!_state) {
+				_dataDisplay.drawThickLine(_display, _rect.x+5, _rect.y+_rect.h-6, _rect.x+_rect.w-6, _rect.y+5, 5, RA8875_RED, true);
+			}
 		};
 	private:
 		bool _state;
@@ -114,7 +122,7 @@ class Label : public Button {
 			Button(x, y, w, h, title, scheme) {
 				_titleInset = titleInset;
 		};
-		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
+		bool hitTest(tsPoint_t pt, uint16_t widen=0) { return false; };
 		bool transparentText() { return true; };
 };
 
@@ -125,7 +133,7 @@ class Header : public Button {
 
 		};
 		bool isHeader() { return true; };
-		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
+		bool hitTest(tsPoint_t pt, uint16_t widen=0) { return false; };
 };
 
 class FloatLabel : public Label {

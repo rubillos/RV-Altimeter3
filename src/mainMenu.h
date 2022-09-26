@@ -22,7 +22,7 @@ class LogButton;
 class LogView : public Button {
 	public:
 		LogView(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme, LogButton* pageNum, LogButton* previous, LogButton* next);
-		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
+		bool hitTest(tsPoint_t pt, uint16_t widen=0) { return false; };
 		void draw(bool pressed=false, bool forceBackground=false);
 		void drawPacket(TPMSPacket& packet, uint16_t lineNumber);
         uint8_t refresh();
@@ -153,7 +153,7 @@ class SensorButton : public Label {
 			_textManager.drawString(title, x, y, sizeX, sizeY, textColor, backColor, _colors);
 		}
 
-		bool hitTest(tsPoint_t pt, bool widen=false) { return Button::hitTest(pt, widen) || Button::hitTestInternal(pt, _label->rect(), widen); };
+		bool hitTest(tsPoint_t pt, uint16_t widen=0) { return Button::hitTest(pt, widen) || Button::hitTestInternal(pt, _label->rect(), widen); };
 
 		uint8_t refresh() {
 			return buttonRefreshRedraw;
@@ -168,7 +168,7 @@ class SensorButton : public Label {
 class AccelView : public Button {
 	public:
 		AccelView(int16_t x, int16_t y, int16_t w, int16_t h, String title, ButtonScheme& scheme) : Button(x, y, w, h, title, scheme) {};
-		bool hitTest(tsPoint_t pt, bool widen=false) { return false; };
+		bool hitTest(tsPoint_t pt, uint16_t widen=0) { return false; };
 		void draw(bool pressed=false, bool forceBackground=false);
 		void drawBackground(bool drawCursor);
         uint8_t refresh();

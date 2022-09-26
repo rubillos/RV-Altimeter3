@@ -434,9 +434,10 @@ void runMainMenu() {
 	constexpr uint16_t mb_gap = buttonVPriorBelow | 17;
 
 	Header headerSystemInfo(0,  0, 800, 60, "System Info", headerScheme);
-	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS", mainButtonScheme);
+	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
+	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS Status", mainButtonScheme);
 	Button buttonAccelInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Accelerometer", mainButtonScheme);
-	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Fonts", mainButtonScheme);
+	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Font Test", mainButtonScheme);
 	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
 	Button systemSleep(buttonRightSide, lowerRowV, -20, 58, "Sleep", backScheme);
 	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonAccelInfo, &buttonFontInfo, &systemVoltage, &systemSleep, NULL };
@@ -472,7 +473,6 @@ void runMainMenu() {
 	Header headerMain(0,  0, 800, 60, "Main Menu", headerScheme);
 	Button buttonSetAlarms(buttonHCenter,  mb_y, mb_w, mb_h, "Set Tire Alarms", mainButtonScheme);
 	Button buttonEditSensors(buttonHCenter, mb_gap, mb_w, mb_h, "Pair Sensors", mainButtonScheme);
-	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 	Button buttonMonitor(buttonHCenter, mb_gap, mb_w, mb_h, "Sensor Log", mainButtonScheme);
 	Button buttonStatus(buttonHCenter, mb_gap, mb_w, mb_h, "System Info", mainButtonScheme);
 	SlashButton systemMute(365, lowerRowV, 70, 58, "\x0E", backScheme);
@@ -480,10 +480,10 @@ void runMainMenu() {
 
 	buttonSetAlarms.subButtons = setAlarmsMenu;
 	buttonEditSensors.subButtons = editSensorsMenu;
-	buttonCalibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
 	buttonMonitor.subButtons = packetMonitorMenu;
 	buttonStatus.subButtons = systemInfoMenu;
 
+	buttonCalibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
 	buttonGPSInfo.subButtons = gpsInfoMenu;
 	buttonAccelInfo.subButtons = accelInfoMenu;
 	buttonFontInfo.subButtons = fontInfoMenu;
