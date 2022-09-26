@@ -141,9 +141,9 @@ void setup() {
 
 	Serial.printf("12v Power: %s, Switch Closed: %s\n", have12v ? "yes":"no", switchClosed ? "yes":"no");
 
-	// Serial.println("Scan Bus");
-	// displayOLED.connect();
-	// scanBus(Wire);
+	Serial.println("Scan Bus");
+	displayOLED.connect();
+	scanBus(Wire);
 
 	Serial.println("Init OLED");
 	displayOLED.init();

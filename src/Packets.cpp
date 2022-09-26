@@ -172,7 +172,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
             shiftBlockRight(byteArr, newPacket, 16, 2);      
             decodeManI(newPacket, 16);
 
-            if (computeChecksum(newPacket, true)) {
+            if (computeChecksum(newPacket, false)) {
                 packet->timeStamp = millis();
                 packet->rssi = radio.getRSSI(true);
                 packet->duplicateCount = 1;
