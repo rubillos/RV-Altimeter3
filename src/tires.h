@@ -4,7 +4,6 @@
 #include "Adafruit_RA8875.h"
 #include "packets.h"
 #include "elapsedMillis.h"
-#include "Buffer8.h"
 #include "beep.h"
 
 constexpr uint32_t temperatureTime = 4000;

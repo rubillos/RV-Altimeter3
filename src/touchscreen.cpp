@@ -21,7 +21,7 @@ volatile bool allowRepeat = false;
 
 SPIClass LCDSPI(HSPI);
 Adafruit_RA8875 _display = Adafruit_RA8875(RA8875_CS, RA8875_RESET);
-Buffer8 _displayBuffer8(0, 0, cellWidth, cellHeight);
+RA8875_Buffer8 _displayBuffer8(0, 0, cellWidth, cellHeight);
 
 void IRAM_ATTR touchInterrupt() {
     static uint32_t lastTouchTime = 0;

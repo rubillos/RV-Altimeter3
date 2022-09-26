@@ -3,7 +3,6 @@
 #include "defs.h"
 #include "Adafruit_RA8875.h"
 #include "touchscreen.h"
-#include "Buffer8.h"
 #include "tires.h"
 #include "gps.h"
 #include "menu.h"
