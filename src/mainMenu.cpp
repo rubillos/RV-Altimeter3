@@ -219,7 +219,7 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 	uint16_t line = 1;
 	for (uint16_t i=firstLine; i<lastLine; i++) {
-		TPMSPacket packet = buffer->lookup(i);
+		TPMSPacket packet = buffer->getSample(i);
 		uint16_t y = _rect.y + line++ * lineHeight + 3;
 
 		_display.drawFastHLine(_rect.x, y, _rect.w, _scheme.borderColor);

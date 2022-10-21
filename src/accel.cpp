@@ -56,7 +56,7 @@ void printRing(const char* name, RingBuff<float>* ring) {
     uint16_t count = ring->sampleCount();
     Serial.printf("%s: ", name);
     for (uint16_t i=0; i<count; i++) {
-        Serial.printf("%0.2f", ring->lookup(i));
+        Serial.printf("%0.2f", ring->getSample(i));
         if (i<count-1) {
             Serial.print(", ");
         }

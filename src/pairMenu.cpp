@@ -91,7 +91,7 @@ void checkForNewPackets() {
 	bool done = false;
 
 	for (uint16_t i=0; !done && i<numPackets; i++) {
-		TPMSPacket packet = log->lookup(i);
+		TPMSPacket packet = log->getSample(i);
 
 		if (packet.timeStamp > pairTimeStamp) {
 			sensorButtons[sensorButtonIndex]->setTitle(hexTitle(packet.id));

@@ -73,10 +73,10 @@ void DataGraph::draw() {
 
 	int16_t startOffset = _x+_w + (_rightSide ? -1 : -2);
 	int16_t range = max(1, _scaleMax - _scaleMin);
-	int16_t value = _data->lookup(0);
+	int16_t value = _data->getSample(0);
 
 	for (uint16_t i=0; i<drawCount; i++) {
-		int16_t nextValue = _data->lookup(i+1);
+		int16_t nextValue = _data->getSample(i+1);
 		int16_t scaled = (value - _scaleMin) * drawHeight / range;
 
 		if (scaled) {

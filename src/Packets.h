@@ -31,7 +31,7 @@ class PacketBuff {
 			if (_length < _count) _length++;
 			_hash++;
 		};
-		TPMSPacket lookup(uint16_t itemIndex) {
+		TPMSPacket getSample(uint16_t itemIndex) {
 			if (_length == 0) {
 				return _buffer[0];
 			}

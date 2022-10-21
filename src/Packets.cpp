@@ -183,7 +183,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                 packet->fastLeak = (newPacket[6] & 0x10) != 0;
 
                 if (packet->id!=0 && packet->pressure<180 && packet->temperature>-20 && packet->temperature<180) {
-                    TPMSPacket lastPacket = _packetLog->lookup(0);
+                    TPMSPacket lastPacket = _packetLog->getSample(0);
                     uint32_t timeDiff = packet->timeStamp - lastPacket.timeStamp;
 
                     if (timeDiff<1000 && packetsEqual(packet, &lastPacket)) {
