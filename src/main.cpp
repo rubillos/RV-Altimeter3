@@ -143,7 +143,7 @@ void setup() {
 
 	Serial.println("Scan Bus");
 	displayOLED.connect();
-	scanBus(Wire);
+	// scanBus(Wire);
 
 	Serial.println("Init OLED");
 	displayOLED.init();
