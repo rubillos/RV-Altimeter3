@@ -124,12 +124,17 @@ void TextManager::setSpaceNarrowing(bool narrow) {
 }
 
 bool TextManager::isKernPair(char c1, char c2) {
-	uint16_t index = c1<<8 | c2;
+	if (!_proportionalSpacing) {
+		return false;
+	}
+	else {
+		uint16_t index = c1<<8 | c2;
 
-	return (_charKerns[index >> 3] & (1 << (index & 7))) != 0;
+		return (_charKerns[index >> 3] & (1 << (index & 7))) != 0;
+	}
 }
 
-uint16_t TextManager::widthOfString(String str, uint8_t scale) {
+uint16_t TextManager::widthOfString(String str, uint8_t xScale) {
 	const char* chars = str.c_str();
 	uint16_t len = strlen(chars);
 	uint16_t charCount = len;
@@ -142,12 +147,17 @@ uint16_t TextManager::widthOfString(String str, uint8_t scale) {
 			charCount -= 2;
 			i += 1;
 		}
-		else {
+		else if (_proportionalSpacing) {
 			offset += _charLeftShift[c] + _charRightShift[c];
+			if (i>0) {
+				if (_textManager.isKernPair(chars[i-1], c)) {
+					offset -= 1;
+				}
+			}
 		}
 	}
 
-	return (8 * charCount + offset) * scale;
+	return (8 * charCount + offset) * xScale;
 }
 
 void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, uint8_t yScale, uint16_t textColor, int32_t backColor, uint16_t* otherColors) {
@@ -180,8 +190,8 @@ void TextManager::drawString(String str, int16_t x, int16_t y, uint8_t xScale, u
 				i += 1;
 			}
 			else {
-				int16_t leftShift = _textManager._charLeftShift[c] * xScale;
-				int16_t rightShift = _textManager._charRightShift[c] * xScale;
+				int16_t leftShift = (_proportionalSpacing) ? _textManager._charLeftShift[c] * xScale : 0;
+				int16_t rightShift = (_proportionalSpacing) ? _textManager._charRightShift[c] * xScale : 0;
 
 				if (backColor != -1) {
 					_display.fillRect(x, y, charSpacing + leftShift + rightShift, charHeight, backColor);
