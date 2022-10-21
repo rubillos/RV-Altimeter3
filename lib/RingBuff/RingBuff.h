@@ -47,7 +47,7 @@ class RingBuff {
       }
       return value;
     };
-    T lookup(uint16_t itemIndex) {
+    T getSample(uint16_t itemIndex) {
       if (_sampleCount == 0) {
         return _buffer[0];
       }
