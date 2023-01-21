@@ -8,7 +8,7 @@ class TextManager {
 		TextManager();
 
         void setSpaceNarrowing(bool narrow=true);
-		void setProportionalSpacing(bool proportional) { _proportionalSpacing= proportional; };
+		void setProportionalSpacing(bool proportional) { _proportionalSpacing = proportional; };
 
         bool isKernPair(char c1, char c2);
         uint16_t widthOfString(String str, uint8_t scale);
