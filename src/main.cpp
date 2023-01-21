@@ -19,7 +19,6 @@
 #include "tires.h"
 #include "gps.h"
 #include "prefs.h"
-#include "accel.h"
 #include "OLED_print.h"
 #include "pins.h"
 #include "pairMenu.h"
@@ -36,6 +35,8 @@ SunSet sun;
 
 constexpr float voltageScale = 19.8;
 constexpr float runningVoltage = 13.0;
+
+constexpr uint32_t sleepWaitDelay = 20 * 60 * 1000; // 20 minutes
 
 bool have12v = false;
 bool switchClosed = false;
@@ -232,21 +233,22 @@ void sleepUntilTouch() {
 	bool done = false;
 	tsPoint_t touchPt;
 
-	_gps.setPowerSaveMode(true);
 	_touchScreen.enableBacklight(false);
 
 	while (!done) {
 		esp_sleep_enable_timer_wakeup(50 * 1000); // 50ms
 		esp_light_sleep_start();
 
-		if (_touchScreen.screenTouch(&touchPt) || voltageValue()>runningVoltage) {
+		if (_touchScreen.screenTouch(&touchPt) || voltageValue()>runningVoltage || _gpsData.movingSeconds>0) {
 			done = true;
 		}
+
+		packetCheck();
+		_gps.update();
 	}
 
-	_gps.setPowerSaveMode(false);
 	_touchScreen.enableBacklight(true);
-	sleepTime = 0;
+	sleepTime = sleepWaitDelay / 2;				// set half sleep wait time
 }
 
 const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
@@ -341,22 +343,13 @@ void loop() {
 		sleepTime = 0;
 	}
 
-	if (sleepTime > 20 * 60 * 1000) {
+	if (sleepTime > sleepWaitDelay) {
 		sleepUntilTouch();
 	}
 
 	static elapsedMillis showTime;
 	if (showTime > 500) {
 		Serial.printf("%06d: Draw time=%dms, free memory=%d\n", millis(), drawTime, ESP.getFreeHeap());
-
-		// sensors_event_t movement;
-		// _accel.getEvent(movement);
-		// Serial.printf("Accel: x=%f, y=%f, z=%f\n", movement.acceleration.x, movement.acceleration.y, movement.acceleration.z);
-
-		// if (_accel.didShake()) {
-		// 	Serial.println("Shake!");
-		// }
-
 		showTime = 0;
 	}
 

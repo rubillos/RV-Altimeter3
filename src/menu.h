@@ -10,7 +10,6 @@
 #include "tires.h"
 #include "gps.h"
 #include "prefs.h"
-#include "accel.h"
 
 constexpr uint32_t buttonFlashTime = 200;
 

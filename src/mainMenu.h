@@ -10,9 +10,7 @@
 #include "tires.h"
 #include "gps.h"
 #include "prefs.h"
-#include "accel.h"
 #include "menu.h"
-#include "accel.h"
 
 constexpr uint16_t logLines = 8;
 constexpr uint16_t logLineHeight = 17;

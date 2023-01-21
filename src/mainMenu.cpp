@@ -304,75 +304,6 @@ uint8_t LogView::refresh() {
 	return result ? buttonRefreshRedraw : buttonRefreshNone;
 };
 
-void AccelView::drawBackground(bool drawCursor) {
-	uint16_t rowHeight = _rect.h / 3;
-	ButtonScheme sc = scheme();
-
-	if (drawCursor) {
-		_display.drawFastHLine(_rect.x, _rect.y + rowHeight, _rect.w, _scheme.borderColor);
-		_display.drawFastHLine(_rect.x, _rect.y + rowHeight*2, _rect.w, _scheme.borderColor);
-		_display.drawFastVLine(_rect.x+_cursorX, _rect.y, _rect.h, RA8875_WHITE);
-	}
-	else {
-		_display.drawFastVLine(_rect.x+_cursorX, _rect.y, _rect.h, RA8875_BLACK);
-		_display.drawPixel(_rect.x+_cursorX, _rect.y+rowHeight, _scheme.borderColor);
-		_display.drawPixel(_rect.x+_cursorX, _rect.y+rowHeight*2, _scheme.borderColor);
-	}
-
-	_textManager.drawString("X", _rect.x+4, _rect.y+4, sc.sizeX, sc.sizeY, sc.textColor);
-	_textManager.drawString("Y", _rect.x+4, _rect.y+4+rowHeight, sc.sizeX, sc.sizeY, sc.textColor);
-	_textManager.drawString("Z", _rect.x+4, _rect.y+4+2*rowHeight, sc.sizeX, sc.sizeY, sc.textColor);
-
-}
-
-void AccelView::draw(bool pressed, bool forceBackground) {
-    computeScreenRect();
-	_cursorX = 0;
-	drawBackground(true);
-}
-
-constexpr float accelYScale = 9.8 * 1.0;
-
-uint8_t AccelView::refresh() {
-	uint16_t newSamples = _accel._xRecents->sampleCount();
-
-	if (newSamples) {
-		newSamples = 1;
-		uint16_t rowHeight = _rect.h / 3;
-		uint16_t halfHeight = rowHeight / 2;
-		ButtonScheme sc = scheme();
-		RingBuff<float>* recents[3] = { _accel._xRecents, _accel._yRecents, _accel._zRecents };
-		float offsets[3] = { 0.0, 0.0, -9.8 };
-		float averages[3] = { _accel._xShakeBuff->average(), _accel._yShakeBuff->average(), _accel._zShakeBuff->average() };
-
-		drawBackground(false);
-
-		if (_accel.didShake()) {
-			_display.drawFastVLine(_rect.x+_cursorX, _rect.y, 4, RA8875_RED);
-		}
-
-		for (uint16_t j=0; j<3; j++) {
-			int16_t height = (averages[j] + offsets[j]) / accelYScale * halfHeight;
-			_display.drawFastHLine(_rect.x+_cursorX, _rect.y+j*rowHeight+halfHeight+height, newSamples, RA8875_GRAY_DK);
-		}
-
-		for (uint16_t i=0; i<newSamples; i++) {
-			for (uint16_t j=0; j<3; j++) {
-				float sample = recents[j]->nextSample() + offsets[j];
-				int16_t height = sample / accelYScale * halfHeight;
-				uint16_t x = (_rect.x+_cursorX+i) % _rect.w;
-
-				_display.drawPixel(x, _rect.y+j*rowHeight+halfHeight+height, RA8875_CYAN);
-			}
-		}
-
-		_cursorX = (_cursorX + newSamples) % _rect.w;
-		_display.drawFastVLine(_rect.x+_cursorX, _rect.y, _rect.h, RA8875_WHITE);
-	}
-
-	return buttonRefreshFast;
-};
-
 void menuInit() {
 	buttonBack.touchFunc = (bool(*)(void*, void*))&menuBack;
 	buttonDone.touchFunc = (bool(*)(void*, void*))&menuBack;
@@ -469,13 +400,12 @@ void runMainMenu() {
 	Header headerSystemInfo(0,  0, 800, 60, "System Info", headerScheme);
 	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS Status", mainButtonScheme);
-	// Button buttonAccelInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Accelerometer", mainButtonScheme);
 	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Font Test", mainButtonScheme);
 	SlashButton buttonFakeGPS(150, mb_gap2, 240, mb_h, "Fake GPS", fakeButtonScheme);
 	SlashButton buttonFakePackets(410, buttonVPriorSame, 240, mb_h, "Fake Sensorx", fakeButtonScheme);
 	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
 	Button systemSleep(buttonRightSide, lowerRowV, -20, 58, "Sleep", backScheme);
-	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, /* &buttonAccelInfo, */ &buttonFontInfo, 
+	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonFontInfo, 
 						&buttonFakeGPS, &buttonFakePackets, &systemVoltage, &systemSleep, NULL };
 
 	//-------------------------------------
@@ -501,11 +431,6 @@ void runMainMenu() {
 	Button* gpsInfoMenu[] = { &headerGPSStatus, &buttonBack, &gpsCoordinate, &gpsSatellites, &gpsSpeed, &gpsMotion, NULL };
 
 	//-------------------------------------
-	Header headerAccelMonitor(0,  0, 800, 60, "Accelerometer Data", headerScheme);
-	AccelView accelView(0, 72, 800, 333, "AccelView", logScheme);
-	Button* accelInfoMenu[] = { &headerAccelMonitor, &buttonBack, &accelView, NULL };
-
-	//-------------------------------------
 	Header headerMain(0,  0, 800, 60, "Main Menu", headerScheme);
 	Button buttonSetAlarms(buttonHCenter,  mb_y, mb_w, mb_h, "Set Tire Alarms", mainButtonScheme);
 	Button buttonEditSensors(buttonHCenter, mb_gap, mb_w, mb_h, "Pair Sensors", mainButtonScheme);
@@ -521,7 +446,6 @@ void runMainMenu() {
 
 	buttonCalibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
 	buttonGPSInfo.subButtons = gpsInfoMenu;
-	// buttonAccelInfo.subButtons = accelInfoMenu;
 	buttonFontInfo.subButtons = fontInfoMenu;
 	buttonFakeGPS.setState(_gps.fakeGPS());
 	buttonFakeGPS.touchFunc = (bool(*)(void*, void*))toggleFakeGPS;
