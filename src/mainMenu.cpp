@@ -469,13 +469,13 @@ void runMainMenu() {
 	Header headerSystemInfo(0,  0, 800, 60, "System Info", headerScheme);
 	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS Status", mainButtonScheme);
-	Button buttonAccelInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Accelerometer", mainButtonScheme);
+	// Button buttonAccelInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Accelerometer", mainButtonScheme);
 	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Font Test", mainButtonScheme);
 	SlashButton buttonFakeGPS(150, mb_gap2, 240, mb_h, "Fake GPS", fakeButtonScheme);
 	SlashButton buttonFakePackets(410, buttonVPriorSame, 240, mb_h, "Fake Sensorx", fakeButtonScheme);
 	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
 	Button systemSleep(buttonRightSide, lowerRowV, -20, 58, "Sleep", backScheme);
-	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonAccelInfo, &buttonFontInfo, 
+	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, /* &buttonAccelInfo, */ &buttonFontInfo, 
 						&buttonFakeGPS, &buttonFakePackets, &systemVoltage, &systemSleep, NULL };
 
 	//-------------------------------------
@@ -521,7 +521,7 @@ void runMainMenu() {
 
 	buttonCalibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
 	buttonGPSInfo.subButtons = gpsInfoMenu;
-	buttonAccelInfo.subButtons = accelInfoMenu;
+	// buttonAccelInfo.subButtons = accelInfoMenu;
 	buttonFontInfo.subButtons = fontInfoMenu;
 	buttonFakeGPS.setState(_gps.fakeGPS());
 	buttonFakeGPS.touchFunc = (bool(*)(void*, void*))toggleFakeGPS;
