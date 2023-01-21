@@ -34,6 +34,9 @@ SSD1306Wire displayOLED = SSD1306Wire(0x3c, SDA_OLED, SCL_OLED, RST_OLED, GEOMET
 
 SunSet sun;
 
+constexpr float voltageScale = 19.8;
+constexpr float runningVoltage = 13.0;
+
 bool have12v = false;
 bool switchClosed = false;
 
@@ -121,7 +124,21 @@ float voltageValue() {
 
 	// Serial.printf("voltageValue=%d\n", value);
 	
-	return (float)value / analogMax * 32.0;
+	return (float)value / analogMax * voltageScale;
+}
+
+void soundTest() {
+	constexpr uint32_t frequency = 100;
+	constexpr uint32_t duration = 100;
+	constexpr uint32_t interval = 1000000 / frequency;
+	constexpr uint32_t offDuration = interval - duration;
+
+	for (int i=0; i<frequency; i++) {
+		digitalWrite(BUZZER_PIN, LOW);
+		delayMicroseconds(duration);
+		digitalWrite(BUZZER_PIN, HIGH);
+		delayMicroseconds(offDuration);
+	}
 }
 
 void setup() {
@@ -132,11 +149,13 @@ void setup() {
 
 	Serial.println("Begin Startup");
 
+	// soundTest();
+
 	analogReadResolution(analogResolution);
 
 	Serial.printf("Voltage: %0.2f\n", voltageValue());
 
-	have12v = voltageValue() > 15.0;
+	have12v = voltageValue() > 10.0;
 	switchClosed = switchState();
 
 	Serial.printf("12v Power: %s, Switch Closed: %s\n", have12v ? "yes":"no", switchClosed ? "yes":"no");
@@ -180,9 +199,9 @@ void setup() {
 	OLEDprintln("Init GPS...");
 	_gps.begin();
 	
-	OLEDprintln("Init Accelerometer...");
-	_accel.begin();
-	_accel.setShakeLimits(0.6, 0.6, 0.6);
+	// OLEDprintln("Init Accelerometer...");
+	// _accel.begin();
+	// _accel.setShakeLimits(0.6, 0.6, 0.6);
 	
 	OLEDprintln("Init Modules...");
 	_dataDisplay.begin();
@@ -207,6 +226,8 @@ void setup() {
 	OLEDprintln("Init Done!");
 }
 
+elapsedMillis sleepTime;
+
 void sleepUntilTouch() {
 	bool done = false;
 	tsPoint_t touchPt;
@@ -218,13 +239,14 @@ void sleepUntilTouch() {
 		esp_sleep_enable_timer_wakeup(50 * 1000); // 50ms
 		esp_light_sleep_start();
 
-		if (_touchScreen.screenTouch(&touchPt) || _accel.didShake()) {
+		if (_touchScreen.screenTouch(&touchPt) || voltageValue()>runningVoltage) {
 			done = true;
 		}
 	}
 
 	_gps.setPowerSaveMode(false);
 	_touchScreen.enableBacklight(true);
+	sleepTime = 0;
 }
 
 const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
@@ -233,7 +255,7 @@ bool systemUpdate() {
 	bool haveHadFix;
 
 	packetCheck();
-	_accel.update();
+	// _accel.update();
 	haveHadFix = _gps.update();
 	_tireHandler.checkSensorData(_gpsData.movingSeconds>0);
 
@@ -247,6 +269,7 @@ void loop() {
 
 	static uint16_t drawIndex = 0;
 	static elapsedMillis statusTime = 500;
+
 	if (statusTime >= 300) {
 		statusTime = 0;
 
@@ -284,7 +307,7 @@ void loop() {
 		elapsedMillis drawStart;
 		while (!_touchScreen.touchReady() && !_dataDisplay.showData(&drawIndex, curTime, _gpsData.altitude, _gpsData.heading, _gpsData.speed, sunriseTime, sunsetTime, _gpsData.satellites, haveHadFix, fixNames[_gpsData.fixType])) {
 			packetCheck();
-			_accel.update();
+			// _accel.update();
 		}
 		drawTime = drawStart;
 	}
@@ -311,6 +334,15 @@ void loop() {
 			_tireHandler.showTemperature();
 			statusTime = 500;
 		}
+		sleepTime = 0;
+	}
+
+	if (_gpsData.movingSeconds>0 || voltageValue()>runningVoltage) {
+		sleepTime = 0;
+	}
+
+	if (sleepTime > 20 * 60 * 1000) {
+		sleepUntilTouch();
 	}
 
 	static elapsedMillis showTime;
@@ -321,9 +353,9 @@ void loop() {
 		// _accel.getEvent(movement);
 		// Serial.printf("Accel: x=%f, y=%f, z=%f\n", movement.acceleration.x, movement.acceleration.y, movement.acceleration.z);
 
-		if (_accel.didShake()) {
-			Serial.println("Shake!");
-		}
+		// if (_accel.didShake()) {
+		// 	Serial.println("Shake!");
+		// }
 
 		showTime = 0;
 	}

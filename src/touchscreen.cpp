@@ -12,7 +12,7 @@ constexpr uint16_t touchMax = 512;
 
 constexpr uint32_t defaultTouchDelay = 500;
 constexpr uint32_t repeatTouchDelay = 300;
-constexpr uint32_t beepDuration = 10;
+constexpr uint32_t beepDuration = 200;
 
 volatile uint32_t interruptEnableTime;
 volatile bool interrupted = false;
