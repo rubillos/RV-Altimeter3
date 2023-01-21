@@ -157,12 +157,12 @@ void TireHandler::checkSensorData(bool moving) {
 					if (sensor->pressure >= 0) {
 						if ((time-sensor->timeStamp)>sensorTimeout) {
 							if (moving) {
-								sensor->pressure = -sensor->pressure;
-								sensor->temperature = -sensor->temperature;
-							}
-							else {
 								sensor->pressure = timedOutValue;
 								sensor->temperature = timedOutValue;
+							}
+							else {
+								sensor->pressure = -sensor->pressure;
+								sensor->temperature = -sensor->temperature;
 							}
 						}
 					}
