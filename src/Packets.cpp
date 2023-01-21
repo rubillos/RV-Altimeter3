@@ -3,6 +3,8 @@
 #include "SimplyAtomic.h"
 #include "defs.h"
 
+constexpr uint32_t duplicateTime = 2000;
+
 // https://github.com/cterwilliger/tst_tpms
 
 // Heltec WiFi LoRa has the following connections:
@@ -186,7 +188,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                     TPMSPacket lastPacket = _packetLog->getSample(0);
                     uint32_t timeDiff = packet->timeStamp - lastPacket.timeStamp;
 
-                    if (timeDiff<1000 && packetsEqual(packet, &lastPacket)) {
+                    if (timeDiff<duplicateTime && packetsEqual(packet, &lastPacket)) {
                         lastPacket.duplicateCount++;
                         _packetLog->replaceSample(0, lastPacket);
                     }
