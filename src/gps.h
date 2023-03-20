@@ -12,8 +12,11 @@
 constexpr uint16_t ringCount = 400;
 constexpr uint16_t accumulateCount = 1;
 
+// const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
+
 typedef struct {
 	bool haveFix;
+	bool haveHadFix;
 	int8_t zoneOffset;
 	uint8_t fixType;
 	float satellites;

@@ -200,7 +200,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
             }
         }
         else {
-            Serial.printf("Failed, code ", state);
+            Serial.printf("Failed, code = %d.\n", state);
         }
 
         radio.startReceive();

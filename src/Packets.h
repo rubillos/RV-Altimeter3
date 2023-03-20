@@ -11,14 +11,14 @@ constexpr float timedOutValue = -1001;		// sensor is offline
 constexpr float sensorNotPaired = -1002;
 
 typedef struct {
-		uint32_t timeStamp;
-		uint32_t id;
-		float pressure;
-		float temperature;
-		bool lowBattery;
-		bool fastLeak;
-		int16_t rssi;
-		uint16_t duplicateCount;
+	uint32_t timeStamp;
+	uint32_t id;
+	float pressure;
+	float temperature;
+	bool lowBattery;
+	bool fastLeak;
+	int16_t rssi;
+	uint16_t duplicateCount;
 } TPMSPacket;
 
 class PacketBuff {
@@ -63,25 +63,25 @@ class PacketBuff {
 };
 
 class PacketMonitor {
-		public:
-				void begin();
-				bool getPacket(TPMSPacket* packet);
+	public:
+		void begin();
+		bool getPacket(TPMSPacket* packet);
 
-				void setFakePackets(bool doFakes);
-				bool fakePackets() { return _doFakePackets; };
+		void setFakePackets(bool doFakes);
+		bool fakePackets() { return _doFakePackets; };
 
-				PacketBuff* packetLog() { return _packetLog; }
+		PacketBuff* packetLog() { return _packetLog; }
 
-		private:
-				void queueNextFake();
-				void makeFakePacket(TPMSPacket* packet);
+	private:
+		void queueNextFake();
+		void makeFakePacket(TPMSPacket* packet);
 
-				PacketBuff* _packetLog;
+		PacketBuff* _packetLog;
 
-				bool _doFakePackets;
-				elapsedMillis _fakePacketTime;
-				uint32_t _fakePacketDelay;
-				TPMSPacket _fakePacket;
+		bool _doFakePackets;
+		elapsedMillis _fakePacketTime;
+		uint32_t _fakePacketDelay;
+		TPMSPacket _fakePacket;
 };
 
 extern PacketMonitor _packetMonitor;

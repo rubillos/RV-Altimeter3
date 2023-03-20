@@ -230,31 +230,31 @@ void centerRotLenToPoint(int16_t centerX, int16_t centerY, float angle, float le
 uint16_t hoursLen = 9;
 uint16_t minutesLen = 16;
 
-void DataDisplay::drawPolarLine(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t length, int16_t thickness) {
+void DataDisplay::drawPolarLine(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t length, int16_t thickness, uint8_t color) {
 	int16_t destX, destY;
 
 	centerRotLenToPoint(x, y, angle, length, &destX, &destY);
 	
 	if (thickness > 1) {
-		drawThickLine(dest, x, y, destX, destY, thickness, WHITE8);
+		drawThickLine(dest, x, y, destX, destY, thickness, color);
 	}
 	else {
-		dest.drawLine(x, y, destX, destY, WHITE8);
+		dest.drawLine(x, y, destX, destY, color);
 	}
 }
 
-void DataDisplay::drawPointer(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t majorLen, uint16_t minorLen, uint16_t cornerAngle) {
+void DataDisplay::drawPointer(Adafruit_GFX& dest, int16_t x, int16_t y, float angle, uint16_t majorLen, uint16_t minorLen, uint16_t cornerAngle, uint8_t color) {
 	int16_t x1, x2, x3, y1, y2, y3;
 
 	centerRotLenToPoint(x, y, angle, majorLen, &x1, &y1);
 	centerRotLenToPoint(x, y, angle - cornerAngle, minorLen, &x2, &y2);
 	centerRotLenToPoint(x, y, angle + cornerAngle, minorLen, &x3, &y3);
-	dest.fillTriangle(x1, y1, x2, y2, x3, y3, WHITE8);
+	dest.fillTriangle(x1, y1, x2, y2, x3, y3, color);
 }
 
-void DataDisplay::drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16_t minutes) {
-	drawPolarLine(dest, x, y, hours * 360.0 / 12.0, hoursLen, 5);
-	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5);
+void DataDisplay::drawTime(Adafruit_GFX& dest, uint16_t x, uint16_t y, uint16_t hours, uint16_t minutes, uint8_t color) {
+	drawPolarLine(dest, x, y, hours * 360.0 / 12.0, hoursLen, 5, color);
+	drawPolarLine(dest, x, y, minutes * 360.0 / 60.0, minutesLen, 5, color);
 }
 
 void DataDisplay::drawInAltLayer() {
@@ -276,7 +276,7 @@ void DataDisplay::switchToAltLayer() {
 	#endif
 }
 
-bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude, float heading, float speed, uint32_t sunriseTime, uint32_t sunsetTime, uint16_t satCount, bool haveFix, String status) {
+bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, GPSData* gpsData, uint32_t sunriseTime, uint32_t sunsetTime) {
 	constexpr int16_t xOffset = 60;
 	constexpr int16_t xGap = 40;
 	constexpr int16_t yOffset = 18;
@@ -304,11 +304,22 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 
 	if (*drawIndex == dataDrawSpeed) {
 		_display.fillScreen(BLACK8);
-		_displayBuffer8.setTextColor(WHITE8);
-		if (!haveFix) {
+		if (!gpsData->haveHadFix) {
 			*drawIndex = dataDrawAcquiring;
 		}
 	}
+
+	uint8_t textColor = WHITE8;
+
+	if (*drawIndex == dataDrawSpeed || *drawIndex == dataDrawAltitude) {
+		if (!gpsData->haveFix) {
+			textColor = DARK_GRAY8;
+		}
+		else {
+			textColor = CYAN8;
+		}
+	}
+	_displayBuffer8.setTextColor(textColor);
 
 	bool useBuffer = *drawIndex>=dataDrawSpeed && *drawIndex<=dataDrawSunset;
 
@@ -326,17 +337,17 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 
 	switch (*drawIndex) {
 		case dataDrawSpeed: {
-				String speedStr = String(speed, 1);
+				String speedStr = String(gpsData->speed, 1);
 				if (_drawGraphs) {
 					xStart += 80 - getStringGlyphWidth(textFont, speedStr) / 2;
 					_displayBuffer8.setOffset(xStart, yStart, -1);
 				}
 				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, speedStr, 0, String("mph"));
-				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(speed / 75.0) * 200.0, 14, 5);
+				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(gpsData->speed / 75.0) * 200.0, 14, 5, textColor);
 			}
 			break;
 		case dataDrawAltitude: {
-				String altStr = String(altitude);
+				String altStr = String((int)gpsData->altitude);
 				if (_drawGraphs) {
 					xStart += 130 - getStringGlyphWidth(textFont, altStr) / 2;
 					_displayBuffer8.setOffset(xStart, yStart, -1);
@@ -352,12 +363,12 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 			colon = (colon+1)%4;
 
 			showCell(_displayBuffer8, xStart, yStart, emptyTimeGlyph, timeString, -2, suffixFromDayMinutes(time));
-			drawTime(_displayBuffer8, xStart+32, yStart+36, time / 60, time % 60);
+			drawTime(_displayBuffer8, xStart+32, yStart+36, time / 60, time % 60, textColor);
 			break;
 		case dataDrawHeading:
-			direction = ((int16_t)((heading+11.25) / 22.5)) % 16; 
+			direction = ((int16_t)((gpsData->heading+11.25) / 22.5)) % 16; 
 			showCell(_displayBuffer8, xStart, yStart, emptyDirectionGlyph, String(directionNames[direction]), 0, String(""));
-			drawPointer(_displayBuffer8, xStart+32, yStart+36, heading, 15, 8, 140);
+			drawPointer(_displayBuffer8, xStart+32, yStart+36, gpsData->heading, 15, 8, 140, textColor);
 			break;
 		case dataDrawSunrise:
 			showCell(_displayBuffer8, xStart, yStart, sunriseGlyph, timeFromDayMinutes(sunriseTime, false), -9, suffixFromDayMinutes(sunriseTime));
@@ -376,7 +387,7 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, int16_t altitude,
 			static String acquiring = String("Acquiring");
 			static String dots = String(".....");
 
-			status = acquiring+dots.substring(0, dotCount);
+			String status = acquiring+dots.substring(0, dotCount);
 			dotCount = (dotCount % 5)+1;
 
 			_displayBuffer8.setFont(&FreeSans18pt7b);

@@ -30,7 +30,10 @@ void Menu::run(Button** currentMenu) {
 				if (button->touchFunc) {
 					_goBack = false;
 					bool update = button->touchFunc(this, button);
-					if (_goBack) {
+					if (_finish) {
+						done = true;
+					}
+					else if (_goBack) {
 						if (_menuStackIndex > 0) {
 							currentMenu = _menuStack[--_menuStackIndex];
 							needUpdate = true;

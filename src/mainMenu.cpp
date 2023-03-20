@@ -5,7 +5,7 @@
 #include "pairMenu.h"
 
 #define MIN_PRESSURE 20.0
-#define MAX_PRESSURE 125.0
+#define MAX_PRESSURE 150.0
 #define MIN_TEMPERATURE 100.0
 #define MAX_TEMPERATURE 150.0
 
@@ -65,12 +65,6 @@ bool doScreenCalibrate(Menu* menu, Button* button) {
 	return true;
 }
 
-bool doSleep(Menu* menu, Button* button) {
-	delay(buttonFlashTime);
-	sleepUntilTouch();
-	return false;
-}
-
 bool toggleMute(Menu* menu, SlashButton* button) {
 	delay(buttonFlashTime);
 	_beeper.setMute(!_beeper.muted());
@@ -92,6 +86,13 @@ bool toggleFakeSatellites(Menu* menu, SlashButton* button) {
 	_packetMonitor.setFakePackets(!_packetMonitor.fakePackets());
 	button->setState(_packetMonitor.fakePackets());
 	menu->prefsDirty();
+	return false;
+}
+
+bool toggleDimScreen(Menu* menu, SlashButton* button) {
+	delay(buttonFlashTime);
+	setScreenDim(!screenIsDim());
+	button->setState(screenIsDim());
 	return false;
 }
 
@@ -402,11 +403,11 @@ void runMainMenu() {
 	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS Status", mainButtonScheme);
 	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Font Test", mainButtonScheme);
 	SlashButton buttonFakeGPS(150, mb_gap2, 240, mb_h, "Fake GPS", fakeButtonScheme);
-	SlashButton buttonFakePackets(410, buttonVPriorSame, 240, mb_h, "Fake Sensorx", fakeButtonScheme);
+	SlashButton buttonFakePackets(410, buttonVPriorSame, 240, mb_h, "Fake Sensors", fakeButtonScheme);
+	SlashButton buttonDimScreen(buttonHCenter, buttonVPriorSame, 240, mb_h, "Dim Screen", fakeButtonScheme);
 	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
-	Button systemSleep(buttonRightSide, lowerRowV, -20, 58, "Sleep", backScheme);
 	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonFontInfo, 
-						&buttonFakeGPS, &buttonFakePackets, &systemVoltage, &systemSleep, NULL };
+						&buttonFakeGPS, &buttonFakePackets, &buttonDimScreen, &systemVoltage, NULL };
 
 	//-------------------------------------
 	Header headerFontStatus(0,  0, 800, 60, "Font Test", headerScheme);
@@ -451,6 +452,8 @@ void runMainMenu() {
 	buttonFakeGPS.touchFunc = (bool(*)(void*, void*))toggleFakeGPS;
 	buttonFakePackets.setState(_packetMonitor.fakePackets());
 	buttonFakePackets.touchFunc = (bool(*)(void*, void*))toggleFakeSatellites;
+	buttonDimScreen.setState(screenIsDim());
+	buttonDimScreen.touchFunc = (bool(*)(void*, void*))toggleDimScreen;
 
 	buttonMinPressureMinus.touchFunc = (bool(*)(void*, void*))&minPressureMinus;
 	buttonMinPressurePlus.touchFunc = (bool(*)(void*, void*))&minPressurePlus;
@@ -481,7 +484,6 @@ void runMainMenu() {
 
 	systemMute.setState(!_beeper.muted());
 	systemMute.touchFunc = (bool(*)(void*, void*))toggleMute;
-	systemSleep.touchFunc = (bool(*)(void*, void*))&doSleep;
 
 	logView.resetPageNumber();
 

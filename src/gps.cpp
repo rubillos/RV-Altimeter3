@@ -69,6 +69,7 @@ bool GPS::update() {
 		uint8_t second;
 
 		_gpsData.haveFix = _gps.getGnssFixOk();
+		_gpsData.haveHadFix |= _gpsData.haveFix;
 
 		year = _gps.getYear();
 		month = _gps.getMonth();
@@ -80,11 +81,16 @@ bool GPS::update() {
 		_gpsData.latitude = (float)_gps.getLatitude() / DEGREES_TO_FLOAT;
 		_gpsData.longitude = (float)_gps.getLongitude() / DEGREES_TO_FLOAT;
 
-		_gpsData.altitude = _gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
-		_gpsData.altitude = max(altitudeMin, min(altitudeMax, _gpsData.altitude));
+		if (_gpsData.haveFix) {
+			_gpsData.altitude = _gps.getAltitudeMSL() / DISTANCE_TO_FLOAT_FLOAT;
+			_gpsData.altitude = max(altitudeMin, min(altitudeMax, _gpsData.altitude));
+		}
 
-		_gpsData.speed = (float)_gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
-		_gpsData.speed = max(speedMin, min(speedMax, _gpsData.speed));
+		float newSpeed = (float)_gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
+
+		if (_gpsData.haveFix && newSpeed >= speedMin && newSpeed < speedMax) {
+			_gpsData.speed = newSpeed;
+		}
 
 		_gpsData.heading = (float)_gps.getHeading() / HEADING_TO_FLOAT;
 		_gpsData.satellites = _gps.getSIV();

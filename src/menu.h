@@ -23,6 +23,7 @@ class Menu {
 		void run(Button** currentMenu=NULL);
 		bool isAtTopLevel() { return _menuStackIndex == 0; };
 		void goBack() { _goBack = true; };
+		void finish() { _finish = true; };
 		void redrawInAltLayer() { _redrawAlt = true; };
 		void prefsDirty() { _prefsDirty = true; _prefsDirtyTime = 0; };
 
@@ -31,6 +32,7 @@ class Menu {
 		uint16_t _menuStackIndex = 0;
 
 		bool _goBack = false;
+		bool _finish = false;
 		bool _prefsDirty = false;
 		bool _redrawAlt = false;
 		elapsedMillis _prefsDirtyTime;

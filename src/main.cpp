@@ -36,7 +36,7 @@ SunSet sun;
 constexpr float voltageScale = 19.8;
 constexpr float runningVoltage = 13.0;
 
-constexpr uint32_t sleepWaitDelay = 20 * 60 * 1000; // 20 minutes
+constexpr uint32_t screenDimDelay = 20 * 60 * 1000; // 20 minutes
 
 bool have12v = false;
 bool switchClosed = false;
@@ -200,10 +200,6 @@ void setup() {
 	OLEDprintln("Init GPS...");
 	_gps.begin();
 	
-	// OLEDprintln("Init Accelerometer...");
-	// _accel.begin();
-	// _accel.setShakeLimits(0.6, 0.6, 0.6);
-	
 	OLEDprintln("Init Modules...");
 	_dataDisplay.begin();
 	menuInit();
@@ -227,47 +223,27 @@ void setup() {
 	OLEDprintln("Init Done!");
 }
 
-elapsedMillis sleepTime;
+bool dimScreen = false;
 
-void sleepUntilTouch() {
-	bool done = false;
-	tsPoint_t touchPt;
-
-	_touchScreen.enableBacklight(false);
-
-	while (!done) {
-		esp_sleep_enable_timer_wakeup(50 * 1000); // 50ms
-		esp_light_sleep_start();
-
-		if (_touchScreen.screenTouch(&touchPt) || voltageValue()>runningVoltage || _gpsData.movingSeconds>0) {
-			done = true;
-		}
-
-		packetCheck();
-		_gps.update();
-	}
-
-	_touchScreen.enableBacklight(true);
-	sleepTime = sleepWaitDelay / 2;				// set half sleep wait time
+bool screenIsDim() {
+	return dimScreen;
 }
 
-const char *fixNames[] = {"No Fix", "Dead Reckoning", "2D", "3D", "GNSS + Dead reckoning", "Time only" };
+void setScreenDim(bool dim) {
+	dimScreen = dim;
+}
 
-bool systemUpdate() {
-	bool haveHadFix;
-
+void systemUpdate() {
 	packetCheck();
-	// _accel.update();
-	haveHadFix = _gps.update();
-	_tireHandler.checkSensorData(_gpsData.movingSeconds>0);
-
-	return haveHadFix;
+	_gps.update();
+	_tireHandler.checkSensorData(_gpsData.movingSeconds>(20*60));
 }
 
 void loop() {
 	static uint32_t drawTime;
+	static elapsedMillis engineStoppedTime;
 
-	bool haveHadFix = systemUpdate();
+	systemUpdate();
 
 	static uint16_t drawIndex = 0;
 	static elapsedMillis statusTime = 500;
@@ -307,45 +283,44 @@ void loop() {
 		uint32_t curTime = _gpsData.localTimeDate.hour() * 60 + _gpsData.localTimeDate.minute();
 
 		elapsedMillis drawStart;
-		while (!_touchScreen.touchReady() && !_dataDisplay.showData(&drawIndex, curTime, _gpsData.altitude, _gpsData.heading, _gpsData.speed, sunriseTime, sunsetTime, _gpsData.satellites, haveHadFix, fixNames[_gpsData.fixType])) {
+		while (!_touchScreen.touchReady() && !_dataDisplay.showData(&drawIndex, curTime, &_gpsData, sunriseTime, sunsetTime)) {
 			packetCheck();
-			// _accel.update();
 		}
 		drawTime = drawStart;
 	}
 
 	tsPoint_t touchPt;
 	if (_touchScreen.screenTouch(&touchPt)) {
-		int16_t tireIndex = _tireHandler.indexOfTireAtPoint(touchPt);
+		if (_touchScreen.backlightEnabled()) {
+			int16_t tireIndex = _tireHandler.indexOfTireAtPoint(touchPt);
 
-		if (tireIndex != -1 && _tireHandler.pressureForSensor(tireIndex)==sensorNotPaired) {
-			drawIndex = 0;
-			_tireHandler.pressTire(tireIndex);
-			delay(200);
-			runPairMenu(tireIndex);
+			if (tireIndex != -1 && _tireHandler.pressureForSensor(tireIndex)==sensorNotPaired) {
+				drawIndex = 0;
+				_tireHandler.pressTire(tireIndex);
+				delay(200);
+				runPairMenu(tireIndex);
+			}
+			else if (touchPt.y < topRowY) {
+				_dataDisplay.toggleDrawGraphs();
+				drawIndex = 0;
+			}
+			else if (touchPt.y < tireTopY) {
+				drawIndex = 0;
+				runMainMenu();
+			}
+			else {
+				_tireHandler.showTemperature();
+				statusTime = 500;
+			}
 		}
-		else if (touchPt.y < topRowY) {
-			_dataDisplay.toggleDrawGraphs();
-			drawIndex = 0;
-		}
-		else if (touchPt.y < tireTopY) {
-			drawIndex = 0;
-			runMainMenu();
-		}
-		else {
-			_tireHandler.showTemperature();
-			statusTime = 500;
-		}
-		sleepTime = 0;
+		engineStoppedTime = screenDimDelay / 2;				// set half sleep wait time
 	}
 
-	if (_gpsData.movingSeconds>0 || voltageValue()>runningVoltage) {
-		sleepTime = 0;
+	if (voltageValue() > runningVoltage) {
+		engineStoppedTime = 0;
 	}
 
-	if (sleepTime > sleepWaitDelay) {
-		sleepUntilTouch();
-	}
+	_touchScreen.enableBacklight(engineStoppedTime < screenDimDelay && !dimScreen);
 
 	static elapsedMillis showTime;
 	if (showTime > 500) {

@@ -11,6 +11,7 @@ class TouchScreen {
         void beginTouch();
 
         void enableBacklight(bool enable);
+        bool backlightEnabled() { return _backlightOn; };
 
         bool computeCalibrationMatrix(tsPoint_t* displayPts, tsPoint_t* touchPts, tsMatrix_t* matrix);
         tsPoint_t scaleTouchPoint(tsPoint_t touchPt, tsMatrix_t* matrix);
@@ -26,6 +27,7 @@ class TouchScreen {
     private:
         tsMatrix_t _matrix;
         bool _have12v;
+        bool _backlightOn;
 };
 
 extern TouchScreen _touchScreen;

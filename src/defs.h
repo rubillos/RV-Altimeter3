@@ -43,12 +43,14 @@ extern void getStringDimensions(Adafruit_GFX& dest, String str, uint16_t* width,
 extern uint16_t getStringWidth(Adafruit_GFX& dest, String str);
 extern void writePrefs();
 
-extern void sleepUntilTouch();
+extern bool screenIsDim();
+extern void setScreenDim(bool dim);
+
 extern float sequenceInterp(float* values, int16_t count, float percent);
 
 extern bool switchState();
 extern float voltageValue();
-extern bool systemUpdate();
+extern void systemUpdate();
 extern void packetCheck();
 extern void doCalibrate();
 

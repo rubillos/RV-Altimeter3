@@ -38,20 +38,15 @@ void IRAM_ATTR touchInterrupt() {
 }
 
 void TouchScreen::enableBacklight(bool enable) {
-    if (enable) {
-        _display.displayOn(true);
-        delay(1);
-        _display.GPIOX(true);
-        delay(200);
-        _display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
-        delay(100);
-        _display.PWM1out((_have12v) ? 255 : 127);	// set backlight
-    }
-    else {
-        _display.PWM1out(0);	// set backlight
-        _display.PWM1config(false, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
-        _display.GPIOX(false);
-        _display.displayOn(false);
+    if (enable != _backlightOn) {
+        _backlightOn = enable;
+
+        if (enable) {
+            _display.PWM1out((_have12v) ? 255 : 127);	// set backlight
+        }
+        else {
+            _display.PWM1out(1);
+        }
     }
 }
 
@@ -72,7 +67,13 @@ void TouchScreen::startDisplay(bool have12v) {
 	_display.graphicsMode();                 // go back to graphics mode
 	_display.fillScreen(BLACK8);
 
-	enableBacklight(true);
+    _display.displayOn(true);
+    delay(1);
+    _display.GPIOX(true);
+    delay(200);
+    _display.PWM1config(true, RA8875_PWM_CLK_DIV1024); // PWM output for backlight
+    delay(100);
+    enableBacklight(true);
 
     _displayBuffer8.setTextSize(1);
     _displayBuffer8.setTextWrap(false);
