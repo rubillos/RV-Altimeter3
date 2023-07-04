@@ -161,11 +161,10 @@ void setup() {
 
 	Serial.printf("12v Power: %s, Switch Closed: %s\n", have12v ? "yes":"no", switchClosed ? "yes":"no");
 
-	Serial.println("Scan Bus");
-	displayOLED.connect();
-	// scanBus(Wire);
-
 	Serial.println("Init OLED");
+	pinMode(VEXT_PIN, OUTPUT);			// turn on VExt
+	digitalWrite(VEXT_PIN, LOW);
+
 	displayOLED.init();
 	displayOLED.flipScreenVertically();
 	displayOLED.setFont(ArialMT_Plain_10);
@@ -223,14 +222,14 @@ void setup() {
 	OLEDprintln("Init Done!");
 }
 
-bool dimScreen = false;
+bool allowScreenDim = false;
 
-bool screenIsDim() {
-	return dimScreen;
+bool screenCanDim() {
+	return allowScreenDim;
 }
 
-void setScreenDim(bool dim) {
-	dimScreen = dim;
+void setScreenCanDim(bool canDim) {
+	allowScreenDim = canDim;
 }
 
 void systemUpdate() {
@@ -320,7 +319,7 @@ void loop() {
 		engineStoppedTime = 0;
 	}
 
-	_touchScreen.enableBacklight(engineStoppedTime < screenDimDelay && !dimScreen);
+	_touchScreen.enableBacklight(engineStoppedTime < screenDimDelay || !allowScreenDim);
 
 	static elapsedMillis showTime;
 	if (showTime > 500) {

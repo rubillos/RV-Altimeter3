@@ -43,8 +43,8 @@ extern void getStringDimensions(Adafruit_GFX& dest, String str, uint16_t* width,
 extern uint16_t getStringWidth(Adafruit_GFX& dest, String str);
 extern void writePrefs();
 
-extern bool screenIsDim();
-extern void setScreenDim(bool dim);
+extern bool screenCanDim();
+extern void setScreenCanDim(bool dim);
 
 extern float sequenceInterp(float* values, int16_t count, float percent);
 
