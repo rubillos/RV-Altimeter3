@@ -76,7 +76,7 @@ class PacketMonitor {
 		void queueNextFake();
 		void makeFakePacket(TPMSPacket* packet);
 
-		PacketBuff* _packetLog;
+		PacketBuff* _packetLog = NULL;
 
 		bool _doFakePackets;
 		elapsedMillis _fakePacketTime;
@@ -85,5 +85,6 @@ class PacketMonitor {
 };
 
 extern PacketMonitor _packetMonitor;
+extern float _radioCount;
 
 #endif

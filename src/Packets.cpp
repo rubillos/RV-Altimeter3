@@ -3,6 +3,8 @@
 #include "SimplyAtomic.h"
 #include "defs.h"
 
+#include "beep.h"
+
 constexpr uint32_t duplicateTime = 2000;
 
 // https://github.com/cterwilliger/tst_tpms
@@ -14,18 +16,31 @@ constexpr uint32_t duplicateTime = 2000;
 // DIO1 pin:  35 (clk)       GPIO35
 // DIO2 pin:  34 (data)      GPIO34
 SX1278 radio = new Module(18, 26, 14, 35);
+float _radioCount = 0;
 
-uint16_t receivedPacket = 0; // count packets
+uint32_t receivedPacket = 0; // count packets
 
-volatile uint32_t packetCount = 0;
+volatile uint32_t packetReceiveCount = 0;
+volatile uint32_t packetProcessCount = 0;
+
+elapsedMillis lastPacketRecv;
 
 // this function is called when a complete packet is received by the module
 void IRAM_ATTR setFlag(void) {
-    packetCount++;
+    packetReceiveCount++;
 }
 
 void PacketMonitor::begin() {
-    _packetLog = new PacketBuff(100);
+    if (_packetLog == NULL) {
+        _packetLog = new PacketBuff(100);
+    }
+
+    if (_radioCount++ > 0) {
+        radio = new Module(18, 26, 14, 35);
+    }
+
+    packetReceiveCount = 0;
+    packetProcessCount = 0;
 
     radio.beginFSK();
     radio.setOOK(true);
@@ -47,7 +62,9 @@ void PacketMonitor::begin() {
     radio.setOokPeakThresholdDecrement(RADIOLIB_SX127X_OOK_PEAK_THRESH_DEC_1_4_CHIP);
     radio.setOokPeakThresholdStep(RADIOLIB_SX127X_OOK_PEAK_THRESH_STEP_1_5_DB);
     radio.setRSSIConfig(RADIOLIB_SX127X_RSSI_SMOOTHING_SAMPLES_8);
-    radio.setDio0Action(setFlag);
+    radio.setDio0Action(setFlag, 1);
+
+    lastPacketRecv = 0;
 
     // start listening for packets
     Serial.print(F("PacketMonitor: Starting to listen ...\n"));
@@ -152,11 +169,9 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
         result = true;
     }
 
-    while (!result && packetCount) {
-        // Serial.printf("getPacket: %d packets available\n", packetCount);
-        ATOMIC() {
-            packetCount--;
-        }
+    while (!result && (packetReceiveCount != packetProcessCount)) {
+        // Serial.printf("getPacket: %d packets available (%d, %d)\n", packetReceiveCount-packetProcessCount, packetReceiveCount, packetProcessCount);
+        packetProcessCount++;
 
         byte byteArr[16];
         int state = radio.readData(byteArr, 16);
@@ -195,6 +210,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                     else {
                         _packetLog->addSample(*packet);
                         result = true;
+                        lastPacketRecv = 0;
                     }
                 }
             }
@@ -205,6 +221,12 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
 
         radio.startReceive();
     }
+
+    if (lastPacketRecv > (5 * 60 * 1000)) {
+        Serial.printf("Reset packet receiver.\n");
+        begin();
+    }
+
     return result;
 }
 
