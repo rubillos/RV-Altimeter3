@@ -3,6 +3,7 @@
 #include "button.h"
 #include "defs.h"
 #include "pairMenu.h"
+#include "packets.h"
 
 #define MIN_PRESSURE 20.0
 #define MAX_PRESSURE 150.0
@@ -91,8 +92,8 @@ bool toggleFakeSatellites(Menu* menu, SlashButton* button) {
 
 bool toggleDimScreen(Menu* menu, SlashButton* button) {
 	delay(buttonFlashTime);
-	setScreenDim(!screenIsDim());
-	button->setState(screenIsDim());
+	setScreenCanDim(!screenCanDim());
+	button->setState(screenCanDim());
 	return false;
 }
 
@@ -402,9 +403,9 @@ void runMainMenu() {
 	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS Status", mainButtonScheme);
 	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Font Test", mainButtonScheme);
-	SlashButton buttonFakeGPS(150, mb_gap2, 240, mb_h, "Fake GPS", fakeButtonScheme);
-	SlashButton buttonFakePackets(410, buttonVPriorSame, 240, mb_h, "Fake Sensors", fakeButtonScheme);
-	SlashButton buttonDimScreen(buttonHCenter, buttonVPriorSame, 240, mb_h, "Dim Screen", fakeButtonScheme);
+	SlashButton buttonFakeGPS(70, mb_gap2, 200, mb_h, "Fake GPS", fakeButtonScheme);
+	SlashButton buttonFakePackets(530, buttonVPriorSame, 200, mb_h, "Fake Sensors", fakeButtonScheme);
+	SlashButton buttonDimScreen(buttonHCenter, buttonVPriorSame, 200, mb_h, "Dim Screen", fakeButtonScheme);
 	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
 	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonFontInfo, 
 						&buttonFakeGPS, &buttonFakePackets, &buttonDimScreen, &systemVoltage, NULL };
@@ -429,7 +430,8 @@ void runMainMenu() {
 	FloatLabel gpsSatellites(0, gap8, 800, 32, "Satellites=%0.0f", infoTextScheme);
 	FloatLabel gpsSpeed(0, gap8, 800, 32, "Speed=%0.1f, Heading=%0.1f", infoTextScheme);
 	FloatLabel gpsMotion(0, gap8, 800, 32, "Moving=%0.0fs, Stopped=%0.0fs", infoTextScheme);
-	Button* gpsInfoMenu[] = { &headerGPSStatus, &buttonBack, &gpsCoordinate, &gpsSatellites, &gpsSpeed, &gpsMotion, NULL };
+	FloatLabel packetResetCount(0, gap8, 800, 32, "Packet radio reset count=%0.0f", infoTextScheme);
+	Button* gpsInfoMenu[] = { &headerGPSStatus, &buttonBack, &gpsCoordinate, &gpsSatellites, &gpsSpeed, &gpsMotion, &packetResetCount, NULL };
 
 	//-------------------------------------
 	Header headerMain(0,  0, 800, 60, "Main Menu", headerScheme);
@@ -452,7 +454,7 @@ void runMainMenu() {
 	buttonFakeGPS.touchFunc = (bool(*)(void*, void*))toggleFakeGPS;
 	buttonFakePackets.setState(_packetMonitor.fakePackets());
 	buttonFakePackets.touchFunc = (bool(*)(void*, void*))toggleFakeSatellites;
-	buttonDimScreen.setState(screenIsDim());
+	buttonDimScreen.setState(screenCanDim());
 	buttonDimScreen.touchFunc = (bool(*)(void*, void*))toggleDimScreen;
 
 	buttonMinPressureMinus.touchFunc = (bool(*)(void*, void*))&minPressureMinus;
@@ -481,6 +483,7 @@ void runMainMenu() {
 	gpsSpeed.setParameter(1, &_gpsData.heading);
 	gpsMotion.setParameter(0, &_gpsData.movingSeconds);
 	gpsMotion.setParameter(1, &_gpsData.stoppedSeconds);
+	packetResetCount.setParameter(0, &_radioCount);
 
 	systemMute.setState(!_beeper.muted());
 	systemMute.touchFunc = (bool(*)(void*, void*))toggleMute;
