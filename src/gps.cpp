@@ -28,6 +28,7 @@ void GPS::begin() {
         while (1);
     }
 
+	_gps.setNavigationFrequency(4);
 	_gps.setI2CpollingWait(25); 					 // Set i2cPollingWait to 25ms
 	_gps.setI2COutput(COM_TYPE_UBX);                 //Set the I2C port to output UBX only (turn off NMEA noise)
 	_gps.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
@@ -50,6 +51,7 @@ constexpr float SPEED_TO_FLOAT_MPH = 447.04;
 constexpr float DISTANCE_TO_FLOAT_FLOAT = 304.8;
 
 constexpr float movingThreshold = 5.0;
+constexpr uint32_t gpsInterval = 240;
 
 float altitudeList[] = { 100, 500, 2500, 2000, 3500, 3500, 6000, 6000, 12000, 5000, 5500, 4500 };
 float speedList[] = { 0, 35, 37, 60, 60, 70, 70, 75, 0, 0, 40, 60 };
@@ -57,8 +59,8 @@ float speedList[] = { 0, 35, 37, 60, 60, 70, 70, 75, 0, 0, 40, 60 };
 bool GPS::update() {
 	static bool haveHadFix = false;
 
-	static elapsedMillis gpsTime = 800;
-	if (gpsTime >= 1000) {
+	static elapsedMillis gpsTime = gpsInterval * 8 / 10;
+	if (gpsTime >= gpsInterval) {
 		gpsTime = 0;
 
 		uint16_t year;
@@ -193,6 +195,10 @@ bool GPS::update() {
 
 		_gpsData.movingSeconds = _movingSeconds;
 		_gpsData.stoppedSeconds = _stoppedSeconds;
+
+		if (_gpsData.stoppedSeconds > 5 && _gpsData.speed < 0.5) {
+			_gpsData.speed = 0;
+		}
 
 		// DateTime t = _gpsData.localTimeDate;
 		// Serial.printf("Time: %04d/%02d/%02d %02d:%02d:%02d (off=%d/%f, dst=%d)\n", t.year(), t.month(), t.day(), t.hour(), t.minute(), t.second(), lastZoneOffset, zoneOffset, isDST);
