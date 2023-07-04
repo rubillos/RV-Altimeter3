@@ -8,8 +8,10 @@
 #define SWITCH_AND_12V_PIN 2
 #define SWITCH_GND_PIN 13
 
+#define VEXT_PIN 21
+
 #define RA8875_SCK 17
-#define RA8875_RESET 21
+#define RA8875_RESET 32
 #define RA8875_CS 22
 #define RA8875_MOSI 23
 #define RA8875_MISO 36
