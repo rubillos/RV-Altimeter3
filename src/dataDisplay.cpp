@@ -9,6 +9,7 @@
 
 #include "fonts/FreeSans44pt7b.h"
 #include "fonts/ModFreeSans44pt.h"
+#include "fonts/FreeSans12pt7b.h"
 #include "fonts/FreeSans16pt7b.h"
 #include "fonts/FreeSans18pt7b.h"
 
@@ -125,6 +126,7 @@ char emptyDirectionGlyph = 'Y';
 
 const GFXfont *textFont = &ModFreeSans44pt7b;
 const GFXfont *suffixFont = &FreeSans16pt7b;
+const GFXfont *satFont = &FreeSans12pt7b;
 const GFXfont *glyphFont = &iconFont;
 
 void offsetCursor(Adafruit_GFX& dest, int16_t xOffset, int16_t yOffset) {
@@ -344,6 +346,15 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, GPSData* gpsData,
 				}
 				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, speedStr, 0, String("mph"));
 				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(gpsData->speed / 75.0) * 200.0, 14, 5, textColor);
+
+				char satStr[10];
+				uint16_t ascender = ascenderForFont(satFont);
+
+				sprintf(satStr, "s:%d", (int)gpsData->satellites);
+
+				_displayBuffer8.setFont(satFont);
+				offsetCursor(_displayBuffer8, -getStringWidth(_displayBuffer8, satStr), -40);
+				_displayBuffer8.print(satStr);
 			}
 			break;
 		case dataDrawAltitude: {
