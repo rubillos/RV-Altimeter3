@@ -26,7 +26,7 @@ volatile uint32_t packetProcessCount = 0;
 elapsedMillis lastPacketRecv;
 
 // this function is called when a complete packet is received by the module
-void IRAM_ATTR setFlag(void) {
+void ICACHE_RAM_ATTR setFlag(void) {
     packetReceiveCount++;
 }
 
@@ -219,7 +219,8 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
             Serial.printf("Failed, code = %d.\n", state);
         }
 
-        radio.startReceive();
+        // radio.startReceive();
+        // yield();
     }
 
     if (lastPacketRecv > (5 * 60 * 1000)) {
