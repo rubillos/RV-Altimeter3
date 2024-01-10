@@ -203,6 +203,9 @@ void setup() {
 	_dataDisplay.begin();
 	menuInit();
 
+	OLEDprintln("Restore Tire Pressures...");
+	_tireHandler.restoreSavedTireData();
+
 	OLEDprintln("Check touchscreen...");
 	if (!_prefData.touchCalibration.Divider) {
 		Serial.println("Calibrating...");
