@@ -29,6 +29,7 @@ void Prefs::readPrefs() {
 	_beeper.setMute(_preferences.getBool("mute", false));
 	_gps.setFakeGPS(_preferences.getBool("fakeGPS", false));
 	_packetMonitor.setFakePackets(_preferences.getBool("fakePackets", false));
+	setScreenCanDim(_preferences.getBool("screenCanDim", true));
 }
 
 void Prefs::writePrefs() {
@@ -45,6 +46,8 @@ void Prefs::writePrefs() {
 	_preferences.putBool("mute", _beeper.muted());
 	_preferences.putBool("fakeGPS", _gps.fakeGPS());
 	_preferences.putBool("fakePackets", _packetMonitor.fakePackets());
+	_preferences.putBool("screenCanDim", screenCanDim());
+
 }
 
 Preferences _preferences;
