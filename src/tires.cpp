@@ -197,13 +197,39 @@ void TireHandler::checkSensorData(bool moving) {
 	}
 }
 
-void TireHandler::restoreSavedTireData() {
+void TireHandler::adjustForRadioReset() {
+	uint32_t time = millis();
+
 	for (uint16_t i=0; i<numTires; i++) {
 		if (_prefData.sensorIDs[i]) {
 			TPMSPacket* sensor = &_sensorPackets[i];
 
+			if (sensor->timeStamp) {
+				if (sensor->pressure >= 0) {
+					sensor->timeStamp -= radioResetInterval;
+				}
+			}
+		}
+	}
+}
+
+void TireHandler::restoreSavedTireData() {
+	uint32_t time = millis();
+
+	for (uint16_t i=0; i<numTires; i++) {
+		if (_prefData.sensorIDs[i]) {
+			TPMSPacket* sensor = &_sensorPackets[i];
+
+			sensor->timeStamp = time;
 			sensor->pressure = _preferences.getFloat(tirePressKeys[i], noDataValue);
 			sensor->temperature = _preferences.getFloat(tireTempKeys[i], noDataValue);
+
+			if (sensor->pressure > 0) {
+				sensor->pressure = -sensor->pressure;
+			}
+			if (sensor->temperature > 0) {
+				sensor->temperature = -sensor->temperature;
+			}
 		}
 	}
 }

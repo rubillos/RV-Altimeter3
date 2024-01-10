@@ -29,6 +29,7 @@ class TireHandler {
 
 		void checkSensorData(bool moving);
 		void restoreSavedTireData();
+		void adjustForRadioReset();
 
 		const char* tireName(uint16_t index, bool shortName=false);
 		const char* noDataString();
