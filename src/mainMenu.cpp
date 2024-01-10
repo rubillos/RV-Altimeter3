@@ -94,6 +94,7 @@ bool toggleDimScreen(Menu* menu, SlashButton* button) {
 	delay(buttonFlashTime);
 	setScreenCanDim(!screenCanDim());
 	button->setState(screenCanDim());
+	menu->prefsDirty();
 	return false;
 }
 
@@ -224,8 +225,8 @@ void LogView::draw(bool pressed, bool forceBackground) {
 		TPMSPacket packet = buffer->getSample(i);
 		uint16_t y = _rect.y + line++ * lineHeight + 3;
 
+		drawPacket(packet, y);
 		_display.drawFastHLine(_rect.x, y, _rect.w, _scheme.borderColor);
-		drawPacket(packet, y+1);
 		_touchScreen.touchRefresh();
 	}
 	_display.drawFastHLine(_rect.x, _rect.y + line * lineHeight + 3, _rect.w, _scheme.borderColor);
@@ -244,16 +245,24 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 	uint16_t minutes = time / 60;
 	uint16_t seconds = time % 60;
 
-	for (uint16_t i=0; i<logColumnCount; i++) {
+	for (auto i=0; i<logColumnCount; i++) {
 		uint16_t sizeX = _scheme.sizeX;
 		uint16_t sizeY = _scheme.sizeY;
 		uint32_t color = _scheme.textColor;
 		uint16_t otherColors[4];
+		uint16_t columnSkip = 0;
 
 		_textManager.setSpaceNarrowing(false);
 
 		switch (i) {
-			case 0: {
+			case 0: 
+				if (packet.pressure == radioResetValue) {
+					snprintf(lineBuff, sizeof(lineBuff), "*** Packet Radio Reset ***");
+					color = RA8875_ORANGE;
+					sizeX += 1;
+					columnSkip = 5;
+				}
+				else {
 					int16_t index = _tireHandler.indexOfSensor(packet.id);
 					if (index != -1) {
 						snprintf(lineBuff, sizeof(lineBuff), "%s", _tireHandler.tireName(index, true));
@@ -291,7 +300,8 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 				snprintf(lineBuff, sizeof(lineBuff), "%3dm%02ds", minutes, seconds);
 				break;
 		}
-		_textManager.drawString(lineBuff, _rect.x +  + tabOffset(logColumns[i], sizeX, lineBuff), y, sizeX, sizeY, color, -1, otherColors);
+		_textManager.drawString(lineBuff, _rect.x + tabOffset(logColumns[i], sizeX, lineBuff), y, sizeX, sizeY, color, -1, otherColors);
+		i += columnSkip;
 	}
 }
 

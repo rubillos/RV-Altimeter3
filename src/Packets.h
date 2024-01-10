@@ -5,10 +5,13 @@
 
 #include "elapsedMillis.h"
 
+constexpr uint32_t radioResetInterval = 5 * 60 * 1000;		// 5 seconds
+
 // negative pressure or temperature indicates last value before stopping
 constexpr float noDataValue = -1000;		// no data yet
 constexpr float timedOutValue = -1001;		// sensor is offline
 constexpr float sensorNotPaired = -1002;
+constexpr float radioResetValue = -1003;
 
 typedef struct {
 	uint32_t timeStamp;

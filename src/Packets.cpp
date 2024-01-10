@@ -2,6 +2,7 @@
 
 #include "SimplyAtomic.h"
 #include "defs.h"
+#include "tires.h"
 
 #include "beep.h"
 
@@ -220,12 +221,20 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
         }
 
         // radio.startReceive();
-        // yield();
+        yield();
     }
 
-    if (lastPacketRecv > (5 * 60 * 1000)) {
+    if (lastPacketRecv > radioResetInterval) {
         Serial.printf("Reset packet receiver.\n");
         begin();
+
+        TPMSPacket resetPacket;
+
+        resetPacket.id = 0;
+        resetPacket.timeStamp = millis();
+        resetPacket.pressure = radioResetValue;
+        _packetLog->addSample(resetPacket);
+        _tireHandler.adjustForRadioReset();
     }
 
     return result;
