@@ -14,6 +14,8 @@ constexpr uint32_t defaultTouchDelay = 500;
 constexpr uint32_t repeatTouchDelay = 300;
 constexpr uint32_t beepDuration = 200;
 
+constexpr uint8_t dimDisplayPWM = 10;
+
 volatile uint32_t interruptEnableTime;
 volatile bool interrupted = false;
 volatile bool touched = false;
@@ -45,7 +47,7 @@ void TouchScreen::enableBacklight(bool enable) {
             _display.PWM1out((_have12v) ? 255 : 127);	// set backlight
         }
         else {
-            _display.PWM1out(1);
+            _display.PWM1out(dimDisplayPWM);
         }
     }
 }
