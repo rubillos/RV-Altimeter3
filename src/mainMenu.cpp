@@ -119,7 +119,6 @@ bool doLogPrevious(Menu* menu, LogButton* button) {
 	delay(buttonFlashTime);
 	button->_logView->previousPage();
 	menu->redrawInAltLayer();
-	buttonRepeat(menu, button);
 	return false;
 }
 
@@ -127,7 +126,6 @@ bool doLogNext(Menu* menu, LogButton* button) {
 	delay(buttonFlashTime);
 	button->_logView->nextPage();
 	menu->redrawInAltLayer();
-	buttonRepeat(menu, button);
 	return false;
 }
 
@@ -135,7 +133,6 @@ bool doLogFirst(Menu* menu, LogButton* button) {
 	delay(buttonFlashTime);
 	button->_logView->firstPage();
 	menu->redrawInAltLayer();
-	buttonRepeat(menu, button);
 	return false;
 }
 
@@ -188,7 +185,7 @@ void LogView::previousPage() {
 	} 
 };
 
-constexpr int16_t logColumns[] = { 30, -260, 263, -390, -500, -640, -770 };
+constexpr int16_t logColumns[] = { 30, -260, 263, -390, -490, 520, -650, -770 };
 constexpr uint16_t logColumnCount = sizeof(logColumns) / sizeof(int16_t);
 
 uint16_t tabOffset(int16_t tabStop, uint16_t scale, const char* str) {
@@ -209,7 +206,7 @@ void LogView::draw(bool pressed, bool forceBackground) {
 
 	uint16_t count = _packetMonitor.packetLog()->length();
 
-	constexpr const char* headings[] = { "Tire", "ID  ", "", "Press", "Temp", "Signal", "Age" };
+	constexpr const char* headings[] = { "Tire", "ID  ", "", "Press", "Temp", "!!", "Signal", "Age" };
 
 	for (uint16_t i=0; i<logColumnCount; i++) {
 		_textManager.drawString(headings[i], _rect.x + tabOffset(logColumns[i], _scheme.sizeX, headings[i]), _rect.y, _scheme.sizeX, _scheme.sizeY, RA8875_GREEN);
@@ -244,23 +241,36 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 	uint32_t time = (millis() - packet.timeStamp) / 1000;
 	uint16_t minutes = time / 60;
 	uint16_t seconds = time % 60;
+	uint8_t columnsToDraw = 0B11111111;
+
+	if (packet.error) {
+		columnsToDraw = 0B11010101;
+	}
+	else if (packet.pressure == radioResetValue) {
+		columnsToDraw = 0B10000001;
+	}
 
 	for (auto i=0; i<logColumnCount; i++) {
 		uint16_t sizeX = _scheme.sizeX;
 		uint16_t sizeY = _scheme.sizeY;
 		uint32_t color = _scheme.textColor;
 		uint16_t otherColors[4];
-		uint16_t columnSkip = 0;
 
 		_textManager.setSpaceNarrowing(false);
 
-		switch (i) {
-			case 0: 
-				if (packet.pressure == radioResetValue) {
-					snprintf(lineBuff, sizeof(lineBuff), "*** Packet Radio Reset ***");
+		if (columnsToDraw & (1<<i)) { switch (i) {
+			case 0:  // Tire name
+				if (packet.error) {
+					#ifdef PACKET_DEBUG
+					snprintf(lineBuff, sizeof(lineBuff), "%02X %02X %02X %02X %02X %02X %02X", packet.bytes[0], packet.bytes[1], packet.bytes[2], packet.bytes[3], packet.bytes[4], packet.bytes[5], packet.bytes[6]);
+					color = RA8875_RED;
+					sizeX -= 1;
+					#endif
+				}
+				else if (packet.pressure == radioResetValue) {
+					uint32_t seconds = packet.timeSincePacket / 1000;
+					snprintf(lineBuff, sizeof(lineBuff), "*** Packet Radio Reset: last=%ds ***", seconds);
 					color = RA8875_ORANGE;
-					sizeX += 1;
-					columnSkip = 5;
 				}
 				else {
 					int16_t index = _tireHandler.indexOfSensor(packet.id);
@@ -274,10 +284,10 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 					}
 				}
 				break;
-			case 1:
+			case 1: // ID
 				snprintf(lineBuff, sizeof(lineBuff), "%06X", packet.id);
 				break;
-			case 2:
+			case 2: // Duplicate count
 				if (packet.duplicateCount > 1) {
 					snprintf(lineBuff, sizeof(lineBuff), "(%d)", packet.duplicateCount);
 					sizeX -= 1;
@@ -287,22 +297,32 @@ void LogView::drawPacket(TPMSPacket& packet, uint16_t y) {
 					lineBuff[0] = 0;
 				}
 				break;
-			case 3:
+			case 3: // Pressure
 				snprintf(lineBuff, sizeof(lineBuff), "%3.0fpsi", packet.pressure);
 				break;
-			case 4:
-				snprintf(lineBuff, sizeof(lineBuff), "%3.0f\xBA", packet.temperature);
+			case 4: // Temperature
+				if (packet.error) {
+					snprintf(lineBuff, sizeof(lineBuff), "Invalid");
+					color = RA8875_RED;
+					sizeX += 1;
+				}
+				else {
+					snprintf(lineBuff, sizeof(lineBuff), "%3.0f\xBA", packet.temperature);
+				}
 				break;
-			case 5:
+			case 5: // Flags
+				snprintf(lineBuff, sizeof(lineBuff), "%s%s", (packet.lowBattery)?"B":"", (packet.fastLeak)?"F":"");
+				color = RA8875_RED;
+				break;
+			case 6: // Signal
 				snprintf(lineBuff, sizeof(lineBuff), "%3ddB", packet.rssi);
 				break;
-			case 6:
+			case 7: // Age
 				snprintf(lineBuff, sizeof(lineBuff), "%3dm%02ds", minutes, seconds);
 				break;
 		}
 		_textManager.drawString(lineBuff, _rect.x + tabOffset(logColumns[i], sizeX, lineBuff), y, sizeX, sizeY, color, -1, otherColors);
-		i += columnSkip;
-	}
+	} }
 }
 
 uint8_t LogView::refresh() {
