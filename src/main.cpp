@@ -238,7 +238,7 @@ void setScreenCanDim(bool canDim) {
 void systemUpdate() {
 	packetCheck();
 	_gps.update();
-	_tireHandler.checkSensorData(_gpsData.movingSeconds>(20*60));
+	_tireHandler.checkSensorData(_gpsData.movingSeconds>(2*60) || _gpsData.stoppedSeconds>(60*60)); // moving>2mins || stopped>60mins
 }
 
 void loop() {
