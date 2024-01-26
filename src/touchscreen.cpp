@@ -12,7 +12,7 @@ constexpr uint16_t touchMax = 512;
 
 constexpr uint32_t defaultTouchDelay = 500;
 constexpr uint32_t repeatTouchDelay = 300;
-constexpr uint32_t beepDuration = 200;
+constexpr uint32_t beepDuration = 20;
 
 constexpr uint8_t dimDisplayPWM = 10;
 
