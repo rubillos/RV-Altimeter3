@@ -3,6 +3,7 @@
 #include "SimplyAtomic.h"
 #include "defs.h"
 #include "tires.h"
+#include "beep.h"
 
 #include "beep.h"
 
@@ -25,6 +26,7 @@ volatile uint32_t packetReceiveCount = 0;
 volatile uint32_t packetProcessCount = 0;
 
 elapsedMillis lastPacketRecv;
+elapsedMillis lastRecv;
 
 // this function is called when a complete packet is received by the module
 void ICACHE_RAM_ATTR setFlag(void) {
@@ -66,6 +68,7 @@ void PacketMonitor::begin() {
     radio.setDio0Action(setFlag, 1);
 
     lastPacketRecv = 0;
+    lastRecv = 0;
 
     // start listening for packets
     Serial.print(F("PacketMonitor: Starting to listen ...\n"));
@@ -181,6 +184,8 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
             // Serial.printf("Received data\n");
             receivedPacket++;
 
+            lastRecv = 0;
+
             byte newPacket[16];
             shiftBlockRight(byteArr, newPacket, 16, 2);      
             decodeManI(newPacket, 16);
@@ -189,6 +194,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                 packet->timeStamp = millis();
                 packet->rssi = radio.getRSSI(true);
                 packet->duplicateCount = 1;
+                packet->error = false;
 
                 packet->id = newPacket[1]<<16 | newPacket[2]<<8 | newPacket[3];
 
@@ -211,10 +217,32 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
                     else {
                         _packetLog->addSample(*packet);
                         result = true;
-                        lastPacketRecv = 0;
                     }
+                    lastPacketRecv = 0;
                 }
             }
+            #ifdef PACKET_DEBUG
+            else {
+                TPMSPacket lastPacket = _packetLog->getSample(0);
+                packet->timeStamp = millis();
+                packet->rssi = radio.getRSSI(true);
+                packet->error = true;
+
+                for (auto i=0; i<7; i++) {
+                    packet->bytes[0] = newPacket[i+1];
+                }
+
+                if (lastPacket.error) {
+                    packet->duplicateCount = lastPacket.duplicateCount + 1;
+                    _packetLog->replaceSample(0, *packet);
+                }
+                else {
+                    packet->duplicateCount = 1;
+                    _packetLog->addSample(*packet);
+                }
+
+            }
+            #endif
         }
         else {
             Serial.printf("Failed, code = %d.\n", state);
@@ -226,13 +254,16 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
 
     if (lastPacketRecv > radioResetInterval) {
         Serial.printf("Reset packet receiver.\n");
-        begin();
+        _beeper.beep(500, false);
+        begin(); // reset radio
 
         TPMSPacket resetPacket;
 
         resetPacket.id = 0;
         resetPacket.timeStamp = millis();
         resetPacket.pressure = radioResetValue;
+        resetPacket.timeSincePacket = lastRecv;
+        resetPacket.error = false;
         _packetLog->addSample(resetPacket);
         _tireHandler.adjustForRadioReset();
     }

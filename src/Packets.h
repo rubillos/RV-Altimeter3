@@ -5,6 +5,8 @@
 
 #include "elapsedMillis.h"
 
+// #define PACKET_DEBUG
+
 constexpr uint32_t radioResetInterval = 5 * 60 * 1000;		// 5 seconds
 
 // negative pressure or temperature indicates last value before stopping
@@ -22,6 +24,11 @@ typedef struct {
 	bool fastLeak;
 	int16_t rssi;
 	uint16_t duplicateCount;
+	bool error;
+	uint32_t timeSincePacket;
+	#ifdef PACKET_DEBUG
+		uint8_t bytes[7];
+	#endif
 } TPMSPacket;
 
 class PacketBuff {
