@@ -50,7 +50,7 @@ constexpr float HEADING_TO_FLOAT = 100000;
 constexpr float SPEED_TO_FLOAT_MPH = 447.04;
 constexpr float DISTANCE_TO_FLOAT_FLOAT = 304.8;
 
-constexpr float movingThreshold = 5.0;
+constexpr float movingThreshold = 2.0;
 constexpr uint32_t gpsInterval = 240;
 
 float altitudeList[] = { 100, 500, 2500, 2000, 3500, 3500, 6000, 6000, 12000, 5000, 5500, 4500 };
