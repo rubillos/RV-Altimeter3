@@ -206,7 +206,7 @@ void TireHandler::adjustForRadioReset() {
 
 			if (sensor->timeStamp) {
 				if (sensor->pressure >= 0) {
-					sensor->timeStamp -= radioResetInterval;
+					sensor->timeStamp += radioResetInterval;
 				}
 			}
 		}
