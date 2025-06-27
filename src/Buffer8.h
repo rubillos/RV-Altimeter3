@@ -1,5 +1,4 @@
-#ifndef DEF_BUFFER8_H
-#define DEF_BUFFER8_H
+#pragma once
 
 #include <Adafruit_GFX.h>
 #include "Adafruit_RA8875.h"
@@ -155,5 +154,3 @@ class OutlineBuff : public GFXcanvas1 {
 		GFXcanvas1* _outlineBuff = NULL;
 		uint8_t _thickness;
 };
-
-#endif

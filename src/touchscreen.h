@@ -1,5 +1,4 @@
-#ifndef DEF_TOUCHSCREEN_CPP
-#define DEF_TOUCHSCREEN_CPP
+#pragma once
 
 #include "Adafruit_RA8875.h"
 #include "beep.h"
@@ -33,5 +32,3 @@ class TouchScreen {
 extern TouchScreen _touchScreen;
 extern Adafruit_RA8875 _display;
 extern RA8875_Buffer8 _displayBuffer8;
-
-#endif

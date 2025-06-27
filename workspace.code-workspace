@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../CommonLibs"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"lv_log.h": "c",
+			"lv_conf_internal.h": "c",
+			"esp_lcd_panel_ops.h": "c",
+			"esp_lcd_types.h": "c",
+			"lcd_types.h": "c",
+			"lv_obj_private.h": "c"
+		}
+	}
+}

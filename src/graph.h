@@ -1,5 +1,4 @@
-#ifndef DEF_GRAPH_H
-#define DEF_GRAPH_H
+#pragma once
 
 #include "Arduino.h"
 #include "RingBuff.h"
@@ -38,5 +37,3 @@ class DataGraph {
 
         OutlineBuff* _outlineBuff;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef DEF_MENU_H
-#define DEF_MENU_H
+#pragma once
 
 #include "elapsedMillis.h"
 #include "button.h"
@@ -34,8 +33,6 @@ class Menu {
 		bool _goBack = false;
 		bool _finish = false;
 		bool _prefsDirty = false;
-		bool _redrawAlt = false;
-		elapsedMillis _prefsDirtyTime;
+	bool _redrawAlt = false;
+	elapsedMillis _prefsDirtyTime;
 };
-
-#endif

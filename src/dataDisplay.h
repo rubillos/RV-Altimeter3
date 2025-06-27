@@ -1,5 +1,4 @@
-#ifndef DEF_DATADISPLAY_H
-#define DEF_DATADISPLAY_H
+#pragma once
 
 #include "Adafruit_GFX.h"
 #include "graph.h"
@@ -41,6 +40,4 @@ class DataDisplay {
 };
 
 extern DataDisplay _dataDisplay;
-
-#endif
 

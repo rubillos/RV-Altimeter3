@@ -1,5 +1,4 @@
-#ifndef DEF_BEEP_CPP
-#define DEF_BEEP_CPP
+#pragma once
 
 #include "Arduino.h"
 
@@ -18,5 +17,3 @@ class Beeper {
 };
 
 extern Beeper _beeper;
-
-#endif

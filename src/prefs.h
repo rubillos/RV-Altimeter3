@@ -1,5 +1,4 @@
-#ifndef DEF_PREFS_H
-#define DEF_PREFS_H
+#pragma once
 
 #include "Arduino.h"
 #include "defs.h"
@@ -27,5 +26,3 @@ class Prefs {
 extern Preferences _preferences;
 extern PrefDataRec _prefData;
 extern Prefs _prefs;
-
-#endif

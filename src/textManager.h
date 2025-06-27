@@ -1,5 +1,4 @@
-#ifndef DEF_TEXTMANAGER_H
-#define DEF_TEXTMANAGER_H
+#pragma once
 
 #include "Arduino.h"
 
@@ -25,5 +24,3 @@ class TextManager {
 };
 
 extern TextManager _textManager;
-
-#endif

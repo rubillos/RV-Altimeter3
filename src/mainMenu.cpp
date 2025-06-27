@@ -82,6 +82,14 @@ bool toggleFakeGPS(Menu* menu, SlashButton* button) {
 	return false;
 }
 
+bool toggleKPHMode(Menu* menu, SlashButton* button) {
+	delay(buttonFlashTime);
+	_gps.setKPHMode(!_gps.isKPHMode());
+	button->setState(_gps.isKPHMode());
+	menu->prefsDirty();
+	return false;
+}
+
 bool toggleFakeSatellites(Menu* menu, SlashButton* button) {
 	delay(buttonFlashTime);
 	_packetMonitor.setFakePackets(!_packetMonitor.fakePackets());
@@ -433,12 +441,13 @@ void runMainMenu() {
 	Button buttonCalibrate(buttonHCenter, mb_gap, mb_w, mb_h, "Calibrate Screen", mainButtonScheme);
 	Button buttonGPSInfo(buttonHCenter,  mb_y, mb_w, mb_h, "GPS Status", mainButtonScheme);
 	Button buttonFontInfo(buttonHCenter, mb_gap, mb_w, mb_h, "Font Test", mainButtonScheme);
-	SlashButton buttonFakeGPS(70, mb_gap2, 200, mb_h, "Fake GPS", fakeButtonScheme);
-	SlashButton buttonFakePackets(530, buttonVPriorSame, 200, mb_h, "Fake Sensors", fakeButtonScheme);
-	SlashButton buttonDimScreen(buttonHCenter, buttonVPriorSame, 200, mb_h, "Dim Screen", fakeButtonScheme);
+	SlashButton buttonDimScreen(100, mb_gap2, 282, mb_h, "Dim Screen", fakeButtonScheme);
+	SlashButton buttonKPHMode(418, buttonVPriorSame, 282, mb_h, "Kilometers Per Hour", fakeButtonScheme);
+	SlashButton buttonFakeGPS(100, mb_gap2, 282, mb_h, "Fake GPS", fakeButtonScheme);
+	SlashButton buttonFakePackets(418, buttonVPriorSame, 282, mb_h, "Fake Sensors", fakeButtonScheme);
 	VoltageLabel systemVoltage(100, lowerRowV, 600, 58, "    Voltage=%0.2f    ", systemTextScheme);
 	Button* systemInfoMenu[] = { &headerSystemInfo, &buttonBack, &buttonGPSInfo, &buttonFontInfo, 
-						&buttonFakeGPS, &buttonFakePackets, &buttonDimScreen, &systemVoltage, NULL };
+						&buttonDimScreen, &buttonKPHMode, &buttonFakeGPS, &buttonFakePackets, &systemVoltage, NULL };
 
 	//-------------------------------------
 	Header headerFontStatus(0,  0, 800, 60, "Font Test", headerScheme);
@@ -480,12 +489,16 @@ void runMainMenu() {
 	buttonCalibrate.touchFunc = (bool(*)(void*, void*))&doScreenCalibrate;
 	buttonGPSInfo.subButtons = gpsInfoMenu;
 	buttonFontInfo.subButtons = fontInfoMenu;
+
+	buttonDimScreen.setState(screenCanDim());
+	buttonDimScreen.touchFunc = (bool(*)(void*, void*))toggleDimScreen;
+	buttonKPHMode.setState(_gps.isKPHMode());
+	buttonKPHMode.touchFunc = (bool(*)(void*, void*))toggleKPHMode;
+
 	buttonFakeGPS.setState(_gps.fakeGPS());
 	buttonFakeGPS.touchFunc = (bool(*)(void*, void*))toggleFakeGPS;
 	buttonFakePackets.setState(_packetMonitor.fakePackets());
 	buttonFakePackets.touchFunc = (bool(*)(void*, void*))toggleFakeSatellites;
-	buttonDimScreen.setState(screenCanDim());
-	buttonDimScreen.touchFunc = (bool(*)(void*, void*))toggleDimScreen;
 
 	buttonMinPressureMinus.touchFunc = (bool(*)(void*, void*))&minPressureMinus;
 	buttonMinPressurePlus.touchFunc = (bool(*)(void*, void*))&minPressurePlus;

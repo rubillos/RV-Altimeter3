@@ -30,8 +30,8 @@ Beeper::Beeper(uint8_t pin, uint8_t state) {
     pinMode(_beepPin, OUTPUT);
     digitalWrite(_beepPin, (_beepState==HIGH) ? LOW:HIGH);
     onTimer();
-    _timer = timerBegin(0, 80, true);
-    timerAttachInterrupt(_timer, &onTimer, false);
+    _timer = timerBegin(1000000);
+    timerAttachInterrupt(_timer, &onTimer);
 
     // ledc_timer_config_t ledc_timer = {
     //     .speed_mode       = LEDC_MODE,
@@ -61,8 +61,7 @@ Beeper::Beeper(uint8_t pin, uint8_t state) {
 void Beeper::beep(uint32_t duration, bool ignoreMute) {
     if (!_beepMute || ignoreMute) {
         timerRestart(_timer);
-        timerAlarmWrite(_timer, duration * 1000, false);
-        timerAlarmEnable(_timer);
+        timerAlarm(_timer, duration * 1000, false, 0);
         digitalWrite(_beepPin, _beepState);
 
         // ESP_ERROR_CHECK(ledc_set_duty_and_update(LEDC_MODE, LEDC_CHANNEL, LEDC_DUTY, 0));

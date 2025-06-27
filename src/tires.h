@@ -1,5 +1,4 @@
-#ifndef DEF_TIRES_H
-#define DEF_TIRES_H
+#pragma once
 
 #include "Adafruit_RA8875.h"
 #include "packets.h"
@@ -70,5 +69,3 @@ class TireHandler {
 };
 
 extern TireHandler _tireHandler;
-
-#endif

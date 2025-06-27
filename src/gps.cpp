@@ -1,4 +1,5 @@
 #include "gps.h"
+#include "prefs.h"
 
 GPSData _gpsData;
 
@@ -48,6 +49,7 @@ void GPS::setPowerSaveMode(bool powerSave) {
 constexpr float DEGREES_TO_FLOAT = 10000000;
 constexpr float HEADING_TO_FLOAT = 100000;
 constexpr float SPEED_TO_FLOAT_MPH = 447.04;
+constexpr float SPEED_TO_FLOAT_KPH = 277.778;
 constexpr float DISTANCE_TO_FLOAT_FLOAT = 304.8;
 
 constexpr float movingThreshold = 2.0;
@@ -88,10 +90,11 @@ bool GPS::update() {
 			_gpsData.altitude = max(altitudeMin, min(altitudeMax, _gpsData.altitude));
 		}
 
-		float newSpeed = (float)_gps.getGroundSpeed() / SPEED_TO_FLOAT_MPH;
+		float newSpeed = (float)_gps.getGroundSpeed() / (_kphMode ? SPEED_TO_FLOAT_KPH : SPEED_TO_FLOAT_MPH);
 
 		if (_gpsData.haveFix && newSpeed >= speedMin && newSpeed < speedMax) {
 			_gpsData.speed = newSpeed;
+			_gpsData.speedIsKPH = _kphMode;
 		}
 
 		_gpsData.heading = (float)_gps.getHeading() / HEADING_TO_FLOAT;
@@ -122,7 +125,7 @@ bool GPS::update() {
 			_gpsData.heading = headingNum;
 			headingNum = (headingNum + 10) % 360;
 
-			float newSpeed = sequenceInterp(speedList, countof(speedList), speedP);
+			float newSpeed = sequenceInterp(speedList, countof(speedList), speedP) * (_kphMode ? 1.6 : 1.0);
 			float newAltitude = sequenceInterp(altitudeList, countof(altitudeList), altitudeP);
 			if (curSpeed == -1) {
 				curSpeed = newSpeed;
@@ -137,6 +140,8 @@ bool GPS::update() {
 				curAltitude += (newAltitude - curAltitude) * 0.05;
 			}
 			_gpsData.speed = curSpeed;
+			_gpsData.speedIsKPH = _kphMode;
+
 			_gpsData.altitude = curAltitude;
 			altitudeP += 0.001;
 			if (altitudeP>1.0) {

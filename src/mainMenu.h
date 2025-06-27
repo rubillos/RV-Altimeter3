@@ -1,5 +1,4 @@
-#ifndef DEF_MAINMENU_H
-#define DEF_MAINMENU_H
+#pragma once
 
 #include "elapsedMillis.h"
 #include "button.h"
@@ -182,5 +181,3 @@ extern ButtonScheme backScheme;
 extern ButtonScheme headerScheme;
 extern Button buttonBack;
 extern Button buttonDone;
-
-#endif

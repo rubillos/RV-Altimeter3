@@ -30,7 +30,7 @@ elapsedMillis lastRecv;
 
 // this function is called when a complete packet is received by the module
 void ICACHE_RAM_ATTR setFlag(void) {
-    packetReceiveCount++;
+    packetReceiveCount = packetReceiveCount + 1;
 }
 
 void PacketMonitor::begin() {
@@ -47,6 +47,7 @@ void PacketMonitor::begin() {
 
     radio.beginFSK();
     radio.setOOK(true);
+    radio.setDataShapingOOK(1); // ?
     radio.setFrequency(433.92);
     radio.setBitRate(19.2);
     radio.setFrequencyDeviation(50);
@@ -65,7 +66,9 @@ void PacketMonitor::begin() {
     radio.setOokPeakThresholdDecrement(RADIOLIB_SX127X_OOK_PEAK_THRESH_DEC_1_4_CHIP);
     radio.setOokPeakThresholdStep(RADIOLIB_SX127X_OOK_PEAK_THRESH_STEP_1_5_DB);
     radio.setRSSIConfig(RADIOLIB_SX127X_RSSI_SMOOTHING_SAMPLES_8);
+
     radio.setDio0Action(setFlag, 1);
+    // radio.setPacketReceivedAction(setFlag); // ?
 
     lastPacketRecv = 0;
     lastRecv = 0;
@@ -175,7 +178,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
 
     while (!result && (packetReceiveCount != packetProcessCount)) {
         // Serial.printf("getPacket: %d packets available (%d, %d)\n", packetReceiveCount-packetProcessCount, packetReceiveCount, packetProcessCount);
-        packetProcessCount++;
+        packetProcessCount = packetProcessCount + 1;
 
         byte byteArr[16];
         int state = radio.readData(byteArr, 16);
@@ -192,7 +195,7 @@ bool PacketMonitor::getPacket(TPMSPacket* packet) {
 
             if (computeChecksum(newPacket, false)) {
                 packet->timeStamp = millis();
-                packet->rssi = radio.getRSSI(true);
+                packet->rssi = radio.getRSSI(true, true);
                 packet->duplicateCount = 1;
                 packet->error = false;
 

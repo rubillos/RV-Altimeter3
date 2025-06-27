@@ -28,6 +28,7 @@ void Prefs::readPrefs() {
 	}
 	_beeper.setMute(_preferences.getBool("mute", false));
 	_gps.setFakeGPS(_preferences.getBool("fakeGPS", false));
+	_gps.setKPHMode(_preferences.getBool("kphMode", false));
 	_packetMonitor.setFakePackets(_preferences.getBool("fakePackets", false));
 	setScreenCanDim(_preferences.getBool("screenCanDim", true));
 }
@@ -45,6 +46,7 @@ void Prefs::writePrefs() {
 	_preferences.putBytes("touchMatrix", &_prefData.touchCalibration, sizeof(_prefData.touchCalibration));
 	_preferences.putBool("mute", _beeper.muted());
 	_preferences.putBool("fakeGPS", _gps.fakeGPS());
+	_preferences.putBool("kphMode", _gps.isKPHMode());
 	_preferences.putBool("fakePackets", _packetMonitor.fakePackets());
 	_preferences.putBool("screenCanDim", screenCanDim());
 

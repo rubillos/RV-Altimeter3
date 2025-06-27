@@ -344,8 +344,10 @@ bool DataDisplay::showData(uint16_t* drawIndex, uint32_t time, GPSData* gpsData,
 					xStart += 80 - getStringGlyphWidth(textFont, speedStr) / 2;
 					_displayBuffer8.setOffset(xStart, yStart, -1);
 				}
-				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, speedStr, 0, String("mph"));
-				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(gpsData->speed / 75.0) * 200.0, 14, 5, textColor);
+				String uph = (gpsData->speedIsKPH) ? String("kph") : String("mph");
+				showCell(_displayBuffer8, xStart, yStart, emptySpeedlyph, speedStr, 0, uph);
+				float maxSpeed = gpsData->speedIsKPH ? 120.0 : 75.0;
+				drawPolarLine(_displayBuffer8, xStart+32, yStart+44, -100.0+(gpsData->speed / maxSpeed) * 200.0, 14, 5, textColor);
 
 				char satStr[10];
 				uint16_t ascender = ascenderForFont(satFont);

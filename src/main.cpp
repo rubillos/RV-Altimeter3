@@ -19,13 +19,9 @@
 #include "tires.h"
 #include "gps.h"
 #include "prefs.h"
-#include "OLED_print.h"
+#include "OLED_Print.h"
 #include "pins.h"
 #include "pairMenu.h"
-
-#include <esp_sleep.h>
-#include <esp32-hal-bt.c>
-#include <WiFi.h>
 
 #include "graphics/PX3_Flat.png.h"
 
@@ -171,13 +167,6 @@ void setup() {
 	displayOLED.setLogBuffer(6, 40);
 	OLEDinited = true;
 
-	esp_chip_info_t info;
-	esp_chip_info(&info);
-	OLEDprint("Chip is ");
-	OLEDprint(info.model);
-	OLEDprint("/");
-	OLEDprintln(info.revision);
-
 	// test_zones();
 	OLEDprintln("Init Prefs...");
 	_prefs.readPrefs();
@@ -219,9 +208,6 @@ void setup() {
 	// _prefData.sensorIDs[4] = 0;
 	// _prefData.sensorIDs[5] = 0;
 
-	// btStop();
-	// WiFi.mode( WIFI_OFF );
-
 	OLEDprintln("Init Done!");
 }
 
@@ -255,7 +241,9 @@ void loop() {
 
 		float light = readLight();
 
-		sun.setPosition(_gpsData.latitude, _gpsData.longitude, _gpsData.zoneOffset);
+		if (_gpsData.haveFix) {
+			sun.setPosition(_gpsData.latitude, _gpsData.longitude, _gpsData.zoneOffset);
+		}
 
 		DateTime sunriseDate = _gpsData.localTimeDate;
 		DateTime sunsetDate = _gpsData.localTimeDate;

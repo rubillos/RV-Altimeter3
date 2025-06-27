@@ -1,5 +1,4 @@
-#ifndef DEF_BUTTON_H
-#define DEF_BUTTON_H
+#pragma once
 
 #include "Adafruit_RA8875.h"
 
@@ -196,5 +195,3 @@ class StringLabel : public Label {
 void drawButtons(Button** buttons);
 Button* hitButton(Button** buttons, tsPoint_t pt, bool invert=true);
 void setupButtons(Button** buttons);
-
-#endif

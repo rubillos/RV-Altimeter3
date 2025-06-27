@@ -1,5 +1,4 @@
-#ifndef DEF_GPS_H
-#define DEF_GPS_H
+#pragma once
 
 #include "defs.h"
 #include "Arduino.h"
@@ -25,6 +24,7 @@ typedef struct {
 	float altitude;
 	float heading;
 	float speed;
+	bool speedIsKPH;
 	float movingSeconds;
 	float stoppedSeconds;
 	DateTime utcTimeDate;
@@ -47,6 +47,9 @@ class GPS {
 		void setFakeGPS(bool fakeGPS) { _fakeGPS = fakeGPS; };
 		bool fakeGPS() { return _fakeGPS; };
 
+		void setKPHMode(bool kph) { _kphMode = kph; };
+		bool isKPHMode() { return _kphMode; };
+
 		RingBuff<int16_t>* speedHistory;
 		RingBuff<int16_t>* altitudeHistory;
 		uint16_t historyRate() { return 60 / accumulateCount; };
@@ -64,9 +67,8 @@ class GPS {
 		uint16_t _accumulateIndex;
 
 		bool _fakeGPS;
+		bool _kphMode;
 };
 
 extern GPSData _gpsData;
 extern GPS _gps;
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef DEF_PACKETS_H
-#define DEF_PACKETS_H
+#pragma once
 
 #include <RadioLib.h>
 
@@ -96,5 +95,3 @@ class PacketMonitor {
 
 extern PacketMonitor _packetMonitor;
 extern float _radioCount;
-
-#endif

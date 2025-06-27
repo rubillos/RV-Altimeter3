@@ -1,5 +1,4 @@
-#ifndef DEF_DEFS_H
-#define DEF_DEFS_H
+#pragma once
 
 #include "Adafruit_GFX.h"
 
@@ -59,5 +58,3 @@ constexpr size_t countof(T(&)[N])
 {
     return N;
 }
-
-#endif
